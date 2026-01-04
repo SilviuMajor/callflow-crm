@@ -31,6 +31,8 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
   const [dragInsertIndex, setDragInsertIndex] = useState<number | null>(null);
   const [isDraggingInternal, setIsDraggingInternal] = useState(false);
   const autocompleteStartPos = useRef<number | null>(null);
+  const isUserInputRef = useRef(false);
+  const lastValueRef = useRef(value);
 
   // Flatten all placeholders with their category
   const allPlaceholders = useMemo(() => {
@@ -81,6 +83,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
         contenteditable="false" 
         draggable="true" 
         data-placeholder="${name}"
+        title="${isFieldEmpty ? 'Empty field' : ''}"
         class="inline-flex items-center px-2 py-0.5 mx-0.5 text-xs font-mono rounded-full border cursor-grab select-none relative ${colors.bg} ${colors.text} ${colors.border}"
       >{${name}}${isFieldEmpty ? '<span class="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold leading-none">✕</span>' : ''}</span>`;
 
@@ -222,7 +225,9 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     const editor = editorRef.current;
     if (!editor) return;
 
+    isUserInputRef.current = true;
     const newText = htmlToText(editor);
+    lastValueRef.current = newText;
     onChange(newText);
   }, [htmlToText, onChange]);
 
@@ -313,16 +318,18 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     const after = value.slice(currentPos);
     const newValue = before + `{${name}}` + after;
     
+    isUserInputRef.current = false; // Force HTML sync for insertions
+    lastValueRef.current = newValue;
     onChange(newValue);
     closeAutocomplete();
 
     // Set cursor after inserted placeholder
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       setCursorPosition(before.length + name.length + 2);
-    }, 0);
+    });
   }, [value, onChange, getCursorPosition, setCursorPosition, closeAutocomplete]);
 
-  // Handle drag over for visual insertion indicator
+  // Handle drag over for visual insertion indicator - FIXED offset tracking
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -337,8 +344,9 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     // Find the character position closest to the mouse
     let bestPos = 0;
     let bestDist = Infinity;
+    let currentOffset = 0;
 
-    const walk = (node: Node, offset: number): number => {
+    const walk = (node: Node): void => {
       if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent || '';
         const range = document.createRange();
@@ -347,41 +355,47 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
           range.setStart(node, i);
           range.collapse(true);
           const rect = range.getBoundingClientRect();
-          const dist = Math.hypot(rect.left - x, rect.top + rect.height / 2 - y);
+          const dist = Math.abs(rect.left - x) + Math.abs(rect.top + rect.height / 2 - y);
           
           if (dist < bestDist) {
             bestDist = dist;
-            bestPos = offset + i;
+            bestPos = currentOffset + i;
           }
         }
-        return offset + text.length;
+        currentOffset += text.length;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const el = node as HTMLElement;
         if (el.dataset.placeholder) {
           const rect = el.getBoundingClientRect();
-          const distBefore = Math.hypot(rect.left - x, rect.top + rect.height / 2 - y);
-          const distAfter = Math.hypot(rect.right - x, rect.top + rect.height / 2 - y);
+          const placeholderLen = el.dataset.placeholder.length + 2;
           
+          // Check distance to left edge (before placeholder)
+          const distBefore = Math.abs(rect.left - x) + Math.abs(rect.top + rect.height / 2 - y);
           if (distBefore < bestDist) {
             bestDist = distBefore;
-            bestPos = offset;
+            bestPos = currentOffset;
           }
+          
+          // Check distance to right edge (after placeholder)
+          const distAfter = Math.abs(rect.right - x) + Math.abs(rect.top + rect.height / 2 - y);
           if (distAfter < bestDist) {
             bestDist = distAfter;
-            bestPos = offset + el.dataset.placeholder.length + 2;
+            bestPos = currentOffset + placeholderLen;
           }
-          return offset + el.dataset.placeholder.length + 2;
+          
+          currentOffset += placeholderLen;
+        } else if (el.tagName === 'BR') {
+          currentOffset += 1; // Account for line breaks
         } else {
           for (const child of Array.from(node.childNodes)) {
-            offset = walk(child, offset);
+            walk(child);
           }
         }
       }
-      return offset;
     };
 
     for (const child of Array.from(editor.childNodes)) {
-      walk(child, 0);
+      walk(child);
     }
 
     setDragInsertIndex(bestPos);
@@ -391,9 +405,10 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     setDragInsertIndex(null);
   }, []);
 
-  // Handle drop
+  // Handle drop - FIXED with requestAnimationFrame
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    const insertPos = dragInsertIndex;
     setDragInsertIndex(null);
     setIsDraggingInternal(false);
 
@@ -404,11 +419,11 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     const name = placeholder.replace(/^\{|\}$/g, '');
     const insertText = `{${name}}`;
 
-    if (dragInsertIndex !== null) {
+    if (insertPos !== null) {
       // If dragging from within editor, we need to handle removal
       const dragSourceData = e.dataTransfer.getData('application/x-drag-source');
       let newValue = value;
-      let insertAt = dragInsertIndex;
+      let insertAt = insertPos;
 
       if (dragSourceData === 'internal') {
         // Find and remove the source placeholder
@@ -428,11 +443,15 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
 
       const before = newValue.slice(0, insertAt);
       const after = newValue.slice(insertAt);
-      onChange(before + insertText + after);
+      const finalValue = before + insertText + after;
+      
+      isUserInputRef.current = false; // Force HTML sync
+      lastValueRef.current = finalValue;
+      onChange(finalValue);
 
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         setCursorPosition(before.length + insertText.length);
-      }, 0);
+      });
     }
   }, [value, onChange, dragInsertIndex, setCursorPosition]);
 
@@ -444,23 +463,42 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     setIsDraggingInternal(true);
   }, []);
 
-  // Sync HTML with value
+  // Sync HTML with value - FIXED to only update on external changes
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
 
-    // Only update if content differs to preserve cursor position
+    // Skip if this change came from user typing
+    if (isUserInputRef.current) {
+      isUserInputRef.current = false;
+      return;
+    }
+
+    // Only update HTML for external changes (autocomplete, drag-drop, prop changes, etc.)
     const currentText = htmlToText(editor);
     if (currentText !== value) {
-      const pos = getCursorPosition();
       editor.innerHTML = textToHtml(value);
-      
-      // Restore cursor position
-      setTimeout(() => {
-        setCursorPosition(Math.min(pos, value.length));
-      }, 0);
+      lastValueRef.current = value;
     }
-  }, [value, textToHtml, htmlToText, getCursorPosition, setCursorPosition]);
+  }, [value, textToHtml, htmlToText]);
+
+  // Update innerHTML only when emptyFields changes (to update badge styling)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    // Only refresh for empty field indicator changes, not during typing
+    if (!isUserInputRef.current) {
+      const currentText = htmlToText(editor);
+      if (currentText === value) {
+        const pos = getCursorPosition();
+        editor.innerHTML = textToHtml(value);
+        requestAnimationFrame(() => {
+          setCursorPosition(Math.min(pos, value.length));
+        });
+      }
+    }
+  }, [emptyFields]);
 
   // Add event listeners to badges for drag
   useEffect(() => {
@@ -530,6 +568,8 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
             return true;
           }
           currentPos += len;
+        } else if (el.tagName === 'BR') {
+          currentPos += 1;
         } else {
           for (const child of Array.from(node.childNodes)) {
             if (walk(child)) return true;

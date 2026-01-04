@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type PlaceholderCategory = 'contact' | 'custom_contact' | 'seller';
 
@@ -39,9 +40,16 @@ export function PlaceholderBadge({
     >
       {`{${name}}`}
       {isEmpty && (
-        <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-destructive rounded-full flex items-center justify-center">
-          <X className="w-2.5 h-2.5 text-destructive-foreground" />
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-destructive rounded-full flex items-center justify-center cursor-help">
+              <X className="w-2.5 h-2.5 text-destructive-foreground" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            Empty field
+          </TooltipContent>
+        </Tooltip>
       )}
     </span>
   );

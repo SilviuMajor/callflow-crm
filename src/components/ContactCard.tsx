@@ -526,6 +526,13 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
                   })}
                 </div>
               )}
+
+              {/* Linked Contacts - inside Contact Details */}
+              <LinkedContacts
+                company={contact.company}
+                currentContactId={contact.id}
+                onSelectContact={onSelectContact}
+              />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -813,15 +820,15 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
               })}
             </div>
           )}
+
+          {/* Linked Contacts - inside Contact Details (mobile) */}
+          <LinkedContacts
+            company={contact.company}
+            currentContactId={contact.id}
+            onSelectContact={onSelectContact}
+          />
         </div>
       </div>
-
-      {/* LINKED CONTACTS SECTION */}
-      <LinkedContacts
-        company={contact.company}
-        currentContactId={contact.id}
-        onSelectContact={onSelectContact}
-      />
 
       {/* AI Research Sections - Custom Research and Persona */}
       <div className="space-y-3">
