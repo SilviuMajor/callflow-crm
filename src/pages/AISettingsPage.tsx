@@ -162,20 +162,34 @@ export default function AISettingsPage() {
                     <div className="space-y-2">
                       <Label htmlFor={`${type}-model`}>AI Model</Label>
                       <Select
-                        value={edited.model ?? prompt?.model ?? 'sonar'}
+                        value={edited.model ?? prompt?.model ?? 'perplexity:sonar'}
                         onValueChange={(value) => handleChange(type, 'model', value)}
                       >
-                        <SelectTrigger id={`${type}-model`} className="w-full max-w-xs">
+                        <SelectTrigger id={`${type}-model`} className="w-full max-w-md">
                           <SelectValue placeholder="Select model" />
                         </SelectTrigger>
                         <SelectContent>
-                          {AI_MODELS.map(model => (
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                            Perplexity (Web Search + Citations)
+                          </div>
+                          {AI_MODELS.filter(m => m.provider === 'perplexity').map(model => (
+                            <SelectItem key={model.value} value={model.value}>
+                              {model.label}
+                            </SelectItem>
+                          ))}
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
+                            OpenAI / ChatGPT
+                          </div>
+                          {AI_MODELS.filter(m => m.provider === 'openai').map(model => (
                             <SelectItem key={model.value} value={model.value}>
                               {model.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Perplexity models include real-time web search and citations. OpenAI models use training knowledge.
+                      </p>
                     </div>
 
                     <div className="flex justify-end pt-2">
