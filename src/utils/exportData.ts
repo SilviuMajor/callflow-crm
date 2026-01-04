@@ -1,6 +1,12 @@
-import { Contact, QualifyingQuestion } from '@/types/contact';
+import { Contact, QualifyingQuestion, CustomContactField } from '@/types/contact';
 
-export function exportToCSV(contacts: Contact[], questions: QualifyingQuestion[]): void {
+export function exportToCSV(
+  contacts: Contact[], 
+  questions: QualifyingQuestion[],
+  customFields: CustomContactField[] = []
+): void {
+  const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+  
   const headers = [
     'First Name',
     'Last Name',
@@ -17,6 +23,7 @@ export function exportToCSV(contacts: Contact[], questions: QualifyingQuestion[]
     'Appointment Date',
     'Created At',
     'Last Called At',
+    ...activeCustomFields.map(f => f.label),
     ...questions.filter(q => !q.isArchived).map(q => q.label),
   ];
 
@@ -36,6 +43,11 @@ export function exportToCSV(contacts: Contact[], questions: QualifyingQuestion[]
     contact.appointmentDate ? new Date(contact.appointmentDate).toISOString() : '',
     contact.createdAt ? new Date(contact.createdAt).toISOString() : '',
     contact.lastCalledAt ? new Date(contact.lastCalledAt).toISOString() : '',
+    ...activeCustomFields.map(f => {
+      const value = contact.customFields?.[f.id];
+      if (Array.isArray(value)) return value.join('; ');
+      return value ?? '';
+    }),
     ...questions.filter(q => !q.isArchived).map(q => {
       const answer = contact.qualifyingAnswers?.[q.id];
       if (Array.isArray(answer)) return answer.join('; ');

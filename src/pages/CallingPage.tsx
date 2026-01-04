@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
+import { useCustomFields } from '@/hooks/useCustomFields';
 import { TopNav } from '@/components/TopNav';
 import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
@@ -39,6 +40,7 @@ export default function CallingPage() {
   } = useContacts();
   
   const { questions, setQuestions } = useQualifyingQuestions();
+  const { fields: customFields } = useCustomFields();
 
   const handleAction = (
     status: CallStatus,
@@ -91,7 +93,7 @@ export default function CallingPage() {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(contacts, questions);
+    exportToCSV(contacts, questions, customFields);
     toast({ title: 'Exported as CSV', duration: 2000 });
   };
 

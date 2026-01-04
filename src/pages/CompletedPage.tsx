@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
+import { useCustomFields } from '@/hooks/useCustomFields';
 import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +15,7 @@ import { exportToCSV, exportToJSON } from '@/utils/exportData';
 export default function CompletedPage() {
   const { completedContacts, clearContactAnswers } = useContacts();
   const { questions, setQuestions } = useQualifyingQuestions();
+  const { fields: customFields } = useCustomFields();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -58,7 +60,7 @@ export default function CompletedPage() {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(filteredContacts, questions);
+    exportToCSV(filteredContacts, questions, customFields);
   };
 
   const handleExportJSON = () => {

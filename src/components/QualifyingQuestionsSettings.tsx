@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { QualifyingQuestion, QuestionType, QUESTION_TYPES } from '@/types/contact';
+import { QualifyingQuestion, QuestionType, QUESTION_TYPES, CustomContactField } from '@/types/contact';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw, Webhook, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw, Webhook, Send, CheckCircle2, AlertCircle, Database } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useWebhookSettings } from '@/hooks/useWebhookSettings';
+import { useCustomFields } from '@/hooks/useCustomFields';
 import { toast } from 'sonner';
 
 interface QualifyingQuestionsSettingsProps {
@@ -22,25 +23,27 @@ interface QualifyingQuestionsSettingsProps {
   onSave: (questions: QualifyingQuestion[], applyToBlank: boolean, deletedQuestionIds: string[]) => void;
 }
 
-interface SortableQuestionItemProps {
-  question: QualifyingQuestion;
-  updateQuestion: (id: string, updates: Partial<QualifyingQuestion>) => void;
+interface SortableItemProps {
+  item: QualifyingQuestion | CustomContactField;
+  updateItem: (id: string, updates: Partial<QualifyingQuestion | CustomContactField>) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
-  addOption: (questionId: string) => void;
-  updateOption: (questionId: string, index: number, value: string) => void;
-  removeOption: (questionId: string, index: number) => void;
+  addOption: (itemId: string) => void;
+  updateOption: (itemId: string, index: number, value: string) => void;
+  removeOption: (itemId: string, index: number) => void;
+  isCustomField?: boolean;
 }
 
-function SortableQuestionItem({ 
-  question, 
-  updateQuestion, 
+function SortableItem({ 
+  item, 
+  updateItem, 
   onArchive, 
   onDelete,
   addOption,
   updateOption,
-  removeOption 
-}: SortableQuestionItemProps) {
+  removeOption,
+  isCustomField = false,
+}: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -48,7 +51,7 @@ function SortableQuestionItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: question.id });
+  } = useSortable({ id: item.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -77,18 +80,18 @@ function SortableQuestionItem({
         <div className="flex-1 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-xs">Label</Label>
+              <Label className="text-xs">{isCustomField ? 'Field Label' : 'Label'}</Label>
               <Input
-                value={question.label}
-                onChange={(e) => updateQuestion(question.id, { label: e.target.value })}
+                value={item.label}
+                onChange={(e) => updateItem(item.id, { label: e.target.value })}
                 className="h-8 text-sm"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Type</Label>
               <Select 
-                value={question.type} 
-                onValueChange={(v) => updateQuestion(question.id, { type: v as QuestionType })}
+                value={item.type} 
+                onValueChange={(v) => updateItem(item.id, { type: v as QuestionType })}
               >
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue />
@@ -103,23 +106,35 @@ function SortableQuestionItem({
               </Select>
             </div>
           </div>
+
+          {isCustomField && (
+            <div className="space-y-1">
+              <Label className="text-xs">Field Key (internal)</Label>
+              <Input
+                value={(item as CustomContactField).key || ''}
+                onChange={(e) => updateItem(item.id, { key: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                className="h-8 text-sm font-mono"
+                placeholder="e.g., linkedin_url"
+              />
+            </div>
+          )}
           
-          {needsOptions(question.type) && (
+          {needsOptions(item.type) && (
             <div className="space-y-1">
               <Label className="text-xs">Options</Label>
               <div className="space-y-1">
-                {(question.options || []).map((option, optIndex) => (
+                {(item.options || []).map((option, optIndex) => (
                   <div key={optIndex} className="flex gap-1">
                     <Input
                       value={option}
-                      onChange={(e) => updateOption(question.id, optIndex, e.target.value)}
+                      onChange={(e) => updateOption(item.id, optIndex, e.target.value)}
                       className="h-7 text-sm flex-1"
                     />
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      onClick={() => removeOption(question.id, optIndex)}
+                      onClick={() => removeOption(item.id, optIndex)}
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -129,7 +144,7 @@ function SortableQuestionItem({
                   variant="outline"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => addOption(question.id)}
+                  onClick={() => addOption(item.id)}
                 >
                   <Plus className="w-3 h-3 mr-1" />
                   Add Option
@@ -146,12 +161,12 @@ function SortableQuestionItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onArchive(question.id)}>
+            <DropdownMenuItem onClick={() => onArchive(item.id)}>
               <Archive className="w-4 h-4 mr-2" />
               Archive (keep data)
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={() => onDelete(question.id)}
+              onClick={() => onDelete(item.id)}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -174,8 +189,21 @@ export function QualifyingQuestionsSettings({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteType, setPendingDeleteType] = useState<'question' | 'field'>('question');
   const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('questions');
+  
+  // Custom fields
+  const { 
+    fields: customFields, 
+    addField, 
+    updateField, 
+    archiveField, 
+    restoreField, 
+    deleteField,
+    reorderFields: reorderCustomFields,
+  } = useCustomFields();
+  const [localCustomFields, setLocalCustomFields] = useState<CustomContactField[]>([]);
   
   // Webhook settings
   const { settings: webhookSettings, updateSettings: updateWebhookSettings, testWebhook } = useWebhookSettings();
@@ -184,9 +212,10 @@ export function QualifyingQuestionsSettings({
 
   useEffect(() => {
     setQuestions(initialQuestions);
+    setLocalCustomFields(customFields);
     setDeletedQuestionIds([]);
     setTestResult(null);
-  }, [initialQuestions, open]);
+  }, [initialQuestions, customFields, open]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -198,6 +227,10 @@ export function QualifyingQuestionsSettings({
   const activeQuestions = questions.filter(q => !q.isArchived).sort((a, b) => a.order - b.order);
   const archivedQuestions = questions.filter(q => q.isArchived);
 
+  const activeCustomFields = localCustomFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+  const archivedCustomFields = localCustomFields.filter(f => f.isArchived);
+
+  // Question handlers
   const addQuestion = () => {
     const newQuestion: QualifyingQuestion = {
       id: Math.random().toString(36).substr(2, 9),
@@ -226,47 +259,103 @@ export function QualifyingQuestionsSettings({
     ));
   };
 
-  const confirmDeleteQuestion = (id: string) => {
+  const confirmDeleteItem = (id: string, type: 'question' | 'field') => {
     setPendingDeleteId(id);
+    setPendingDeleteType(type);
     setShowDeleteConfirm(true);
   };
 
-  const deleteQuestion = () => {
+  const executeDelete = () => {
     if (pendingDeleteId) {
-      setDeletedQuestionIds(prev => [...prev, pendingDeleteId]);
-      setQuestions(prev => prev.filter(q => q.id !== pendingDeleteId).map((q, i) => ({ ...q, order: i })));
+      if (pendingDeleteType === 'question') {
+        setDeletedQuestionIds(prev => [...prev, pendingDeleteId]);
+        setQuestions(prev => prev.filter(q => q.id !== pendingDeleteId).map((q, i) => ({ ...q, order: i })));
+      } else {
+        setLocalCustomFields(prev => prev.filter(f => f.id !== pendingDeleteId).map((f, i) => ({ ...f, order: i })));
+      }
     }
     setShowDeleteConfirm(false);
     setPendingDeleteId(null);
   };
 
-  const addOption = (questionId: string) => {
-    setQuestions(prev => prev.map(q => 
-      q.id === questionId 
-        ? { ...q, options: [...(q.options || []), 'New Option'] }
-        : q
+  // Custom field handlers
+  const addNewCustomField = () => {
+    const newField: CustomContactField = {
+      id: Math.random().toString(36).substr(2, 9),
+      key: 'new_field',
+      label: 'New Field',
+      type: 'short_text',
+      order: activeCustomFields.length,
+    };
+    setLocalCustomFields([...localCustomFields, newField]);
+  };
+
+  const updateCustomField = (id: string, updates: Partial<CustomContactField>) => {
+    setLocalCustomFields(prev => prev.map(f => 
+      f.id === id ? { ...f, ...updates } : f
     ));
   };
 
-  const updateOption = (questionId: string, index: number, value: string) => {
-    setQuestions(prev => prev.map(q => {
-      if (q.id !== questionId) return q;
-      const options = [...(q.options || [])];
+  const archiveCustomField = (id: string) => {
+    setLocalCustomFields(prev => prev.map(f => 
+      f.id === id ? { ...f, isArchived: true } : f
+    ));
+  };
+
+  const restoreCustomField = (id: string) => {
+    setLocalCustomFields(prev => prev.map(f => 
+      f.id === id ? { ...f, isArchived: false, order: activeCustomFields.length } : f
+    ));
+  };
+
+  // Option handlers (shared)
+  const addOption = (itemId: string, isField: boolean = false) => {
+    if (isField) {
+      setLocalCustomFields(prev => prev.map(f => 
+        f.id === itemId 
+          ? { ...f, options: [...(f.options || []), 'New Option'] }
+          : f
+      ));
+    } else {
+      setQuestions(prev => prev.map(q => 
+        q.id === itemId 
+          ? { ...q, options: [...(q.options || []), 'New Option'] }
+          : q
+      ));
+    }
+  };
+
+  const updateOption = (itemId: string, index: number, value: string, isField: boolean = false) => {
+    const updateFn = (item: any) => {
+      if (item.id !== itemId) return item;
+      const options = [...(item.options || [])];
       options[index] = value;
-      return { ...q, options };
-    }));
+      return { ...item, options };
+    };
+    
+    if (isField) {
+      setLocalCustomFields(prev => prev.map(updateFn));
+    } else {
+      setQuestions(prev => prev.map(updateFn));
+    }
   };
 
-  const removeOption = (questionId: string, index: number) => {
-    setQuestions(prev => prev.map(q => {
-      if (q.id !== questionId) return q;
-      const options = [...(q.options || [])];
+  const removeOption = (itemId: string, index: number, isField: boolean = false) => {
+    const updateFn = (item: any) => {
+      if (item.id !== itemId) return item;
+      const options = [...(item.options || [])];
       options.splice(index, 1);
-      return { ...q, options };
-    }));
+      return { ...item, options };
+    };
+    
+    if (isField) {
+      setLocalCustomFields(prev => prev.map(updateFn));
+    } else {
+      setQuestions(prev => prev.map(updateFn));
+    }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEndQuestions = (event: DragEndEvent) => {
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
@@ -283,7 +372,40 @@ export function QualifyingQuestionsSettings({
     }
   };
 
+  const handleDragEndFields = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = activeCustomFields.findIndex(f => f.id === active.id);
+      const newIndex = activeCustomFields.findIndex(f => f.id === over.id);
+      
+      const reordered = arrayMove(activeCustomFields, oldIndex, newIndex);
+      const updated = reordered.map((f, i) => ({ ...f, order: i }));
+      
+      setLocalCustomFields(prev => [
+        ...prev.filter(f => f.isArchived),
+        ...updated,
+      ]);
+    }
+  };
+
   const handleSave = () => {
+    // Save custom fields immediately
+    localCustomFields.forEach(field => {
+      const existing = customFields.find(f => f.id === field.id);
+      if (!existing) {
+        addField({ key: field.key, label: field.label, type: field.type, options: field.options, isArchived: field.isArchived });
+      } else {
+        updateField(field.id, field);
+      }
+    });
+    // Delete removed fields
+    customFields.forEach(field => {
+      if (!localCustomFields.find(f => f.id === field.id)) {
+        deleteField(field.id);
+      }
+    });
+
     setShowConfirmDialog(true);
   };
 
@@ -318,8 +440,12 @@ export function QualifyingQuestionsSettings({
           </DialogHeader>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="questions">Qualifying Questions</TabsTrigger>
+              <TabsTrigger value="fields" className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Contact Fields
+              </TabsTrigger>
               <TabsTrigger value="webhooks" className="flex items-center gap-2">
                 <Webhook className="w-4 h-4" />
                 Webhooks
@@ -335,7 +461,7 @@ export function QualifyingQuestionsSettings({
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+                  onDragEnd={handleDragEndQuestions}
                 >
                   <SortableContext
                     items={activeQuestions.map(q => q.id)}
@@ -343,15 +469,15 @@ export function QualifyingQuestionsSettings({
                   >
                     <div className="space-y-2">
                       {activeQuestions.map((question) => (
-                        <SortableQuestionItem
+                        <SortableItem
                           key={question.id}
-                          question={question}
-                          updateQuestion={updateQuestion}
+                          item={question}
+                          updateItem={updateQuestion}
                           onArchive={archiveQuestion}
-                          onDelete={confirmDeleteQuestion}
-                          addOption={addOption}
-                          updateOption={updateOption}
-                          removeOption={removeOption}
+                          onDelete={(id) => confirmDeleteItem(id, 'question')}
+                          addOption={(id) => addOption(id, false)}
+                          updateOption={(id, idx, val) => updateOption(id, idx, val, false)}
+                          removeOption={(id, idx) => removeOption(id, idx, false)}
                         />
                       ))}
                     </div>
@@ -368,7 +494,6 @@ export function QualifyingQuestionsSettings({
                 Add Question
               </Button>
 
-              {/* Archived Questions */}
               {archivedQuestions.length > 0 && (
                 <div className="border-t border-border pt-4 mt-4">
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Questions</h4>
@@ -393,7 +518,90 @@ export function QualifyingQuestionsSettings({
                             variant="ghost"
                             size="sm"
                             className="h-7 text-destructive hover:text-destructive"
-                            onClick={() => confirmDeleteQuestion(question.id)}
+                            onClick={() => confirmDeleteItem(question.id, 'question')}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="fields" className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Custom fields are static contact information (like LinkedIn URL, Account ID) that appear on the contact card.
+              </p>
+              
+              {activeCustomFields.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No custom fields configured. Add your first field below.
+                </p>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEndFields}
+                >
+                  <SortableContext
+                    items={activeCustomFields.map(f => f.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {activeCustomFields.map((field) => (
+                        <SortableItem
+                          key={field.id}
+                          item={field}
+                          updateItem={updateCustomField}
+                          onArchive={archiveCustomField}
+                          onDelete={(id) => confirmDeleteItem(id, 'field')}
+                          addOption={(id) => addOption(id, true)}
+                          updateOption={(id, idx, val) => updateOption(id, idx, val, true)}
+                          removeOption={(id, idx) => removeOption(id, idx, true)}
+                          isCustomField
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addNewCustomField}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Custom Field
+              </Button>
+
+              {archivedCustomFields.length > 0 && (
+                <div className="border-t border-border pt-4 mt-4">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Fields</h4>
+                  <div className="space-y-2">
+                    {archivedCustomFields.map(field => (
+                      <div 
+                        key={field.id}
+                        className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between"
+                      >
+                        <span className="text-sm">{field.label}</span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7"
+                            onClick={() => restoreCustomField(field.id)}
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Restore
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-destructive hover:text-destructive"
+                            onClick={() => confirmDeleteItem(field.id, 'field')}
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>
@@ -470,7 +678,8 @@ export function QualifyingQuestionsSettings({
     "email", "website", "notes",
     "status", "completedReason",
     "appointmentDate",
-    "qualifyingAnswers": { ... }
+    "qualifyingAnswers": { ... },
+    "customFields": { ... }
   }
 }`}
                         </pre>
@@ -518,9 +727,9 @@ export function QualifyingQuestionsSettings({
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Question Permanently?</DialogTitle>
+            <DialogTitle>Delete {pendingDeleteType === 'question' ? 'Question' : 'Field'} Permanently?</DialogTitle>
             <DialogDescription>
-              This will permanently delete this question AND clear all related data from all contacts. 
+              This will permanently delete this {pendingDeleteType === 'question' ? 'question' : 'field'} AND clear all related data from all contacts. 
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -528,7 +737,7 @@ export function QualifyingQuestionsSettings({
             <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={deleteQuestion}>
+            <Button variant="destructive" onClick={executeDelete}>
               Delete Permanently
             </Button>
           </DialogFooter>
