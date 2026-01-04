@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Contact, CustomContactField, CompanyField, QuestionType } from '@/types/contact';
+import { useState, useEffect, useRef } from 'react';
+import { Contact, CustomContactField, CompanyField } from '@/types/contact';
 import { Phone, Mail, Globe, ExternalLink, Copy, Pencil, Check, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,21 @@ import { toast } from '@/hooks/use-toast';
 import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
+import { useAIResearch } from '@/hooks/useAIResearch';
+import { AIResearchBox } from '@/components/AIResearchBox';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ContactCardProps {
   contact: Contact;
   onUpdate?: (updates: Partial<Contact>) => void;
   onEditClick?: () => void;
+}
+
+interface AICache {
+  ai_summary?: string | null;
+  ai_summary_updated_at?: string | null;
+  ai_custom_research?: string | null;
+  ai_custom_updated_at?: string | null;
 }
 
 export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps) {
@@ -23,10 +33,108 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
   const { getCompanyData, updateCompanyData } = useCompanyData();
+  const { isResearching, researchCompany, researchCompanyCustom, researchPersona } = useAIResearch();
+
+  // AI Research state
+  const [companyAI, setCompanyAI] = useState<AICache>({});
+  const [contactPersona, setContactPersona] = useState<string | null>(null);
+  const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
+  const hasAutoResearched = useRef<Record<string, boolean>>({});
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const companyData = contact.company ? getCompanyData(contact.company) : {};
+
+  // Load AI research data on mount or contact change
+  useEffect(() => {
+    const loadAIData = async () => {
+      // Load company AI data
+      if (contact.company) {
+        const { data: companyResult } = await supabase
+          .from('company_data')
+          .select('ai_summary, ai_summary_updated_at, ai_custom_research, ai_custom_updated_at')
+          .eq('company_name', contact.company)
+          .single();
+
+        if (companyResult) {
+          setCompanyAI(companyResult);
+        } else {
+          setCompanyAI({});
+        }
+
+        // Auto-research company on first view if no summary exists
+        const companyKey = `company_${contact.company}`;
+        if (!companyResult?.ai_summary && !hasAutoResearched.current[companyKey]) {
+          hasAutoResearched.current[companyKey] = true;
+          const result = await researchCompany(contact.company, contact.website);
+          if (result) {
+            setCompanyAI(prev => ({
+              ...prev,
+              ai_summary: result,
+              ai_summary_updated_at: new Date().toISOString()
+            }));
+          }
+        }
+      }
+
+      // Load contact persona from the contact itself
+      const { data: contactResult } = await supabase
+        .from('contacts')
+        .select('ai_persona, ai_persona_updated_at')
+        .eq('id', contact.id)
+        .single();
+
+      if (contactResult) {
+        setContactPersona(contactResult.ai_persona);
+        setPersonaUpdatedAt(contactResult.ai_persona_updated_at);
+      }
+
+      // Auto-research persona on first view if none exists
+      const personaKey = `persona_${contact.id}`;
+      if (!contactResult?.ai_persona && !hasAutoResearched.current[personaKey]) {
+        hasAutoResearched.current[personaKey] = true;
+        const result = await researchPersona(contact);
+        if (result) {
+          setContactPersona(result);
+          setPersonaUpdatedAt(new Date().toISOString());
+        }
+      }
+    };
+
+    loadAIData();
+  }, [contact.id, contact.company]);
+
+  const handleRefreshCompanySearch = async () => {
+    if (!contact.company) return;
+    const result = await researchCompany(contact.company, contact.website);
+    if (result) {
+      setCompanyAI(prev => ({
+        ...prev,
+        ai_summary: result,
+        ai_summary_updated_at: new Date().toISOString()
+      }));
+    }
+  };
+
+  const handleRefreshCustomResearch = async () => {
+    if (!contact.company) return;
+    const result = await researchCompanyCustom(contact.company, contact.website);
+    if (result) {
+      setCompanyAI(prev => ({
+        ...prev,
+        ai_custom_research: result,
+        ai_custom_updated_at: new Date().toISOString()
+      }));
+    }
+  };
+
+  const handleRefreshPersona = async () => {
+    const result = await researchPersona(contact);
+    if (result) {
+      setContactPersona(result);
+      setPersonaUpdatedAt(new Date().toISOString());
+    }
+  };
 
   const copyToClipboard = async (value: string, fieldName: string) => {
     await navigator.clipboard.writeText(value);
@@ -294,6 +402,42 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
             <ExternalLink className="w-3 h-3 text-muted-foreground" />
           </a>
         </div>
+      </div>
+
+      {/* AI Research Sections */}
+      <div className="space-y-3">
+        {/* Company Summary */}
+        <AIResearchBox
+          title="Company Summary"
+          content={companyAI.ai_summary}
+          isLoading={isResearching[`company_${contact.company}`] || false}
+          onRefresh={handleRefreshCompanySearch}
+          lastUpdated={companyAI.ai_summary_updated_at}
+          variant="company"
+          buttonLabel="Refresh"
+        />
+
+        {/* Custom Company Research */}
+        <AIResearchBox
+          title="Custom Research"
+          content={companyAI.ai_custom_research}
+          isLoading={isResearching[`custom_${contact.company}`] || false}
+          onRefresh={handleRefreshCustomResearch}
+          lastUpdated={companyAI.ai_custom_updated_at}
+          variant="custom"
+          buttonLabel="Run Research"
+        />
+
+        {/* Persona */}
+        <AIResearchBox
+          title="Persona"
+          content={contactPersona}
+          isLoading={isResearching[`persona_${contact.id}`] || false}
+          onRefresh={handleRefreshPersona}
+          lastUpdated={personaUpdatedAt}
+          variant="persona"
+          buttonLabel="Refresh"
+        />
       </div>
 
       {/* Company Fields */}

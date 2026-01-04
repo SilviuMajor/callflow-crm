@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import CallingPage from "./pages/CallingPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import CompletedPage from "./pages/CompletedPage";
+import AISettingsPage from "./pages/AISettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/calling" element={<CallingPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/completed" element={<CompletedPage />} />
+          <Route path="/ai-settings" element={<AISettingsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

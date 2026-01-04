@@ -1,1 +1,4 @@
 project_id = "nrvetokwxizkannzhzvn"
+
+[functions.ai-research]
+verify_jwt = false
