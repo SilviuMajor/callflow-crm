@@ -49,7 +49,6 @@ export function LinkedContacts({ company, currentContactId, onSelectContact }: L
   }, [company, currentContactId]);
 
   if (!company || isLoading) return null;
-  if (linkedContacts.length === 0) return null;
 
   return (
     <div className="space-y-2">
@@ -58,28 +57,35 @@ export function LinkedContacts({ company, currentContactId, onSelectContact }: L
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Linked Contacts at {company}
         </h3>
+        <span className="text-xs text-muted-foreground">({linkedContacts.length})</span>
       </div>
       
       <div className="max-h-32 overflow-y-auto space-y-1 scrollbar-thin border border-border rounded-lg p-2 bg-card">
-        {linkedContacts.map(contact => (
-          <div
-            key={contact.id}
-            onClick={() => onSelectContact?.(contact.id)}
-            className="flex items-center justify-between p-2 rounded hover:bg-secondary cursor-pointer group transition-colors"
-          >
-            <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium text-foreground">
-                {contact.firstName} {contact.lastName}
-              </span>
-              {contact.jobTitle && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  — {contact.jobTitle}
+        {linkedContacts.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic py-2 text-center">
+            No other contacts at this company
+          </p>
+        ) : (
+          linkedContacts.map(contact => (
+            <div
+              key={contact.id}
+              onClick={() => onSelectContact?.(contact.id)}
+              className="flex items-center justify-between p-2 rounded hover:bg-secondary cursor-pointer group transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-foreground">
+                  {contact.firstName} {contact.lastName}
                 </span>
-              )}
+                {contact.jobTitle && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    — {contact.jobTitle}
+                  </span>
+                )}
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
