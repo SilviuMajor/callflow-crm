@@ -14,11 +14,18 @@ export interface AIPrompt {
 }
 
 export const AI_MODELS = [
-  { value: 'sonar', label: 'Sonar (Fast)' },
-  { value: 'sonar-pro', label: 'Sonar Pro (Multi-step reasoning)' },
-  { value: 'sonar-reasoning', label: 'Sonar Reasoning (Chain-of-thought)' },
-  { value: 'sonar-reasoning-pro', label: 'Sonar Reasoning Pro (Advanced)' },
-  { value: 'sonar-deep-research', label: 'Sonar Deep Research (Expert)' },
+  // Perplexity Models (Web-grounded search with citations)
+  { value: 'perplexity:sonar', label: 'Perplexity Sonar (Fast)', provider: 'perplexity' },
+  { value: 'perplexity:sonar-pro', label: 'Perplexity Sonar Pro (Multi-step)', provider: 'perplexity' },
+  { value: 'perplexity:sonar-reasoning', label: 'Perplexity Sonar Reasoning', provider: 'perplexity' },
+  { value: 'perplexity:sonar-reasoning-pro', label: 'Perplexity Sonar Reasoning Pro', provider: 'perplexity' },
+  { value: 'perplexity:sonar-deep-research', label: 'Perplexity Deep Research (Expert)', provider: 'perplexity' },
+  // OpenAI Models (ChatGPT)
+  { value: 'openai:gpt-4o-mini', label: 'ChatGPT-4o Mini (Fast)', provider: 'openai' },
+  { value: 'openai:gpt-4o', label: 'ChatGPT-4o (Vision capable)', provider: 'openai' },
+  { value: 'openai:gpt-5-nano-2025-08-07', label: 'ChatGPT-5 Nano (Fastest)', provider: 'openai' },
+  { value: 'openai:gpt-5-mini-2025-08-07', label: 'ChatGPT-5 Mini (Balanced)', provider: 'openai' },
+  { value: 'openai:gpt-5-2025-08-07', label: 'ChatGPT-5 (Flagship)', provider: 'openai' },
 ];
 
 export function useAIPrompts() {
