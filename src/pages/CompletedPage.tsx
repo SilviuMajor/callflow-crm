@@ -1,18 +1,23 @@
 import { useState, useMemo } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useContacts } from '@/hooks/useContacts';
+import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Search, Phone, Mail, Building2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
+import { exportToCSV, exportToJSON } from '@/utils/exportData';
 
 export default function CompletedPage() {
-  const { completedContacts } = useContacts();
+  const { completedContacts, clearContactAnswers } = useContacts();
+  const { questions, setQuestions } = useQualifyingQuestions();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const filteredContacts = useMemo(() => {
     let filtered = completedContacts;
@@ -52,9 +57,28 @@ export default function CompletedPage() {
     return '';
   };
 
+  const handleExportCSV = () => {
+    exportToCSV(filteredContacts, questions);
+  };
+
+  const handleExportJSON = () => {
+    exportToJSON(filteredContacts, questions);
+  };
+
+  const handleSaveQuestions = (updatedQuestions: typeof questions, _applyToBlank: boolean, deletedIds: string[]) => {
+    setQuestions(updatedQuestions);
+    if (deletedIds.length > 0) {
+      clearContactAnswers(deletedIds);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
-      <TopNav />
+      <TopNav 
+        onExportCSV={handleExportCSV}
+        onExportJSON={handleExportJSON}
+        onSettingsClick={() => setShowSettings(true)}
+      />
       
       <div className="flex-1 overflow-hidden flex flex-col p-4">
         {/* Filters */}
@@ -203,6 +227,14 @@ export default function CompletedPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Settings Modal */}
+      <QualifyingQuestionsSettings
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        questions={questions}
+        onSave={handleSaveQuestions}
+      />
     </div>
   );
 }

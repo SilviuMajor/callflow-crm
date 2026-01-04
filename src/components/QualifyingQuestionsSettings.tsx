@@ -6,10 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw, Webhook, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useWebhookSettings } from '@/hooks/useWebhookSettings';
+import { toast } from 'sonner';
 
 interface QualifyingQuestionsSettingsProps {
   open: boolean;
@@ -171,10 +175,17 @@ export function QualifyingQuestionsSettings({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState('questions');
+  
+  // Webhook settings
+  const { settings: webhookSettings, updateSettings: updateWebhookSettings, testWebhook } = useWebhookSettings();
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     setQuestions(initialQuestions);
     setDeletedQuestionIds([]);
+    setTestResult(null);
   }, [initialQuestions, open]);
 
   const sensors = useSensors(
@@ -282,92 +293,194 @@ export function QualifyingQuestionsSettings({
     onOpenChange(false);
   };
 
+  const handleTestWebhook = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    
+    const result = await testWebhook();
+    
+    setIsTesting(false);
+    if (result.success) {
+      setTestResult({ success: true, message: 'Test payload sent successfully!' });
+      toast.success('Webhook test successful');
+    } else {
+      setTestResult({ success: false, message: result.error || 'Failed to send test' });
+      toast.error(`Webhook test failed: ${result.error}`);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="bg-card border-border max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Qualifying Questions Settings</DialogTitle>
+            <DialogTitle>Settings</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            {activeQuestions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No questions configured. Add your first question below.
-              </p>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={activeQuestions.map(q => q.id)}
-                  strategy={verticalListSortingStrategy}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="questions">Qualifying Questions</TabsTrigger>
+              <TabsTrigger value="webhooks" className="flex items-center gap-2">
+                <Webhook className="w-4 h-4" />
+                Webhooks
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="questions" className="space-y-4 py-4">
+              {activeQuestions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No questions configured. Add your first question below.
+                </p>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
                 >
+                  <SortableContext
+                    items={activeQuestions.map(q => q.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {activeQuestions.map((question) => (
+                        <SortableQuestionItem
+                          key={question.id}
+                          question={question}
+                          updateQuestion={updateQuestion}
+                          onArchive={archiveQuestion}
+                          onDelete={confirmDeleteQuestion}
+                          addOption={addOption}
+                          updateOption={updateOption}
+                          removeOption={removeOption}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addQuestion}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
+
+              {/* Archived Questions */}
+              {archivedQuestions.length > 0 && (
+                <div className="border-t border-border pt-4 mt-4">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Questions</h4>
                   <div className="space-y-2">
-                    {activeQuestions.map((question) => (
-                      <SortableQuestionItem
+                    {archivedQuestions.map(question => (
+                      <div 
                         key={question.id}
-                        question={question}
-                        updateQuestion={updateQuestion}
-                        onArchive={archiveQuestion}
-                        onDelete={confirmDeleteQuestion}
-                        addOption={addOption}
-                        updateOption={updateOption}
-                        removeOption={removeOption}
-                      />
+                        className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between"
+                      >
+                        <span className="text-sm">{question.label}</span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7"
+                            onClick={() => restoreQuestion(question.id)}
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Restore
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-destructive hover:text-destructive"
+                            onClick={() => confirmDeleteQuestion(question.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </SortableContext>
-              </DndContext>
-            )}
+                </div>
+              )}
+            </TabsContent>
             
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={addQuestion}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Question
-            </Button>
-
-            {/* Archived Questions */}
-            {archivedQuestions.length > 0 && (
-              <div className="border-t border-border pt-4 mt-4">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Questions</h4>
-                <div className="space-y-2">
-                  {archivedQuestions.map(question => (
-                    <div 
-                      key={question.id}
-                      className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between"
-                    >
-                      <span className="text-sm">{question.label}</span>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7"
-                          onClick={() => restoreQuestion(question.id)}
-                        >
-                          <RotateCcw className="w-3 h-3 mr-1" />
-                          Restore
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-destructive hover:text-destructive"
-                          onClick={() => confirmDeleteQuestion(question.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
+            <TabsContent value="webhooks" className="space-y-4 py-4">
+              <div className="space-y-4">
+                <div className="p-4 border border-border rounded-lg space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Webhook on Completion</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Send contact data to an external service when marked as "Completed"
+                      </p>
                     </div>
-                  ))}
+                    <Switch 
+                      checked={webhookSettings.enabled} 
+                      onCheckedChange={(checked) => updateWebhookSettings({ enabled: checked })}
+                    />
+                  </div>
+                  
+                  {webhookSettings.enabled && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="webhook-url" className="text-sm">Webhook URL</Label>
+                        <Input
+                          id="webhook-url"
+                          placeholder="https://n8n.example.com/webhook/..."
+                          value={webhookSettings.url}
+                          onChange={(e) => updateWebhookSettings({ url: e.target.value })}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTestWebhook}
+                          disabled={!webhookSettings.url || isTesting}
+                          className="gap-2"
+                        >
+                          <Send className="w-4 h-4" />
+                          {isTesting ? 'Sending...' : 'Test Webhook'}
+                        </Button>
+                        
+                        {testResult && (
+                          <span className={`text-xs flex items-center gap-1 ${testResult.success ? 'text-success' : 'text-destructive'}`}>
+                            {testResult.success ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : (
+                              <AlertCircle className="w-3 h-3" />
+                            )}
+                            {testResult.message}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="p-3 bg-muted/50 rounded text-xs space-y-2">
+                        <p className="font-medium">Payload sent on completion:</p>
+                        <pre className="text-muted-foreground whitespace-pre-wrap">
+{`{
+  "event": "contact_completed",
+  "timestamp": "ISO date string",
+  "contact": {
+    "id", "firstName", "lastName",
+    "company", "jobTitle", "phone",
+    "email", "website", "notes",
+    "status", "completedReason",
+    "appointmentDate",
+    "qualifyingAnswers": { ... }
+  }
+}`}
+                        </pre>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
