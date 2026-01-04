@@ -252,6 +252,7 @@ export type Database = {
         Row: {
           company_name: string
           created_at: string
+          custom_fields: Json | null
           id: string
           industry: string | null
           pain_points_solved: string | null
@@ -266,6 +267,7 @@ export type Database = {
         Insert: {
           company_name?: string
           created_at?: string
+          custom_fields?: Json | null
           id?: string
           industry?: string | null
           pain_points_solved?: string | null
@@ -280,6 +282,7 @@ export type Database = {
         Update: {
           company_name?: string
           created_at?: string
+          custom_fields?: Json | null
           id?: string
           industry?: string | null
           pain_points_solved?: string | null
@@ -290,6 +293,42 @@ export type Database = {
           updated_at?: string
           usps?: string | null
           website?: string | null
+        }
+        Relationships: []
+      }
+      seller_custom_fields: {
+        Row: {
+          created_at: string
+          field_order: number
+          id: string
+          is_archived: boolean
+          key: string
+          label: string
+          options: string[] | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_order?: number
+          id?: string
+          is_archived?: boolean
+          key: string
+          label: string
+          options?: string[] | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_order?: number
+          id?: string
+          is_archived?: boolean
+          key?: string
+          label?: string
+          options?: string[] | null
+          type?: string
+          updated_at?: string
         }
         Relationships: []
       }

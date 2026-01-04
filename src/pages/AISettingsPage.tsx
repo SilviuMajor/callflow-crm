@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useAIPrompts, AI_MODELS, AIPrompt } from '@/hooks/useAIPrompts';
 import { useSellerCompany } from '@/hooks/useSellerCompany';
+import { useSellerCustomFields } from '@/hooks/useSellerCustomFields';
+import { useCustomFields } from '@/hooks/useCustomFields';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,16 +13,17 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { InlineEditField } from '@/components/InlineEditField';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { PlaceholderToolbar } from '@/components/PlaceholderToolbar';
+import { SellerCustomFieldsDialog } from '@/components/SellerCustomFieldsDialog';
+import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
 
 const PROMPT_CONFIG = {
   company_search: {
     title: 'Company Research',
     description: 'AI will research the company when you click Generate. Uses company name and website.',
     icon: Building2,
-    placeholders: ['{company_name}', '{website}', '{seller_context}'],
     color: 'text-blue-500',
     defaultPrompt: `Research the company {company_name}. Their website is {website}.
 
@@ -34,27 +37,34 @@ Provide a comprehensive overview including:
 
 Keep the response concise but informative.`,
   },
-  company_custom: {
-    title: 'Custom Company Research',
-    description: 'Custom research based on your specific needs. Define your product/service context here.',
+  custom_company_research: {
+    title: 'Targeted Research and Suggestions',
+    description: 'Custom research using your company context. Drag or click placeholders to build your prompt.',
     icon: Target,
-    placeholders: ['{company_name}', '{website}', '{seller_context}'],
     color: 'text-purple-500',
-    defaultPrompt: `Research how to approach {company_name} ({website}) as a potential customer.
+    defaultPrompt: `Research how to approach {company_name} ({website}) as a potential customer for {seller_company_name}.
 
-{seller_context}
+About us:
+- We are in the {seller_industry} industry
+- Our product/service: {seller_product_offering}
+- Our unique selling points: {seller_usps}
+- Pain points we address: {seller_pain_points_solved}
+- Our target audience: {seller_target_audience}
+- Product sets available: {seller_product_sets}
 
 Based on this context, provide:
-1. How our offering could benefit them
-2. Potential pain points we could address
-3. Suggested talking points for the sales call
-4. Any relevant angles to approach them with`,
+1. How our offering could specifically benefit {company_name}
+2. Potential pain points at {company_name} we could address
+3. Suggested talking points that align with our {seller_tone_style} communication style
+4. Relevant product sets to propose
+5. Any specific angles to approach them with given their industry
+
+Keep the response actionable and focused.`,
   },
   persona: {
     title: 'Contact Persona',
     description: 'AI will research the contact person to understand their role and how to approach them.',
     icon: Users,
-    placeholders: ['{first_name}', '{last_name}', '{job_title}', '{company}', '{seller_context}'],
     color: 'text-emerald-500',
     defaultPrompt: `Research {first_name} {last_name}, {job_title} at {company}.
 
@@ -82,21 +92,49 @@ const SELLER_FIELDS = [
   { key: 'product_sets', label: 'Product Sets/Tiers', placeholder: 'Different product lines or packages...', multiline: true },
 ];
 
+// Standard contact placeholders
+const CONTACT_PLACEHOLDERS = [
+  { name: 'first_name', description: 'Contact first name' },
+  { name: 'last_name', description: 'Contact last name' },
+  { name: 'job_title', description: 'Contact job title' },
+  { name: 'company_name', description: 'Contact company name' },
+  { name: 'company', description: 'Contact company (alias)' },
+  { name: 'website', description: 'Contact website' },
+];
+
+// Built-in seller company placeholders
+const SELLER_PLACEHOLDERS = [
+  { name: 'seller_company_name', description: 'Your company name' },
+  { name: 'seller_website', description: 'Your website' },
+  { name: 'seller_product_offering', description: 'Your product/service' },
+  { name: 'seller_usps', description: 'Your USPs' },
+  { name: 'seller_industry', description: 'Your industry' },
+  { name: 'seller_target_audience', description: 'Your target audience' },
+  { name: 'seller_tone_style', description: 'Your communication style' },
+  { name: 'seller_pain_points_solved', description: 'Pain points you solve' },
+  { name: 'seller_product_sets', description: 'Your product sets' },
+  { name: 'seller_context', description: 'All seller info combined' },
+];
+
 export default function AISettingsPage() {
-  const { prompts, isLoading, updatePrompt, refetch } = useAIPrompts();
+  const { prompts, isLoading, updatePrompt } = useAIPrompts();
   const { sellerCompany, isLoading: isLoadingSeller, updateField } = useSellerCompany();
+  const { fields: sellerCustomFields } = useSellerCustomFields();
+  const { fields: customContactFields } = useCustomFields();
   const [editedPrompts, setEditedPrompts] = useState<Record<string, Partial<AIPrompt & { default_prompt?: string }>>>({});
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({});
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   useEffect(() => {
     if (prompts.length > 0) {
       const initial: Record<string, Partial<AIPrompt & { default_prompt?: string }>> = {};
       prompts.forEach(p => {
+        const configKey = p.prompt_type === 'company_custom' ? 'custom_company_research' : p.prompt_type;
         initial[p.prompt_type] = { 
           prompt: p.prompt, 
           model: p.model, 
           enabled: p.enabled,
-          default_prompt: (p as any).default_prompt || PROMPT_CONFIG[p.prompt_type as keyof typeof PROMPT_CONFIG]?.defaultPrompt
+          default_prompt: (p as any).default_prompt || PROMPT_CONFIG[configKey as keyof typeof PROMPT_CONFIG]?.defaultPrompt
         };
       });
       setEditedPrompts(initial);
@@ -116,7 +154,8 @@ export default function AISettingsPage() {
   };
 
   const handleRestoreDefault = (promptType: string) => {
-    const config = PROMPT_CONFIG[promptType as keyof typeof PROMPT_CONFIG];
+    const configKey = promptType === 'company_custom' ? 'custom_company_research' : promptType;
+    const config = PROMPT_CONFIG[configKey as keyof typeof PROMPT_CONFIG];
     if (!config) return;
 
     setEditedPrompts(prev => ({
@@ -156,6 +195,103 @@ export default function AISettingsPage() {
     }
   };
 
+  const insertPlaceholder = useCallback((promptType: string, placeholder: string) => {
+    const textarea = textareaRefs.current[promptType];
+    const currentValue = editedPrompts[promptType]?.prompt || '';
+    
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue = currentValue.slice(0, start) + placeholder + currentValue.slice(end);
+      
+      setEditedPrompts(prev => ({
+        ...prev,
+        [promptType]: { ...prev[promptType], prompt: newValue }
+      }));
+
+      // Focus and set cursor after inserted placeholder
+      setTimeout(() => {
+        textarea.focus();
+        const newPosition = start + placeholder.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+      }, 0);
+    } else {
+      // Fallback: append to end
+      setEditedPrompts(prev => ({
+        ...prev,
+        [promptType]: { ...prev[promptType], prompt: currentValue + placeholder }
+      }));
+    }
+  }, [editedPrompts]);
+
+  // Build placeholder groups for each prompt type
+  const getPlaceholderGroups = useCallback(() => {
+    const groups: Array<{
+      label: string;
+      category: PlaceholderCategory;
+      placeholders: { name: string; description?: string }[];
+    }> = [
+      {
+        label: 'Contact Fields',
+        category: 'contact',
+        placeholders: CONTACT_PLACEHOLDERS,
+      },
+    ];
+
+    // Add custom contact fields if any
+    if (customContactFields.length > 0) {
+      groups.push({
+        label: 'Custom Contact Fields',
+        category: 'custom_contact',
+        placeholders: customContactFields.map(f => ({ 
+          name: f.key, 
+          description: f.label 
+        })),
+      });
+    }
+
+    // Add seller placeholders
+    const sellerPlaceholders = [...SELLER_PLACEHOLDERS];
+    
+    // Add custom seller fields
+    if (sellerCustomFields.length > 0) {
+      sellerCustomFields.forEach(f => {
+        sellerPlaceholders.push({
+          name: `seller_${f.key}`,
+          description: f.label,
+        });
+      });
+    }
+
+    groups.push({
+      label: 'My Company Fields',
+      category: 'seller',
+      placeholders: sellerPlaceholders,
+    });
+
+    return groups;
+  }, [customContactFields, sellerCustomFields]);
+
+  const handleDrop = useCallback((promptType: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const placeholder = e.dataTransfer.getData('text/plain');
+    if (placeholder) {
+      insertPlaceholder(promptType, placeholder);
+    }
+  }, [insertPlaceholder]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  // Map database prompt types to our config
+  const getConfigForPromptType = (dbType: string) => {
+    if (dbType === 'custom_company_research') {
+      return { type: dbType, config: PROMPT_CONFIG.custom_company_research };
+    }
+    return { type: dbType, config: PROMPT_CONFIG[dbType as keyof typeof PROMPT_CONFIG] };
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
@@ -174,13 +310,16 @@ export default function AISettingsPage() {
         {/* Seller Company Section */}
         <Card className="mb-6">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Our Company Profile</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">My Company Profile</CardTitle>
+              </div>
+              <SellerCustomFieldsDialog />
             </div>
             <CardDescription>
-              Your company details will be injected into AI prompts via the {'{seller_context}'} placeholder.
-              This helps AI generate more relevant, personalized research.
+              Your company details are available as placeholders in AI prompts. 
+              Use {'{seller_context}'} for all fields combined, or individual placeholders like {'{seller_company_name}'}.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -196,16 +335,17 @@ export default function AISettingsPage() {
                   <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
                     <Label htmlFor={field.key} className="text-sm font-medium mb-1.5 block">
                       {field.label}
+                      <code className="ml-2 text-xs bg-amber-100 text-amber-700 px-1 py-0.5 rounded">
+                        {`{seller_${field.key}}`}
+                      </code>
                     </Label>
                     {field.multiline ? (
                       <Textarea
                         id={field.key}
-                        value={(sellerCompany as any)?.[field.key] || ''}
-                        onChange={(e) => {}}
+                        defaultValue={(sellerCompany as any)?.[field.key] || ''}
                         onBlur={(e) => handleSellerFieldSave(field.key, e.target.value)}
                         placeholder={field.placeholder}
                         className="min-h-[80px] text-sm"
-                        defaultValue={(sellerCompany as any)?.[field.key] || ''}
                       />
                     ) : (
                       <Input
@@ -244,15 +384,18 @@ export default function AISettingsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(PROMPT_CONFIG).map(([type, config]) => {
-              const prompt = prompts.find(p => p.prompt_type === type);
-              const edited = editedPrompts[type] || {};
+            {prompts.map((prompt) => {
+              const { config } = getConfigForPromptType(prompt.prompt_type);
+              if (!config) return null;
+              
+              const edited = editedPrompts[prompt.prompt_type] || {};
               const Icon = config.icon;
-              const isSaving = savingStates[type];
-              const changed = hasChanges(type);
+              const isSaving = savingStates[prompt.prompt_type];
+              const changed = hasChanges(prompt.prompt_type);
+              const placeholderGroups = getPlaceholderGroups();
 
               return (
-                <Card key={type} className="relative">
+                <Card key={prompt.prompt_type} className="relative">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -260,26 +403,32 @@ export default function AISettingsPage() {
                         <CardTitle className="text-lg">{config.title}</CardTitle>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor={`${type}-enabled`} className="text-sm text-muted-foreground">
+                        <Label htmlFor={`${prompt.prompt_type}-enabled`} className="text-sm text-muted-foreground">
                           {edited.enabled ? 'Enabled' : 'Disabled'}
                         </Label>
                         <Switch
-                          id={`${type}-enabled`}
-                          checked={edited.enabled ?? prompt?.enabled ?? true}
-                          onCheckedChange={(checked) => handleChange(type, 'enabled', checked)}
+                          id={`${prompt.prompt_type}-enabled`}
+                          checked={edited.enabled ?? prompt.enabled ?? true}
+                          onCheckedChange={(checked) => handleChange(prompt.prompt_type, 'enabled', checked)}
                         />
                       </div>
                     </div>
                     <CardDescription>{config.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Placeholder Toolbar */}
+                    <PlaceholderToolbar
+                      groups={placeholderGroups}
+                      onInsert={(placeholder) => insertPlaceholder(prompt.prompt_type, placeholder)}
+                    />
+
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor={`${type}-prompt`}>Prompt Template</Label>
+                        <Label htmlFor={`${prompt.prompt_type}-prompt`}>Prompt Template</Label>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRestoreDefault(type)}
+                          onClick={() => handleRestoreDefault(prompt.prompt_type)}
                           className="h-7 text-xs text-muted-foreground hover:text-foreground"
                         >
                           <RotateCcw className="h-3 w-3 mr-1" />
@@ -287,29 +436,24 @@ export default function AISettingsPage() {
                         </Button>
                       </div>
                       <Textarea
-                        id={`${type}-prompt`}
-                        value={edited.prompt ?? prompt?.prompt ?? ''}
-                        onChange={(e) => handleChange(type, 'prompt', e.target.value)}
-                        className="min-h-[150px] font-mono text-sm"
+                        id={`${prompt.prompt_type}-prompt`}
+                        ref={(el) => { textareaRefs.current[prompt.prompt_type] = el; }}
+                        value={edited.prompt ?? prompt.prompt ?? ''}
+                        onChange={(e) => handleChange(prompt.prompt_type, 'prompt', e.target.value)}
+                        onDrop={(e) => handleDrop(prompt.prompt_type, e)}
+                        onDragOver={handleDragOver}
+                        className="min-h-[180px] font-mono text-sm"
                         placeholder="Enter your prompt template..."
                       />
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs text-muted-foreground">Available placeholders:</span>
-                        {config.placeholders.map(p => (
-                          <code key={p} className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                            {p}
-                          </code>
-                        ))}
-                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor={`${type}-model`}>AI Model</Label>
+                      <Label htmlFor={`${prompt.prompt_type}-model`}>AI Model</Label>
                       <Select
-                        value={edited.model ?? prompt?.model ?? 'perplexity:sonar'}
-                        onValueChange={(value) => handleChange(type, 'model', value)}
+                        value={edited.model ?? prompt.model ?? 'perplexity:sonar'}
+                        onValueChange={(value) => handleChange(prompt.prompt_type, 'model', value)}
                       >
-                        <SelectTrigger id={`${type}-model`} className="w-full max-w-md">
+                        <SelectTrigger id={`${prompt.prompt_type}-model`} className="w-full max-w-md">
                           <SelectValue placeholder="Select model" />
                         </SelectTrigger>
                         <SelectContent>
@@ -338,7 +482,7 @@ export default function AISettingsPage() {
 
                     <div className="flex justify-end pt-2">
                       <Button
-                        onClick={() => handleSave(type)}
+                        onClick={() => handleSave(prompt.prompt_type)}
                         disabled={!changed || isSaving}
                         size="sm"
                       >
