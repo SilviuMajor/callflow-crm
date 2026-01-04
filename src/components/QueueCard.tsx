@@ -1,0 +1,83 @@
+import { Contact } from '@/types/contact';
+import { cn } from '@/lib/utils';
+
+interface QueueCardProps {
+  contact: Contact;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+function getCallbackStatus(callbackDate: Date | undefined): {
+  isOverdue: boolean;
+  hoursOverdue: number;
+  isFuture: boolean;
+} {
+  if (!callbackDate) return { isOverdue: false, hoursOverdue: 0, isFuture: false };
+  
+  const now = new Date();
+  const diff = now.getTime() - new Date(callbackDate).getTime();
+  const hoursOverdue = diff / (1000 * 60 * 60);
+  
+  return {
+    isOverdue: hoursOverdue > 0,
+    hoursOverdue,
+    isFuture: hoursOverdue < 0,
+  };
+}
+
+function getCardStyle(contact: Contact, isActive: boolean): string {
+  if (isActive) {
+    return 'ring-2 ring-primary bg-primary/5';
+  }
+  
+  if (contact.status === 'callback' && contact.callbackDate) {
+    const { isOverdue, hoursOverdue, isFuture } = getCallbackStatus(contact.callbackDate);
+    
+    if (isFuture) {
+      return 'bg-muted/50 border-muted-foreground/20';
+    }
+    
+    if (isOverdue) {
+      if (hoursOverdue >= 24) return 'bg-[hsl(var(--callback-overdue-24))]/20 border-[hsl(var(--callback-overdue-24))]';
+      if (hoursOverdue >= 5) return 'bg-[hsl(var(--callback-overdue-5))]/20 border-[hsl(var(--callback-overdue-5))]';
+      if (hoursOverdue >= 3) return 'bg-[hsl(var(--callback-overdue-3))]/20 border-[hsl(var(--callback-overdue-3))]';
+      if (hoursOverdue >= 1) return 'bg-[hsl(var(--callback-overdue-1))]/20 border-[hsl(var(--callback-overdue-1))]';
+      return 'bg-[hsl(var(--callback-light))] border-[hsl(var(--callback))]';
+    }
+    
+    return 'bg-[hsl(var(--callback-light))] border-[hsl(var(--callback))]';
+  }
+  
+  return 'bg-card hover:bg-accent/50';
+}
+
+export function QueueCard({ contact, isActive, onClick }: QueueCardProps) {
+  const { isFuture } = contact.status === 'callback' && contact.callbackDate 
+    ? getCallbackStatus(contact.callbackDate) 
+    : { isFuture: false };
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'w-full text-left p-2 rounded border transition-all',
+        getCardStyle(contact, isActive)
+      )}
+    >
+      <p className="font-medium text-sm text-foreground truncate">
+        {contact.firstName} {contact.lastName}
+      </p>
+      <p className="text-xs text-muted-foreground truncate">
+        {contact.jobTitle}
+      </p>
+      <p className="text-xs text-muted-foreground truncate">
+        {contact.company}
+      </p>
+      {isFuture && contact.callbackDate && (
+        <p className="text-[10px] text-muted-foreground mt-1">
+          📅 {new Date(contact.callbackDate).toLocaleDateString()}
+        </p>
+      )}
+    </button>
+  );
+}
