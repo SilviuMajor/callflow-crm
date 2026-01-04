@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Phone, BarChart3, CheckCircle, Settings, Search, Download } from 'lucide-react';
+import { Phone, BarChart3, CheckCircle, Settings, Search, Download, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -21,6 +21,7 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportC
     { path: '/calling', label: 'Calling', icon: Phone },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/completed', label: 'Completed', icon: CheckCircle },
+    { path: '/ai-settings', label: 'AI', icon: Sparkles },
   ];
 
   return (

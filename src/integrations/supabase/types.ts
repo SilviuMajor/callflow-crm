@@ -14,8 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_prompts: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          model: string | null
+          name: string
+          prompt: string
+          prompt_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          model?: string | null
+          name: string
+          prompt: string
+          prompt_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          model?: string | null
+          name?: string
+          prompt?: string
+          prompt_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       company_data: {
         Row: {
+          ai_custom_research: string | null
+          ai_custom_updated_at: string | null
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
           company_name: string
           created_at: string
           field_values: Json
@@ -23,6 +60,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_custom_research?: string | null
+          ai_custom_updated_at?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           company_name: string
           created_at?: string
           field_values?: Json
@@ -30,6 +71,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_custom_research?: string | null
+          ai_custom_updated_at?: string | null
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           company_name?: string
           created_at?: string
           field_values?: Json
@@ -76,6 +121,8 @@ export type Database = {
       }
       contacts: {
         Row: {
+          ai_persona: string | null
+          ai_persona_updated_at: string | null
           callback_date: string | null
           company: string
           created_at: string
@@ -93,6 +140,8 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          ai_persona?: string | null
+          ai_persona_updated_at?: string | null
           callback_date?: string | null
           company: string
           created_at?: string
@@ -110,6 +159,8 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          ai_persona?: string | null
+          ai_persona_updated_at?: string | null
           callback_date?: string | null
           company?: string
           created_at?: string
