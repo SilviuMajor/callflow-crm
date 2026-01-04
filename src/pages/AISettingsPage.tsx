@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useAIPrompts, AI_MODELS, AIPrompt } from '@/hooks/useAIPrompts';
 import { useSellerCompany } from '@/hooks/useSellerCompany';
@@ -247,6 +247,49 @@ export default function AISettingsPage() {
     return groups;
   }, [customContactFields, sellerCustomFields]);
 
+  // Calculate which seller fields are empty
+  const emptySellerFields = useMemo(() => {
+    const emptySet = new Set<string>();
+    
+    if (!sellerCompany) {
+      // All seller fields are empty
+      ['seller_company_name', 'seller_website', 'seller_product_offering', 
+       'seller_usps', 'seller_industry', 'seller_target_audience', 
+       'seller_tone_style', 'seller_pain_points_solved', 'seller_product_sets', 'seller_context'].forEach(f => emptySet.add(f));
+      // Add custom seller fields as empty too
+      sellerCustomFields.forEach(f => emptySet.add(`seller_${f.key}`));
+    } else {
+      // Check each built-in field
+      if (!sellerCompany.company_name?.trim()) emptySet.add('seller_company_name');
+      if (!sellerCompany.website?.trim()) emptySet.add('seller_website');
+      if (!sellerCompany.product_offering?.trim()) emptySet.add('seller_product_offering');
+      if (!sellerCompany.usps?.trim()) emptySet.add('seller_usps');
+      if (!sellerCompany.industry?.trim()) emptySet.add('seller_industry');
+      if (!sellerCompany.target_audience?.trim()) emptySet.add('seller_target_audience');
+      if (!sellerCompany.tone_style?.trim()) emptySet.add('seller_tone_style');
+      if (!sellerCompany.pain_points_solved?.trim()) emptySet.add('seller_pain_points_solved');
+      if (!sellerCompany.product_sets?.trim()) emptySet.add('seller_product_sets');
+      
+      // seller_context is empty if ALL fields are empty
+      const hasAnyContent = sellerCompany.company_name?.trim() || sellerCompany.website?.trim() || 
+        sellerCompany.product_offering?.trim() || sellerCompany.usps?.trim() || 
+        sellerCompany.industry?.trim() || sellerCompany.target_audience?.trim() ||
+        sellerCompany.tone_style?.trim() || sellerCompany.pain_points_solved?.trim() ||
+        sellerCompany.product_sets?.trim();
+      if (!hasAnyContent) emptySet.add('seller_context');
+      
+      // Check custom seller fields
+      sellerCustomFields.forEach(field => {
+        const value = sellerCompany.custom_fields?.[field.key];
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          emptySet.add(`seller_${field.key}`);
+        }
+      });
+    }
+    
+    return emptySet;
+  }, [sellerCompany, sellerCustomFields]);
+
   // Handle improve prompt using OpenAI
   const handleImprovePrompt = async (promptType: string) => {
     const currentPrompt = editedPrompts[promptType]?.prompt || '';
@@ -418,6 +461,7 @@ export default function AISettingsPage() {
                     <PlaceholderToolbar
                       groups={placeholderGroups}
                       onInsert={() => {}} // Now handled by PromptEditor
+                      emptyFields={emptySellerFields}
                     />
 
                     <div className="space-y-2">
@@ -458,6 +502,7 @@ export default function AISettingsPage() {
                         value={edited.prompt ?? prompt.prompt ?? ''}
                         onChange={(value) => handleChange(prompt.prompt_type, 'prompt', value)}
                         placeholderGroups={placeholderGroups}
+                        emptyFields={emptySellerFields}
                       />
                     </div>
 
