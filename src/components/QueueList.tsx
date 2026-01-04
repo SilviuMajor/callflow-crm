@@ -2,6 +2,7 @@ import { Contact } from '@/types/contact';
 import { QueueCard } from './QueueCard';
 import { Button } from '@/components/ui/button';
 import { Shuffle, ArrowDownAZ } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface QueueListProps {
   contacts: Contact[];
@@ -9,6 +10,7 @@ interface QueueListProps {
   onSelectContact: (id: string) => void;
   onShuffle: () => void;
   onSortByCompany: () => void;
+  isMobile?: boolean;
 }
 
 export function QueueList({ 
@@ -16,10 +18,14 @@ export function QueueList({
   currentContactId, 
   onSelectContact, 
   onShuffle, 
-  onSortByCompany 
+  onSortByCompany,
+  isMobile = false
 }: QueueListProps) {
   return (
-    <div className="w-64 border-r border-border bg-card flex flex-col h-full">
+    <div className={cn(
+      "border-r border-border bg-card flex flex-col h-full",
+      isMobile ? "w-full border-r-0" : "w-64"
+    )}>
       <div className="p-2 border-b border-border flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Queue ({contacts.length})
