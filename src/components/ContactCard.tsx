@@ -309,6 +309,20 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
             </>
           )}
         </div>
+
+        {/* Company Summary - moved here below company name */}
+        {contact.company && (
+          <AIResearchBox
+            title="Company Summary"
+            content={companyAI.ai_summary}
+            isLoading={isResearching[`company_${contact.company}`] || false}
+            onRefresh={handleRefreshCompanySearch}
+            lastUpdated={companyAI.ai_summary_updated_at}
+            variant="company"
+            buttonLabel="Refresh"
+            maxCollapsedLines={5}
+          />
+        )}
       </div>
 
       {/* Contact Details */}
@@ -394,19 +408,8 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
         </div>
       </div>
 
-      {/* AI Research Sections */}
+      {/* AI Research Sections - Custom Research and Persona only */}
       <div className="space-y-3">
-        {/* Company Summary */}
-        <AIResearchBox
-          title="Company Summary"
-          content={companyAI.ai_summary}
-          isLoading={isResearching[`company_${contact.company}`] || false}
-          onRefresh={handleRefreshCompanySearch}
-          lastUpdated={companyAI.ai_summary_updated_at}
-          variant="company"
-          buttonLabel="Refresh"
-        />
-
         {/* Custom Company Research */}
         <AIResearchBox
           title="Custom Research"
@@ -416,6 +419,7 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
           lastUpdated={companyAI.ai_custom_updated_at}
           variant="custom"
           buttonLabel="Run Research"
+          maxCollapsedLines={5}
         />
 
         {/* Persona */}
@@ -427,6 +431,7 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
           lastUpdated={personaUpdatedAt}
           variant="persona"
           buttonLabel="Refresh"
+          maxCollapsedLines={5}
         />
       </div>
 

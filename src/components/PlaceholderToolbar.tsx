@@ -10,9 +10,10 @@ interface PlaceholderToolbarProps {
   groups: PlaceholderGroup[];
   onInsert: (placeholder: string) => void;
   onDragStart?: (placeholder: string, e: React.DragEvent) => void;
+  emptyFields?: Set<string>;
 }
 
-export function PlaceholderToolbar({ groups, onInsert, onDragStart }: PlaceholderToolbarProps) {
+export function PlaceholderToolbar({ groups, onInsert, onDragStart, emptyFields }: PlaceholderToolbarProps) {
   return (
     <div className="space-y-2 p-3 bg-muted/30 rounded-lg border">
       <div className="text-xs font-medium text-muted-foreground mb-2">
@@ -27,6 +28,7 @@ export function PlaceholderToolbar({ groups, onInsert, onDragStart }: Placeholde
                 key={p.name}
                 name={p.name}
                 category={group.category}
+                isEmpty={emptyFields?.has(p.name)}
                 onClick={() => onInsert(`{${p.name}}`)}
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/plain', `{${p.name}}`);

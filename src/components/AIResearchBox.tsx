@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Sparkles, RefreshCw, Copy, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,7 @@ interface AIResearchBoxProps {
   variant?: 'company' | 'custom' | 'persona';
   buttonLabel?: string;
   provider?: 'perplexity' | 'openai' | null;
+  maxCollapsedLines?: number;
 }
 
 export function AIResearchBox({
@@ -28,8 +29,21 @@ export function AIResearchBox({
   variant = 'company',
   buttonLabel = 'Refresh',
   provider,
+  maxCollapsedLines = 5,
 }: AIResearchBoxProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
+  const [showReadMore, setShowReadMore] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Check if content exceeds max lines
+  useEffect(() => {
+    if (contentRef.current && content) {
+      const lineHeight = 24; // approximate line height for text-sm leading-relaxed
+      const maxHeight = lineHeight * maxCollapsedLines;
+      setShowReadMore(contentRef.current.scrollHeight > maxHeight + 10);
+    }
+  }, [content, maxCollapsedLines, isExpanded]);
 
   const copyToClipboard = () => {
     if (content) {
@@ -90,9 +104,27 @@ export function AIResearchBox({
             </div>
           ) : content ? (
             <>
-              <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+              <div 
+                ref={contentRef}
+                className={cn(
+                  "text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed overflow-hidden transition-all",
+                  !isContentExpanded && showReadMore && "max-h-[120px]"
+                )}
+              >
                 {content}
               </div>
+              
+              {showReadMore && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsContentExpanded(!isContentExpanded);
+                  }}
+                  className="text-xs text-primary hover:underline mt-1 font-medium"
+                >
+                  {isContentExpanded ? 'Show less' : 'Read more...'}
+                </button>
+              )}
               
               {citations && citations.length > 0 ? (
                 <div className="mt-3 pt-2 border-t border-border/50">

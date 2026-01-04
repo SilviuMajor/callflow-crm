@@ -12,6 +12,7 @@ interface PromptEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholderGroups: PlaceholderGroup[];
+  emptyFields?: Set<string>;
   className?: string;
 }
 
@@ -21,7 +22,7 @@ const categoryColors: Record<PlaceholderCategory, { bg: string; text: string; bo
   seller: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
 };
 
-export function PromptEditor({ value, onChange, placeholderGroups, className }: PromptEditorProps) {
+export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, className }: PromptEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompleteFilter, setAutocompleteFilter] = useState('');
@@ -74,13 +75,14 @@ export function PromptEditor({ value, onChange, placeholderGroups, className }: 
       const name = match[1];
       const category = getCategoryForPlaceholder(name);
       const colors = categoryColors[category];
+      const isFieldEmpty = emptyFields?.has(name);
       
       result += `<span 
         contenteditable="false" 
         draggable="true" 
         data-placeholder="${name}"
-        class="inline-flex items-center px-2 py-0.5 mx-0.5 text-xs font-mono rounded-full border cursor-grab select-none ${colors.bg} ${colors.text} ${colors.border}"
-      >{${name}}</span>`;
+        class="inline-flex items-center px-2 py-0.5 mx-0.5 text-xs font-mono rounded-full border cursor-grab select-none relative ${colors.bg} ${colors.text} ${colors.border}"
+      >{${name}}${isFieldEmpty ? '<span class="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold leading-none">✕</span>' : ''}</span>`;
 
       lastIndex = match.index + match[0].length;
     }
@@ -89,7 +91,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, className }: 
     result += escapeHtml(text.slice(lastIndex));
 
     return result;
-  }, [getCategoryForPlaceholder]);
+  }, [getCategoryForPlaceholder, emptyFields]);
 
   // Convert HTML content back to plain text
   const htmlToText = useCallback((element: HTMLElement): string => {
