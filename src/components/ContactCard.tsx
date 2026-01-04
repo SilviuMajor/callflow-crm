@@ -12,12 +12,14 @@ import { useCompanyData } from '@/hooks/useCompanyData';
 import { useAIResearch } from '@/hooks/useAIResearch';
 import { AIResearchBox } from '@/components/AIResearchBox';
 import { InlineEditField } from '@/components/InlineEditField';
+import { LinkedContacts } from '@/components/LinkedContacts';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ContactCardProps {
   contact: Contact;
   onUpdate?: (updates: Partial<Contact>) => void;
   onEditClick?: () => void;
+  onSelectContact?: (contactId: string) => void;
 }
 
 interface AICache {
@@ -27,7 +29,7 @@ interface AICache {
   ai_custom_updated_at?: string | null;
 }
 
-export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps) {
+export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }: ContactCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -238,177 +240,250 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
         )}
       </div>
 
-      {/* Editable Job Title & Company */}
-      <div className="space-y-2">
-        <div className="group flex items-center gap-2">
-          <span className="text-xs text-muted-foreground w-16">Title:</span>
-          {editingField === 'jobTitle' ? (
-            <div className="flex-1 flex gap-1">
-              <Input
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="h-7 text-sm"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && saveField('jobTitle')}
+      {/* Two-column grid layout (stacks on mobile) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* LEFT BLOCK: Company Info */}
+        <div className="space-y-3 p-3 rounded-lg border border-border bg-card">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Building2 className="w-3 h-3" />
+            Company Info
+          </h3>
+          
+          {/* Job Title */}
+          <div className="group flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-16 flex-shrink-0">Title:</span>
+            {editingField === 'jobTitle' ? (
+              <div className="flex-1 flex gap-1">
+                <Input
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="h-7 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && saveField('jobTitle')}
+                />
+                <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveField('jobTitle')}>
+                  <Check className="w-3 h-3" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <span 
+                  className="text-sm text-muted-foreground flex-1 cursor-pointer hover:text-foreground truncate"
+                  onClick={() => onUpdate && startEditing('jobTitle', contact.jobTitle)}
+                >
+                  {contact.jobTitle || <span className="text-muted-foreground/50">Click to add...</span>}
+                </span>
+                {contact.jobTitle && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                    onClick={() => copyToClipboard(contact.jobTitle, 'jobTitle')}
+                  >
+                    {copiedField === 'jobTitle' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Company */}
+          <div className="group flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-16 flex-shrink-0">Company:</span>
+            {editingField === 'company' ? (
+              <div className="flex-1 flex gap-1">
+                <Input
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="h-7 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && saveField('company')}
+                />
+                <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveField('company')}>
+                  <Check className="w-3 h-3" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <span 
+                  className="text-sm font-medium text-primary flex-1 cursor-pointer hover:text-primary/80 truncate"
+                  onClick={() => onUpdate && startEditing('company', contact.company)}
+                >
+                  {contact.company}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                  onClick={() => copyToClipboard(contact.company, 'company')}
+                >
+                  {copiedField === 'company' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Website */}
+          <div className="group flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-16 flex-shrink-0">Website:</span>
+            <div className="flex-1 min-w-0">
+              <InlineEditField
+                value={contact.website || ''}
+                onSave={(value) => onUpdate?.({ website: value })}
+                placeholder="Add website..."
+                type="url"
+                className="text-sm truncate"
               />
-              <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveField('jobTitle')}>
-                <Check className="w-3 h-3" />
-              </Button>
             </div>
-          ) : (
-            <>
-              <span 
-                className="text-sm text-muted-foreground flex-1 cursor-pointer hover:text-foreground"
-                onClick={() => onUpdate && startEditing('jobTitle', contact.jobTitle)}
-              >
-                {contact.jobTitle}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                onClick={() => copyToClipboard(contact.jobTitle, 'jobTitle')}
-              >
-                {copiedField === 'jobTitle' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-              </Button>
-            </>
+            {contact.website && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                  onClick={() => copyToClipboard(contact.website || '', 'website')}
+                >
+                  {copiedField === 'website' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                </Button>
+                <a 
+                  href={contact.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0"
+                >
+                  <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                </a>
+              </>
+            )}
+          </div>
+
+          {/* Company Summary - inside left block */}
+          {contact.company && (
+            <AIResearchBox
+              title="Company Summary"
+              content={companyAI.ai_summary}
+              isLoading={isResearching[`company_${contact.company}`] || false}
+              onRefresh={handleRefreshCompanySearch}
+              lastUpdated={companyAI.ai_summary_updated_at}
+              variant="company"
+              buttonLabel="Refresh"
+              maxCollapsedLines={5}
+            />
           )}
         </div>
 
-        <div className="group flex items-center gap-2">
-          <span className="text-xs text-muted-foreground w-16">Company:</span>
-          {editingField === 'company' ? (
-            <div className="flex-1 flex gap-1">
-              <Input
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="h-7 text-sm"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && saveField('company')}
+        {/* RIGHT BLOCK: Contact Details + Custom Fields */}
+        <div className="space-y-3 p-3 rounded-lg border border-border bg-card">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</h3>
+          
+          {/* Phone */}
+          <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
+            <Phone className="w-4 h-4 text-success shrink-0" />
+            <div className="flex-1 min-w-0">
+              <InlineEditField
+                value={contact.phone}
+                onSave={(value) => onUpdate?.({ phone: value })}
+                placeholder="Add phone..."
+                type="tel"
+                className="text-sm font-medium"
               />
-              <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveField('company')}>
-                <Check className="w-3 h-3" />
-              </Button>
             </div>
-          ) : (
-            <>
-              <span 
-                className="text-sm font-medium text-primary flex-1 cursor-pointer hover:text-primary/80"
-                onClick={() => onUpdate && startEditing('company', contact.company)}
-              >
-                {contact.company}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                onClick={() => copyToClipboard(contact.company, 'company')}
-              >
-                {copiedField === 'company' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-              </Button>
-            </>
-          )}
-        </div>
-
-        {/* Company Summary - moved here below company name */}
-        {contact.company && (
-          <AIResearchBox
-            title="Company Summary"
-            content={companyAI.ai_summary}
-            isLoading={isResearching[`company_${contact.company}`] || false}
-            onRefresh={handleRefreshCompanySearch}
-            lastUpdated={companyAI.ai_summary_updated_at}
-            variant="company"
-            buttonLabel="Refresh"
-            maxCollapsedLines={5}
-          />
-        )}
-      </div>
-
-      {/* Contact Details */}
-      <div className="space-y-2">
-        <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
-          <Phone className="w-4 h-4 text-success shrink-0" />
-          <div className="flex-1">
-            <InlineEditField
-              value={contact.phone}
-              onSave={(value) => onUpdate?.({ phone: value })}
-              placeholder="Add phone..."
-              type="tel"
-              className="text-sm font-medium"
-            />
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={() => copyToClipboard(contact.phone, 'phone')}
-          >
-            {copiedField === 'phone' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          </Button>
-        </div>
-
-        <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
-          <Mail className="w-4 h-4 text-info shrink-0" />
-          <div className="flex-1">
-            <InlineEditField
-              value={contact.email || ''}
-              onSave={(value) => onUpdate?.({ email: value })}
-              placeholder="Add email..."
-              type="email"
-              className="text-sm"
-            />
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={() => copyToClipboard(contact.email || '', 'email')}
-          >
-            {copiedField === 'email' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={openGmail}
-          >
-            Gmail
-          </Button>
-        </div>
-
-        <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
-          <Globe className="w-4 h-4 text-warning shrink-0" />
-          <div className="flex-1">
-            <InlineEditField
-              value={contact.website || ''}
-              onSave={(value) => onUpdate?.({ website: value })}
-              placeholder="Add website..."
-              type="url"
-              className="text-sm"
-            />
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={() => copyToClipboard(contact.website || '', 'website')}
-          >
-            {copiedField === 'website' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          </Button>
-          {contact.website && (
-            <a 
-              href={contact.website}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+              onClick={() => copyToClipboard(contact.phone, 'phone')}
             >
-              <ExternalLink className="w-3 h-3 text-muted-foreground" />
-            </a>
+              {copiedField === 'phone' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            </Button>
+          </div>
+
+          {/* Email */}
+          <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
+            <Mail className="w-4 h-4 text-info shrink-0" />
+            <div className="flex-1 min-w-0">
+              <InlineEditField
+                value={contact.email || ''}
+                onSave={(value) => onUpdate?.({ email: value })}
+                placeholder="Add email..."
+                type="email"
+                className="text-sm"
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+              onClick={() => copyToClipboard(contact.email || '', 'email')}
+            >
+              {copiedField === 'email' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-xs flex-shrink-0"
+              onClick={openGmail}
+            >
+              Gmail
+            </Button>
+          </div>
+
+          {/* Custom Contact Fields */}
+          {activeCustomFields.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <span className="text-xs text-muted-foreground font-medium">Custom Fields</span>
+              {activeCustomFields.map(field => {
+                const fieldValue = getCustomFieldValue(field);
+                const isEditing = editingField === `custom_${field.id}`;
+                
+                return (
+                  <div key={field.id} className="group flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-20 truncate flex-shrink-0" title={field.label}>
+                      {field.label}:
+                    </span>
+                    {isEditing ? (
+                      <div className="flex-1 flex gap-1">
+                        {renderFieldInput(field, false)}
+                        <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCustomField(field.id)}>
+                          <Check className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <span 
+                          className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate"
+                          onClick={() => onUpdate && startEditing(`custom_${field.id}`, fieldValue)}
+                        >
+                          {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                        </span>
+                        {fieldValue && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            onClick={() => copyToClipboard(fieldValue, `custom_${field.id}`)}
+                          >
+                            {copiedField === `custom_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
-      {/* AI Research Sections - Custom Research and Persona only */}
+      {/* LINKED CONTACTS SECTION */}
+      <LinkedContacts
+        company={contact.company}
+        currentContactId={contact.id}
+        onSelectContact={onSelectContact}
+      />
+
+      {/* AI Research Sections - Custom Research and Persona */}
       <div className="space-y-3">
         {/* Custom Company Research */}
         <AIResearchBox
@@ -448,7 +523,7 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
             
             return (
               <div key={field.id} className="group flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-24 truncate" title={field.label}>
+                <span className="text-xs text-muted-foreground w-24 truncate flex-shrink-0" title={field.label}>
                   {field.label}:
                 </span>
                 {isEditing ? (
@@ -470,56 +545,10 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
                         onClick={() => copyToClipboard(fieldValue, `company_${field.id}`)}
                       >
                         {copiedField === `company_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Custom Fields */}
-      {activeCustomFields.length > 0 && (
-        <div className="space-y-2">
-          <span className="text-xs text-muted-foreground font-medium">Contact Fields</span>
-          {activeCustomFields.map(field => {
-            const fieldValue = getCustomFieldValue(field);
-            const isEditing = editingField === `custom_${field.id}`;
-            
-            return (
-              <div key={field.id} className="group flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-24 truncate" title={field.label}>
-                  {field.label}:
-                </span>
-                {isEditing ? (
-                  <div className="flex-1 flex gap-1">
-                    {renderFieldInput(field, false)}
-                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCustomField(field.id)}>
-                      <Check className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <span 
-                      className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate"
-                      onClick={() => onUpdate && startEditing(`custom_${field.id}`, fieldValue)}
-                    >
-                      {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
-                    </span>
-                    {fieldValue && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                        onClick={() => copyToClipboard(fieldValue, `custom_${field.id}`)}
-                      >
-                        {copiedField === `custom_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                       </Button>
                     )}
                   </>
