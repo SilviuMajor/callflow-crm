@@ -17,6 +17,7 @@ export type Database = {
       ai_prompts: {
         Row: {
           created_at: string | null
+          default_prompt: string | null
           enabled: boolean | null
           id: string
           model: string | null
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          default_prompt?: string | null
           enabled?: boolean | null
           id?: string
           model?: string | null
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          default_prompt?: string | null
           enabled?: boolean | null
           id?: string
           model?: string | null
@@ -242,6 +245,51 @@ export type Database = {
           question_order?: number
           type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      seller_company: {
+        Row: {
+          company_name: string
+          created_at: string
+          id: string
+          industry: string | null
+          pain_points_solved: string | null
+          product_offering: string | null
+          product_sets: string | null
+          target_audience: string | null
+          tone_style: string | null
+          updated_at: string
+          usps: string | null
+          website: string | null
+        }
+        Insert: {
+          company_name?: string
+          created_at?: string
+          id?: string
+          industry?: string | null
+          pain_points_solved?: string | null
+          product_offering?: string | null
+          product_sets?: string | null
+          target_audience?: string | null
+          tone_style?: string | null
+          updated_at?: string
+          usps?: string | null
+          website?: string | null
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          id?: string
+          industry?: string | null
+          pain_points_solved?: string | null
+          product_offering?: string | null
+          product_sets?: string | null
+          target_audience?: string | null
+          tone_style?: string | null
+          updated_at?: string
+          usps?: string | null
+          website?: string | null
         }
         Relationships: []
       }
