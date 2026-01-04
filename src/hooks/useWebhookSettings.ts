@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface WebhookSettings {
   enabled: boolean;
   url: string;
 }
-
-const STORAGE_KEY = 'webhook-settings';
 
 const defaultSettings: WebhookSettings = {
   enabled: false,
@@ -13,25 +13,72 @@ const defaultSettings: WebhookSettings = {
 };
 
 export function useWebhookSettings() {
-  const [settings, setSettings] = useState<WebhookSettings>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return defaultSettings;
+  const [settings, setSettings] = useState<WebhookSettings>(defaultSettings);
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load settings from database
+  useEffect(() => {
+    const loadSettings = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('webhook_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading webhook settings:', error);
+      } else if (data) {
+        setSettings({
+          enabled: data.enabled,
+          url: data.url,
+        });
+        setSettingsId(data.id);
+      }
+      setIsLoading(false);
+    };
+
+    loadSettings();
+  }, []);
+
+  const updateSettings = useCallback(async (updates: Partial<WebhookSettings>) => {
+    const newSettings = { ...settings, ...updates };
+    setSettings(newSettings);
+
+    if (settingsId) {
+      // Update existing record
+      const { error } = await supabase
+        .from('webhook_settings')
+        .update({
+          enabled: newSettings.enabled,
+          url: newSettings.url,
+        })
+        .eq('id', settingsId);
+
+      if (error) {
+        console.error('Error updating webhook settings:', error);
+        toast.error('Failed to save webhook settings');
+      }
+    } else {
+      // Insert new record
+      const { data, error } = await supabase
+        .from('webhook_settings')
+        .insert({
+          enabled: newSettings.enabled,
+          url: newSettings.url,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating webhook settings:', error);
+        toast.error('Failed to save webhook settings');
+      } else if (data) {
+        setSettingsId(data.id);
       }
     }
-    return defaultSettings;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [settings]);
-
-  const updateSettings = useCallback((updates: Partial<WebhookSettings>) => {
-    setSettings(prev => ({ ...prev, ...updates }));
-  }, []);
+  }, [settings, settingsId]);
 
   const sendWebhook = useCallback(async (contact: Record<string, any>): Promise<{ success: boolean; error?: string }> => {
     if (!settings.enabled || !settings.url) {
@@ -57,8 +104,6 @@ export function useWebhookSettings() {
 
       return { success: true };
     } catch (error) {
-      // For CORS errors or network issues, we can't verify success
-      // Since user wants "block until success", treat network errors as failures
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Network error' 
@@ -115,18 +160,24 @@ export function useWebhookSettings() {
     updateSettings,
     sendWebhook,
     testWebhook,
+    isLoading,
   };
 }
 
 // Standalone getter for use in components without hook context
-export function getWebhookSettings(): WebhookSettings {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return defaultSettings;
-    }
+export async function getWebhookSettings(): Promise<WebhookSettings> {
+  const { data, error } = await supabase
+    .from('webhook_settings')
+    .select('*')
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return defaultSettings;
   }
-  return defaultSettings;
+
+  return {
+    enabled: data.enabled,
+    url: data.url,
+  };
 }

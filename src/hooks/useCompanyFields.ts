@@ -1,75 +1,177 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CompanyField } from '@/types/contact';
-
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
-const STORAGE_KEY = 'company_fields';
-
-const loadFromStorage = (): CompanyField[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveToStorage = (fields: CompanyField[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(fields));
-};
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function useCompanyFields() {
-  const [fields, setFields] = useState<CompanyField[]>(loadFromStorage);
+  const [fields, setFields] = useState<CompanyField[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const persistFields = useCallback((newFields: CompanyField[]) => {
-    setFields(newFields);
-    saveToStorage(newFields);
+  // Load fields from database
+  useEffect(() => {
+    const loadFields = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('company_fields')
+        .select('*')
+        .order('field_order', { ascending: true });
+
+      if (error) {
+        console.error('Error loading company fields:', error);
+        toast.error('Failed to load company fields');
+      } else if (data) {
+        const mappedFields: CompanyField[] = data.map(row => ({
+          id: row.id,
+          key: row.key,
+          label: row.label,
+          type: row.type as CompanyField['type'],
+          options: row.options || undefined,
+          order: row.field_order,
+          isArchived: row.is_archived,
+        }));
+        setFields(mappedFields);
+      }
+      setIsLoading(false);
+    };
+
+    loadFields();
   }, []);
 
-  const addField = useCallback((field: Omit<CompanyField, 'id' | 'order'>) => {
-    const newField: CompanyField = {
-      ...field,
-      id: generateId(),
-      order: fields.length,
-    };
-    persistFields([...fields, newField]);
-    return newField.id;
-  }, [fields, persistFields]);
+  const addField = useCallback(async (field: Omit<CompanyField, 'id' | 'order'>) => {
+    const newOrder = fields.length;
+    
+    const { data, error } = await supabase
+      .from('company_fields')
+      .insert({
+        key: field.key,
+        label: field.label,
+        type: field.type,
+        options: field.options || null,
+        field_order: newOrder,
+        is_archived: field.isArchived || false,
+      })
+      .select()
+      .single();
 
-  const updateField = useCallback((id: string, updates: Partial<Omit<CompanyField, 'id'>>) => {
-    persistFields(fields.map(f => 
+    if (error) {
+      console.error('Error adding company field:', error);
+      toast.error('Failed to add company field');
+      return '';
+    }
+
+    if (data) {
+      const newField: CompanyField = {
+        id: data.id,
+        key: data.key,
+        label: data.label,
+        type: data.type as CompanyField['type'],
+        options: data.options || undefined,
+        order: data.field_order,
+        isArchived: data.is_archived,
+      };
+      setFields(prev => [...prev, newField]);
+      return data.id;
+    }
+    return '';
+  }, [fields.length]);
+
+  const updateField = useCallback(async (id: string, updates: Partial<Omit<CompanyField, 'id'>>) => {
+    setFields(prev => prev.map(f => 
       f.id === id ? { ...f, ...updates } : f
     ));
-  }, [fields, persistFields]);
 
-  const archiveField = useCallback((id: string) => {
-    persistFields(fields.map(f => 
+    const dbUpdates: Record<string, any> = {};
+    if (updates.key !== undefined) dbUpdates.key = updates.key;
+    if (updates.label !== undefined) dbUpdates.label = updates.label;
+    if (updates.type !== undefined) dbUpdates.type = updates.type;
+    if (updates.options !== undefined) dbUpdates.options = updates.options || null;
+    if (updates.order !== undefined) dbUpdates.field_order = updates.order;
+    if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+
+    const { error } = await supabase
+      .from('company_fields')
+      .update(dbUpdates)
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating company field:', error);
+      toast.error('Failed to update company field');
+    }
+  }, []);
+
+  const archiveField = useCallback(async (id: string) => {
+    setFields(prev => prev.map(f => 
       f.id === id ? { ...f, isArchived: true } : f
     ));
-  }, [fields, persistFields]);
 
-  const restoreField = useCallback((id: string) => {
+    const { error } = await supabase
+      .from('company_fields')
+      .update({ is_archived: true })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error archiving company field:', error);
+    }
+  }, []);
+
+  const restoreField = useCallback(async (id: string) => {
     const activeCount = fields.filter(f => !f.isArchived).length;
-    persistFields(fields.map(f => 
+    
+    setFields(prev => prev.map(f => 
       f.id === id ? { ...f, isArchived: false, order: activeCount } : f
     ));
-  }, [fields, persistFields]);
 
-  const deleteField = useCallback((id: string) => {
+    const { error } = await supabase
+      .from('company_fields')
+      .update({ is_archived: false, field_order: activeCount })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error restoring company field:', error);
+    }
+  }, [fields]);
+
+  const deleteField = useCallback(async (id: string) => {
     const filtered = fields.filter(f => f.id !== id);
     const reordered = filtered.map((f, index) => ({ ...f, order: index }));
-    persistFields(reordered);
-  }, [fields, persistFields]);
+    setFields(reordered);
 
-  const reorderFields = useCallback((newOrder: string[]) => {
+    const { error } = await supabase
+      .from('company_fields')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting company field:', error);
+      toast.error('Failed to delete company field');
+    }
+
+    // Update orders for remaining fields
+    for (const field of reordered) {
+      await supabase
+        .from('company_fields')
+        .update({ field_order: field.order })
+        .eq('id', field.id);
+    }
+  }, [fields]);
+
+  const reorderFields = useCallback(async (newOrder: string[]) => {
     const fieldMap = new Map(fields.map(f => [f.id, f]));
     const reordered = newOrder.map((id, index) => ({
       ...fieldMap.get(id)!,
       order: index,
     }));
     const archived = fields.filter(f => f.isArchived);
-    persistFields([...reordered, ...archived]);
-  }, [fields, persistFields]);
+    setFields([...reordered, ...archived]);
+
+    // Update orders in database
+    for (let i = 0; i < newOrder.length; i++) {
+      await supabase
+        .from('company_fields')
+        .update({ field_order: i })
+        .eq('id', newOrder[i]);
+    }
+  }, [fields]);
 
   return {
     fields,
@@ -79,6 +181,7 @@ export function useCompanyFields() {
     restoreField,
     deleteField,
     reorderFields,
-    setFields: persistFields,
+    setFields,
+    isLoading,
   };
 }

@@ -1,95 +1,50 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Contact, CallStatus, CompletedReason, NotInterestedReason } from '@/types/contact';
-
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
-const sampleContacts: Contact[] = [
-  {
-    id: generateId(),
-    firstName: 'Sarah',
-    lastName: 'Mitchell',
-    company: 'TechCorp Solutions',
-    jobTitle: 'VP of Sales',
-    phone: '+1 (555) 123-4567',
-    email: 'sarah.mitchell@techcorp.com',
-    website: 'https://techcorp.com',
-    notes: 'Interested in enterprise plan',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: generateId(),
-    firstName: 'James',
-    lastName: 'Wilson',
-    company: 'Growth Industries',
-    jobTitle: 'CEO',
-    phone: '+44 7700 900123',
-    email: 'james@growthindustries.io',
-    website: 'https://growthindustries.io',
-    notes: 'Referred by Mark Thompson',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: generateId(),
-    firstName: 'Emily',
-    lastName: 'Chen',
-    company: 'DataFlow Analytics',
-    jobTitle: 'Head of Operations',
-    phone: '+44 20 7946 0958',
-    email: 'emily.chen@dataflow.co',
-    website: 'https://dataflow.co',
-    notes: 'Follow up on demo request',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: generateId(),
-    firstName: 'Michael',
-    lastName: 'Roberts',
-    company: 'Innovate Labs',
-    jobTitle: 'Director of Procurement',
-    phone: '+1 (555) 456-7890',
-    email: 'mroberts@innovatelabs.com',
-    website: 'https://innovatelabs.com',
-    notes: 'Budget approved for Q2',
-    status: 'callback',
-    callbackDate: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago (overdue)
-    createdAt: new Date(),
-  },
-  {
-    id: generateId(),
-    firstName: 'Lisa',
-    lastName: 'Anderson',
-    company: 'Scale Ventures',
-    jobTitle: 'Partner',
-    phone: '+44 7911 123456',
-    email: 'lisa@scaleventures.vc',
-    website: 'https://scaleventures.vc',
-    notes: 'Looking for portfolio companies',
-    status: 'pending',
-    createdAt: new Date(),
-  },
-  {
-    id: generateId(),
-    firstName: 'David',
-    lastName: 'Kim',
-    company: 'NextGen Software',
-    jobTitle: 'CTO',
-    phone: '+1 (555) 678-9012',
-    email: 'david.kim@nextgen.io',
-    website: 'https://nextgen.io',
-    notes: 'Technical evaluation needed',
-    status: 'callback',
-    callbackDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow (future)
-    createdAt: new Date(),
-  },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function useContacts() {
-  const [contacts, setContacts] = useState<Contact[]>(sampleContacts);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load contacts from database
+  useEffect(() => {
+    const loadContacts = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading contacts:', error);
+        toast.error('Failed to load contacts');
+      } else if (data) {
+        const mappedContacts: Contact[] = data.map(row => ({
+          id: row.id,
+          firstName: row.first_name,
+          lastName: row.last_name,
+          company: row.company,
+          jobTitle: row.job_title || '',
+          phone: row.phone,
+          email: row.email || '',
+          website: row.website || '',
+          notes: row.notes || '',
+          status: row.status as CallStatus,
+          callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
+          qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
+          customFields: (row.custom_fields as Record<string, any>) || {},
+          createdAt: new Date(row.created_at),
+        }));
+        setContacts(mappedContacts);
+      }
+      setIsLoading(false);
+    };
+
+    loadContacts();
+  }, []);
 
   // Queue contacts: overdue callbacks -> pending -> future callbacks
   const queueContacts = useMemo(() => {
@@ -135,7 +90,7 @@ export function useContacts() {
     return queueContacts[0] || null;
   }, [contacts, selectedContactId, queueContacts]);
 
-  const updateContactStatus = useCallback((
+  const updateContactStatus = useCallback(async (
     contactId: string, 
     status: CallStatus, 
     callbackDate?: Date, 
@@ -144,68 +99,212 @@ export function useContacts() {
     notInterestedReason?: NotInterestedReason,
     appointmentDate?: Date
   ) => {
-    setContacts(prev => prev.map(contact => 
-      contact.id === contactId 
-        ? { 
-            ...contact, 
-            status, 
-            callbackDate,
-            appointmentDate: status === 'completed' ? appointmentDate : undefined,
-            notes: notes || contact.notes,
-            lastCalledAt: new Date(),
-            completedReason: status === 'completed' ? completedReason : undefined,
-            notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
-          } 
-        : contact
-    ));
-    
-    // After outcome, go back to top of queue
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    const updatedContact = { 
+      ...contact, 
+      status, 
+      callbackDate,
+      appointmentDate: status === 'completed' ? appointmentDate : undefined,
+      notes: notes || contact.notes,
+      lastCalledAt: new Date(),
+      completedReason: status === 'completed' ? completedReason : undefined,
+      notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
+    };
+
+    // Update locally first for responsiveness
+    setContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
     setSelectedContactId(null);
-  }, []);
 
-  const updateContact = useCallback((contactId: string, updates: Partial<Contact>) => {
+    // Persist to database
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        status,
+        callback_date: callbackDate?.toISOString() || null,
+        notes: notes || contact.notes,
+      })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error updating contact status:', error);
+      toast.error('Failed to save contact status');
+    }
+  }, [contacts]);
+
+  const updateContact = useCallback(async (contactId: string, updates: Partial<Contact>) => {
+    // Update locally first
     setContacts(prev => prev.map(contact => 
-      contact.id === contactId 
-        ? { ...contact, ...updates }
-        : contact
+      contact.id === contactId ? { ...contact, ...updates } : contact
     ));
+
+    // Build database update object
+    const dbUpdates: Record<string, any> = {};
+    if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName;
+    if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName;
+    if (updates.company !== undefined) dbUpdates.company = updates.company;
+    if (updates.jobTitle !== undefined) dbUpdates.job_title = updates.jobTitle;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.website !== undefined) dbUpdates.website = updates.website;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.callbackDate !== undefined) dbUpdates.callback_date = updates.callbackDate?.toISOString() || null;
+    if (updates.qualifyingAnswers !== undefined) dbUpdates.qualifying_answers = updates.qualifyingAnswers;
+    if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
+
+    if (Object.keys(dbUpdates).length > 0) {
+      const { error } = await supabase
+        .from('contacts')
+        .update(dbUpdates)
+        .eq('id', contactId);
+
+      if (error) {
+        console.error('Error updating contact:', error);
+        toast.error('Failed to save contact');
+      }
+    }
   }, []);
 
-  const updateContactAnswers = useCallback((contactId: string, answers: Record<string, any>) => {
-    setContacts(prev => prev.map(contact => 
-      contact.id === contactId 
-        ? { ...contact, qualifyingAnswers: { ...contact.qualifyingAnswers, ...answers } }
-        : contact
-    ));
-  }, []);
+  const updateContactAnswers = useCallback(async (contactId: string, answers: Record<string, any>) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
 
-  const clearContactAnswers = useCallback((questionIds: string[]) => {
+    const newAnswers = { ...contact.qualifyingAnswers, ...answers };
+    
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { ...c, qualifyingAnswers: newAnswers } : c
+    ));
+
+    const { error } = await supabase
+      .from('contacts')
+      .update({ qualifying_answers: newAnswers })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error updating qualifying answers:', error);
+    }
+  }, [contacts]);
+
+  const clearContactAnswers = useCallback(async (questionIds: string[]) => {
+    const contactsToUpdate: { id: string; answers: Record<string, any> }[] = [];
+    
     setContacts(prev => prev.map(contact => {
       if (!contact.qualifyingAnswers) return contact;
       const newAnswers = { ...contact.qualifyingAnswers };
-      questionIds.forEach(id => delete newAnswers[id]);
-      return { ...contact, qualifyingAnswers: newAnswers };
+      let changed = false;
+      questionIds.forEach(id => {
+        if (id in newAnswers) {
+          delete newAnswers[id];
+          changed = true;
+        }
+      });
+      if (changed) {
+        contactsToUpdate.push({ id: contact.id, answers: newAnswers });
+      }
+      return changed ? { ...contact, qualifyingAnswers: newAnswers } : contact;
     }));
+
+    // Update database for each changed contact
+    for (const { id, answers } of contactsToUpdate) {
+      await supabase
+        .from('contacts')
+        .update({ qualifying_answers: answers })
+        .eq('id', id);
+    }
   }, []);
 
-  const addContact = useCallback((contact: Omit<Contact, 'id' | 'createdAt' | 'status'>) => {
-    const newContact: Contact = {
-      ...contact,
-      id: generateId(),
+  const addContact = useCallback(async (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>) => {
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert({
+        first_name: contact.firstName,
+        last_name: contact.lastName,
+        company: contact.company,
+        job_title: contact.jobTitle || null,
+        phone: contact.phone,
+        email: contact.email || null,
+        website: contact.website || null,
+        notes: contact.notes || null,
+        status: 'pending',
+        qualifying_answers: contact.qualifyingAnswers || {},
+        custom_fields: contact.customFields || {},
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding contact:', error);
+      toast.error('Failed to add contact');
+      return;
+    }
+
+    if (data) {
+      const newContact: Contact = {
+        id: data.id,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        company: data.company,
+        jobTitle: data.job_title || '',
+        phone: data.phone,
+        email: data.email || '',
+        website: data.website || '',
+        notes: data.notes || '',
+        status: data.status as CallStatus,
+        qualifyingAnswers: (data.qualifying_answers as Record<string, any>) || {},
+        customFields: (data.custom_fields as Record<string, any>) || {},
+        createdAt: new Date(data.created_at),
+      };
+      setContacts(prev => [...prev, newContact]);
+    }
+  }, []);
+
+  const importContacts = useCallback(async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[]) => {
+    const inserts = newContacts.map(contact => ({
+      first_name: contact.firstName,
+      last_name: contact.lastName,
+      company: contact.company,
+      job_title: contact.jobTitle || null,
+      phone: contact.phone,
+      email: contact.email || null,
+      website: contact.website || null,
+      notes: contact.notes || null,
       status: 'pending',
-      createdAt: new Date(),
-    };
-    setContacts(prev => [...prev, newContact]);
-  }, []);
-
-  const importContacts = useCallback((newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[]) => {
-    const contactsToAdd: Contact[] = newContacts.map(contact => ({
-      ...contact,
-      id: generateId(),
-      status: 'pending' as CallStatus,
-      createdAt: new Date(),
+      qualifying_answers: contact.qualifyingAnswers || {},
+      custom_fields: contact.customFields || {},
     }));
-    setContacts(prev => [...prev, ...contactsToAdd]);
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert(inserts)
+      .select();
+
+    if (error) {
+      console.error('Error importing contacts:', error);
+      toast.error('Failed to import contacts');
+      return;
+    }
+
+    if (data) {
+      const mappedContacts: Contact[] = data.map(row => ({
+        id: row.id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        company: row.company,
+        jobTitle: row.job_title || '',
+        phone: row.phone,
+        email: row.email || '',
+        website: row.website || '',
+        notes: row.notes || '',
+        status: row.status as CallStatus,
+        qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
+        customFields: (row.custom_fields as Record<string, any>) || {},
+        createdAt: new Date(row.created_at),
+      }));
+      setContacts(prev => [...prev, ...mappedContacts]);
+      toast.success(`Imported ${data.length} contacts`);
+    }
   }, []);
 
   const selectContact = useCallback((contactId: string | null) => {
@@ -266,5 +365,6 @@ export function useContacts() {
     searchQuery,
     setSearchQuery,
     stats,
+    isLoading,
   };
 }
