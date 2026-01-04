@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Contact, CallStatus } from '@/types/contact';
+import { Contact, CallStatus, CompletedReason, NotInterestedReason } from '@/types/contact';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -74,6 +74,7 @@ const sampleContacts: Contact[] = [
 export function useContacts() {
   const [contacts, setContacts] = useState<Contact[]>(sampleContacts);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const pendingContacts = useMemo(() => 
     contacts.filter(c => c.status === 'pending'),
@@ -85,6 +86,22 @@ export function useContacts() {
     [contacts]
   );
 
+  // Filter contacts by search query
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return contacts;
+    
+    const query = searchQuery.toLowerCase();
+    return contacts.filter(contact => 
+      contact.firstName.toLowerCase().includes(query) ||
+      contact.lastName.toLowerCase().includes(query) ||
+      contact.company.toLowerCase().includes(query) ||
+      contact.email.toLowerCase().includes(query) ||
+      contact.phone.toLowerCase().includes(query) ||
+      contact.jobTitle.toLowerCase().includes(query) ||
+      contact.notes.toLowerCase().includes(query)
+    );
+  }, [contacts, searchQuery]);
+
   const currentContact = useMemo(() => {
     // Priority: callbacks that are due, then pending
     if (callbackContacts.length > 0) {
@@ -93,7 +110,14 @@ export function useContacts() {
     return pendingContacts[currentIndex] || null;
   }, [pendingContacts, callbackContacts, currentIndex]);
 
-  const updateContactStatus = useCallback((contactId: string, status: CallStatus, callbackDate?: Date, notes?: string) => {
+  const updateContactStatus = useCallback((
+    contactId: string, 
+    status: CallStatus, 
+    callbackDate?: Date, 
+    notes?: string,
+    completedReason?: CompletedReason,
+    notInterestedReason?: NotInterestedReason
+  ) => {
     setContacts(prev => prev.map(contact => 
       contact.id === contactId 
         ? { 
@@ -101,7 +125,9 @@ export function useContacts() {
             status, 
             callbackDate,
             notes: notes || contact.notes,
-            lastCalledAt: new Date()
+            lastCalledAt: new Date(),
+            completedReason: status === 'completed' ? completedReason : undefined,
+            notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
           } 
         : contact
     ));
@@ -132,6 +158,13 @@ export function useContacts() {
     setContacts(prev => [...prev, ...contactsToAdd]);
   }, []);
 
+  const setSelectedContact = useCallback((contact: Contact) => {
+    const index = pendingContacts.findIndex(c => c.id === contact.id);
+    if (index !== -1) {
+      setCurrentIndex(index);
+    }
+  }, [pendingContacts]);
+
   const stats = useMemo(() => ({
     total: contacts.length,
     pending: contacts.filter(c => c.status === 'pending').length,
@@ -144,12 +177,16 @@ export function useContacts() {
 
   return {
     contacts,
+    filteredContacts,
     currentContact,
     pendingContacts,
     callbackContacts,
     updateContactStatus,
     addContact,
     importContacts,
+    setSelectedContact,
+    searchQuery,
+    setSearchQuery,
     stats,
   };
 }
