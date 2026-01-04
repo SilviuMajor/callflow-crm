@@ -1,51 +1,138 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { QualifyingQuestion } from '@/types/contact';
-
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
-const defaultQuestions: QualifyingQuestion[] = [
-  { id: generateId(), label: 'Budget Range', type: 'dropdown', options: ['< $10k', '$10k - $50k', '$50k - $100k', '$100k+'], order: 0, isArchived: false },
-  { id: generateId(), label: 'Timeline', type: 'dropdown', options: ['Immediate', '1-3 months', '3-6 months', '6+ months'], order: 1, isArchived: false },
-  { id: generateId(), label: 'Decision Maker?', type: 'radio', options: ['Yes', 'No', 'Part of committee'], order: 2, isArchived: false },
-  { id: generateId(), label: 'Current Solution', type: 'short_text', order: 3, isArchived: false },
-  { id: generateId(), label: 'Pain Points', type: 'long_text', order: 4, isArchived: false },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function useQualifyingQuestions() {
-  const [questions, setQuestions] = useState<QualifyingQuestion[]>(defaultQuestions);
+  const [questions, setQuestions] = useState<QualifyingQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const addQuestion = useCallback((question: Omit<QualifyingQuestion, 'id' | 'order'>) => {
-    const newQuestion: QualifyingQuestion = {
-      ...question,
-      id: generateId(),
-      order: questions.length,
+  // Load questions from database
+  useEffect(() => {
+    const loadQuestions = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('qualifying_questions')
+        .select('*')
+        .order('question_order', { ascending: true });
+
+      if (error) {
+        console.error('Error loading qualifying questions:', error);
+        toast.error('Failed to load qualifying questions');
+      } else if (data) {
+        const mappedQuestions: QualifyingQuestion[] = data.map(row => ({
+          id: row.id,
+          label: row.question,
+          type: row.type as QualifyingQuestion['type'],
+          options: row.options || undefined,
+          order: row.question_order,
+          isArchived: false, // Database doesn't have archive for questions
+        }));
+        setQuestions(mappedQuestions);
+      }
+      setIsLoading(false);
     };
-    setQuestions(prev => [...prev, newQuestion]);
-    return newQuestion.id;
+
+    loadQuestions();
+  }, []);
+
+  const addQuestion = useCallback(async (question: Omit<QualifyingQuestion, 'id' | 'order'>) => {
+    const newOrder = questions.length;
+    
+    const { data, error } = await supabase
+      .from('qualifying_questions')
+      .insert({
+        question: question.label,
+        type: question.type,
+        options: question.options || null,
+        question_order: newOrder,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding qualifying question:', error);
+      toast.error('Failed to add question');
+      return '';
+    }
+
+    if (data) {
+      const newQuestion: QualifyingQuestion = {
+        id: data.id,
+        label: data.question,
+        type: data.type as QualifyingQuestion['type'],
+        options: data.options || undefined,
+        order: data.question_order,
+        isArchived: false,
+      };
+      setQuestions(prev => [...prev, newQuestion]);
+      return data.id;
+    }
+    return '';
   }, [questions.length]);
 
-  const updateQuestion = useCallback((id: string, updates: Partial<Omit<QualifyingQuestion, 'id'>>) => {
+  const updateQuestion = useCallback(async (id: string, updates: Partial<Omit<QualifyingQuestion, 'id'>>) => {
     setQuestions(prev => prev.map(q => 
       q.id === id ? { ...q, ...updates } : q
     ));
+
+    const dbUpdates: Record<string, any> = {};
+    if (updates.label !== undefined) dbUpdates.question = updates.label;
+    if (updates.type !== undefined) dbUpdates.type = updates.type;
+    if (updates.options !== undefined) dbUpdates.options = updates.options || null;
+    if (updates.order !== undefined) dbUpdates.question_order = updates.order;
+
+    const { error } = await supabase
+      .from('qualifying_questions')
+      .update(dbUpdates)
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating qualifying question:', error);
+      toast.error('Failed to update question');
+    }
   }, []);
 
-  const deleteQuestion = useCallback((id: string) => {
-    setQuestions(prev => {
-      const filtered = prev.filter(q => q.id !== id);
-      return filtered.map((q, index) => ({ ...q, order: index }));
-    });
-  }, []);
+  const deleteQuestion = useCallback(async (id: string) => {
+    const filtered = questions.filter(q => q.id !== id);
+    const reordered = filtered.map((q, index) => ({ ...q, order: index }));
+    setQuestions(reordered);
 
-  const reorderQuestions = useCallback((newOrder: string[]) => {
-    setQuestions(prev => {
-      const questionMap = new Map(prev.map(q => [q.id, q]));
-      return newOrder.map((id, index) => ({
-        ...questionMap.get(id)!,
-        order: index,
-      }));
-    });
-  }, []);
+    const { error } = await supabase
+      .from('qualifying_questions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting qualifying question:', error);
+      toast.error('Failed to delete question');
+    }
+
+    // Update orders for remaining questions
+    for (const question of reordered) {
+      await supabase
+        .from('qualifying_questions')
+        .update({ question_order: question.order })
+        .eq('id', question.id);
+    }
+  }, [questions]);
+
+  const reorderQuestions = useCallback(async (newOrder: string[]) => {
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    const reordered = newOrder.map((id, index) => ({
+      ...questionMap.get(id)!,
+      order: index,
+    }));
+    setQuestions(reordered);
+
+    // Update orders in database
+    for (let i = 0; i < newOrder.length; i++) {
+      await supabase
+        .from('qualifying_questions')
+        .update({ question_order: i })
+        .eq('id', newOrder[i]);
+    }
+  }, [questions]);
 
   return {
     questions,
@@ -54,5 +141,6 @@ export function useQualifyingQuestions() {
     deleteQuestion,
     reorderQuestions,
     setQuestions,
+    isLoading,
   };
 }
