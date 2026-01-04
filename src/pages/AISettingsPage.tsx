@@ -80,7 +80,10 @@ Provide insights on:
 
 Keep the response focused and actionable.`,
   },
-};
+} as const;
+
+// Define explicit order for prompt types
+const PROMPT_ORDER = ['company_search', 'company_custom', 'persona'];
 
 const SELLER_FIELDS = [
   { key: 'company_name', label: 'Company Name', placeholder: 'Your company name' },
@@ -424,7 +427,15 @@ export default function AISettingsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {prompts.map((prompt) => {
+            {/* Sort prompts: company_search first, then company_custom, then persona */}
+            {[...prompts]
+              .sort((a, b) => {
+                const order = ['company_search', 'company_custom', 'persona'];
+                const orderA = order.indexOf(a.prompt_type);
+                const orderB = order.indexOf(b.prompt_type);
+                return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+              })
+              .map((prompt) => {
               const { config } = getConfigForPromptType(prompt.prompt_type);
               if (!config) return null;
               

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef } from 'react';
 import { Sparkles, RefreshCw, Copy, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,18 +20,19 @@ interface AIResearchBoxProps {
   maxCollapsedLines?: number;
 }
 
-export function AIResearchBox({
-  title,
-  content,
-  isLoading,
-  onRefresh,
-  lastUpdated,
-  citations,
-  variant = 'company',
-  buttonLabel = 'Refresh',
-  provider,
-  maxCollapsedLines = 5,
-}: AIResearchBoxProps) {
+export const AIResearchBox = forwardRef<HTMLDivElement, AIResearchBoxProps>(
+  function AIResearchBox({
+    title,
+    content,
+    isLoading,
+    onRefresh,
+    lastUpdated,
+    citations,
+    variant = 'company',
+    buttonLabel = 'Refresh',
+    provider,
+    maxCollapsedLines = 5,
+  }, ref) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [showReadMore, setShowReadMore] = useState(false);
@@ -66,10 +67,13 @@ export function AIResearchBox({
   };
 
   return (
-    <div className={cn(
-      'rounded-lg border-2 overflow-hidden transition-all',
-      variantStyles[variant]
-    )}>
+    <div 
+      ref={ref}
+      className={cn(
+        'rounded-lg border-2 overflow-hidden transition-all',
+        variantStyles[variant]
+      )}
+    >
       {/* Header */}
       <div 
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors"
@@ -221,4 +225,4 @@ export function AIResearchBox({
       )}
     </div>
   );
-}
+});
