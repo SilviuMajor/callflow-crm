@@ -53,7 +53,8 @@ const sampleContacts: Contact[] = [
     email: 'mroberts@innovatelabs.com',
     website: 'https://innovatelabs.com',
     notes: 'Budget approved for Q2',
-    status: 'pending',
+    status: 'callback',
+    callbackDate: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago (overdue)
     createdAt: new Date(),
   },
   {
@@ -69,24 +70,49 @@ const sampleContacts: Contact[] = [
     status: 'pending',
     createdAt: new Date(),
   },
+  {
+    id: generateId(),
+    firstName: 'David',
+    lastName: 'Kim',
+    company: 'NextGen Software',
+    jobTitle: 'CTO',
+    phone: '+1 (555) 678-9012',
+    email: 'david.kim@nextgen.io',
+    website: 'https://nextgen.io',
+    notes: 'Technical evaluation needed',
+    status: 'callback',
+    callbackDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow (future)
+    createdAt: new Date(),
+  },
 ];
 
 export function useContacts() {
   const [contacts, setContacts] = useState<Contact[]>(sampleContacts);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const pendingContacts = useMemo(() => 
-    contacts.filter(c => c.status === 'pending'),
+  // Queue contacts: overdue callbacks -> pending -> future callbacks
+  const queueContacts = useMemo(() => {
+    const now = new Date();
+    
+    const overdueCallbacks = contacts
+      .filter(c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) <= now)
+      .sort((a, b) => new Date(a.callbackDate!).getTime() - new Date(b.callbackDate!).getTime());
+    
+    const pendingClean = contacts.filter(c => c.status === 'pending' || c.status === 'no_answer');
+    
+    const futureCallbacks = contacts
+      .filter(c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) > now)
+      .sort((a, b) => new Date(a.callbackDate!).getTime() - new Date(b.callbackDate!).getTime());
+    
+    return [...overdueCallbacks, ...pendingClean, ...futureCallbacks];
+  }, [contacts]);
+
+  const completedContacts = useMemo(() => 
+    contacts.filter(c => c.status === 'completed' || c.status === 'not_interested'),
     [contacts]
   );
 
-  const callbackContacts = useMemo(() => 
-    contacts.filter(c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) <= new Date()),
-    [contacts]
-  );
-
-  // Filter contacts by search query
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contacts;
     
@@ -103,12 +129,11 @@ export function useContacts() {
   }, [contacts, searchQuery]);
 
   const currentContact = useMemo(() => {
-    // Priority: callbacks that are due, then pending
-    if (callbackContacts.length > 0) {
-      return callbackContacts[0];
+    if (selectedContactId) {
+      return contacts.find(c => c.id === selectedContactId) || null;
     }
-    return pendingContacts[currentIndex] || null;
-  }, [pendingContacts, callbackContacts, currentIndex]);
+    return queueContacts[0] || null;
+  }, [contacts, selectedContactId, queueContacts]);
 
   const updateContactStatus = useCallback((
     contactId: string, 
@@ -132,10 +157,16 @@ export function useContacts() {
         : contact
     ));
     
-    // Move to next contact
-    if (status !== 'callback') {
-      setCurrentIndex(prev => prev);
-    }
+    // After outcome, go back to top of queue
+    setSelectedContactId(null);
+  }, []);
+
+  const updateContactAnswers = useCallback((contactId: string, answers: Record<string, any>) => {
+    setContacts(prev => prev.map(contact => 
+      contact.id === contactId 
+        ? { ...contact, qualifyingAnswers: { ...contact.qualifyingAnswers, ...answers } }
+        : contact
+    ));
   }, []);
 
   const addContact = useCallback((contact: Omit<Contact, 'id' | 'createdAt' | 'status'>) => {
@@ -158,12 +189,35 @@ export function useContacts() {
     setContacts(prev => [...prev, ...contactsToAdd]);
   }, []);
 
-  const setSelectedContact = useCallback((contact: Contact) => {
-    const index = pendingContacts.findIndex(c => c.id === contact.id);
-    if (index !== -1) {
-      setCurrentIndex(index);
-    }
-  }, [pendingContacts]);
+  const selectContact = useCallback((contactId: string | null) => {
+    setSelectedContactId(contactId);
+  }, []);
+
+  const shufflePending = useCallback(() => {
+    setContacts(prev => {
+      const pending = prev.filter(c => c.status === 'pending' || c.status === 'no_answer');
+      const others = prev.filter(c => c.status !== 'pending' && c.status !== 'no_answer');
+      
+      // Fisher-Yates shuffle
+      for (let i = pending.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pending[i], pending[j]] = [pending[j], pending[i]];
+      }
+      
+      return [...others, ...pending];
+    });
+  }, []);
+
+  const sortByCompany = useCallback(() => {
+    setContacts(prev => {
+      const pending = prev.filter(c => c.status === 'pending' || c.status === 'no_answer');
+      const others = prev.filter(c => c.status !== 'pending' && c.status !== 'no_answer');
+      
+      pending.sort((a, b) => a.company.localeCompare(b.company));
+      
+      return [...others, ...pending];
+    });
+  }, []);
 
   const stats = useMemo(() => ({
     total: contacts.length,
@@ -172,19 +226,22 @@ export function useContacts() {
     callbacks: contacts.filter(c => c.status === 'callback').length,
     completed: contacts.filter(c => c.status === 'completed').length,
     notInterested: contacts.filter(c => c.status === 'not_interested').length,
-    dueCallbacks: callbackContacts.length,
-  }), [contacts, callbackContacts]);
+    inQueue: queueContacts.length,
+  }), [contacts, queueContacts]);
 
   return {
     contacts,
+    queueContacts,
+    completedContacts,
     filteredContacts,
     currentContact,
-    pendingContacts,
-    callbackContacts,
     updateContactStatus,
+    updateContactAnswers,
     addContact,
     importContacts,
-    setSelectedContact,
+    selectContact,
+    shufflePending,
+    sortByCompany,
     searchQuery,
     setSearchQuery,
     stats,

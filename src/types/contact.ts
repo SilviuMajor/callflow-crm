@@ -17,6 +17,29 @@ export type NotInterestedReason =
   | 'do_not_call' 
   | 'other';
 
+export type QuestionType = 
+  | 'short_text' 
+  | 'long_text' 
+  | 'number' 
+  | 'currency' 
+  | 'email' 
+  | 'phone' 
+  | 'url' 
+  | 'date' 
+  | 'rating' 
+  | 'dropdown' 
+  | 'radio' 
+  | 'checkbox';
+
+export interface QualifyingQuestion {
+  id: string;
+  label: string;
+  type: QuestionType;
+  options?: string[];
+  required?: boolean;
+  order: number;
+}
+
 export interface Contact {
   id: string;
   firstName: string;
@@ -33,6 +56,7 @@ export interface Contact {
   lastCalledAt?: Date;
   completedReason?: CompletedReason;
   notInterestedReason?: NotInterestedReason;
+  qualifyingAnswers?: Record<string, any>;
 }
 
 export interface CallbackSchedule {
@@ -58,4 +82,19 @@ export const NOT_INTERESTED_REASONS: { value: NotInterestedReason; label: string
   { value: 'gatekeeper_block', label: 'Gatekeeper Block' },
   { value: 'do_not_call', label: 'Do Not Call' },
   { value: 'other', label: 'Other' },
+];
+
+export const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
+  { value: 'short_text', label: 'Short Text' },
+  { value: 'long_text', label: 'Long Text' },
+  { value: 'number', label: 'Number' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'url', label: 'URL' },
+  { value: 'date', label: 'Date' },
+  { value: 'rating', label: 'Rating (1-5)' },
+  { value: 'dropdown', label: 'Dropdown' },
+  { value: 'radio', label: 'Single Choice' },
+  { value: 'checkbox', label: 'Multiple Choice' },
 ];
