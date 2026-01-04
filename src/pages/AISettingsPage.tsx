@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useAIPrompts, AI_MODELS, AIPrompt } from '@/hooks/useAIPrompts';
 import { useSellerCompany } from '@/hooks/useSellerCompany';
@@ -11,13 +11,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase } from 'lucide-react';
+import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { PlaceholderToolbar } from '@/components/PlaceholderToolbar';
 import { SellerCustomFieldsDialog } from '@/components/SellerCustomFieldsDialog';
+import { PromptEditor } from '@/components/PromptEditor';
 import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
+import { supabase } from '@/integrations/supabase/client';
 
 const PROMPT_CONFIG = {
   company_search: {
@@ -123,7 +125,7 @@ export default function AISettingsPage() {
   const { fields: customContactFields } = useCustomFields();
   const [editedPrompts, setEditedPrompts] = useState<Record<string, Partial<AIPrompt & { default_prompt?: string }>>>({});
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({});
-  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const [improvingStates, setImprovingStates] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (prompts.length > 0) {
@@ -195,37 +197,8 @@ export default function AISettingsPage() {
     }
   };
 
-  const insertPlaceholder = useCallback((promptType: string, placeholder: string) => {
-    const textarea = textareaRefs.current[promptType];
-    const currentValue = editedPrompts[promptType]?.prompt || '';
-    
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newValue = currentValue.slice(0, start) + placeholder + currentValue.slice(end);
-      
-      setEditedPrompts(prev => ({
-        ...prev,
-        [promptType]: { ...prev[promptType], prompt: newValue }
-      }));
-
-      // Focus and set cursor after inserted placeholder
-      setTimeout(() => {
-        textarea.focus();
-        const newPosition = start + placeholder.length;
-        textarea.setSelectionRange(newPosition, newPosition);
-      }, 0);
-    } else {
-      // Fallback: append to end
-      setEditedPrompts(prev => ({
-        ...prev,
-        [promptType]: { ...prev[promptType], prompt: currentValue + placeholder }
-      }));
-    }
-  }, [editedPrompts]);
-
-  // Build placeholder groups for each prompt type
-  const getPlaceholderGroups = useCallback(() => {
+  // Build placeholder groups for each prompt type - conditionally include seller fields
+  const getPlaceholderGroups = useCallback((promptType: string) => {
     const groups: Array<{
       label: string;
       category: PlaceholderCategory;
@@ -250,42 +223,66 @@ export default function AISettingsPage() {
       });
     }
 
-    // Add seller placeholders
-    const sellerPlaceholders = [...SELLER_PLACEHOLDERS];
-    
-    // Add custom seller fields
-    if (sellerCustomFields.length > 0) {
-      sellerCustomFields.forEach(f => {
-        sellerPlaceholders.push({
-          name: `seller_${f.key}`,
-          description: f.label,
+    // Only show seller placeholders for Targeted Research and Suggestions (company_custom)
+    if (promptType === 'company_custom' || promptType === 'custom_company_research') {
+      const sellerPlaceholders = [...SELLER_PLACEHOLDERS];
+      
+      // Add custom seller fields
+      if (sellerCustomFields.length > 0) {
+        sellerCustomFields.forEach(f => {
+          sellerPlaceholders.push({
+            name: `seller_${f.key}`,
+            description: f.label,
+          });
         });
+      }
+
+      groups.push({
+        label: 'My Company Fields',
+        category: 'seller',
+        placeholders: sellerPlaceholders,
       });
     }
-
-    groups.push({
-      label: 'My Company Fields',
-      category: 'seller',
-      placeholders: sellerPlaceholders,
-    });
 
     return groups;
   }, [customContactFields, sellerCustomFields]);
 
-  const handleDrop = useCallback((promptType: string, e: React.DragEvent) => {
-    e.preventDefault();
-    const placeholder = e.dataTransfer.getData('text/plain');
-    if (placeholder) {
-      insertPlaceholder(promptType, placeholder);
-    }
-  }, [insertPlaceholder]);
+  // Handle improve prompt using OpenAI
+  const handleImprovePrompt = async (promptType: string) => {
+    const currentPrompt = editedPrompts[promptType]?.prompt || '';
+    const allPlaceholders = getPlaceholderGroups(promptType)
+      .flatMap(g => g.placeholders.map(p => `{${p.name}}`));
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
+    setImprovingStates(prev => ({ ...prev, [promptType]: true }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('improve-prompt', {
+        body: { prompt: currentPrompt, availablePlaceholders: allPlaceholders }
+      });
+
+      if (error) throw error;
+
+      if (data.improvedPrompt) {
+        setEditedPrompts(prev => ({
+          ...prev,
+          [promptType]: { ...prev[promptType], prompt: data.improvedPrompt }
+        }));
+        toast.success('Prompt improved! Review changes and click Save.');
+      }
+    } catch (error) {
+      console.error('Failed to improve prompt:', error);
+      toast.error('Failed to improve prompt. Please try again.');
+    } finally {
+      setImprovingStates(prev => ({ ...prev, [promptType]: false }));
+    }
+  };
 
   // Map database prompt types to our config
   const getConfigForPromptType = (dbType: string) => {
+    // Handle company_custom -> custom_company_research mapping
+    if (dbType === 'company_custom') {
+      return { type: dbType, config: PROMPT_CONFIG.custom_company_research };
+    }
     if (dbType === 'custom_company_research') {
       return { type: dbType, config: PROMPT_CONFIG.custom_company_research };
     }
@@ -391,8 +388,9 @@ export default function AISettingsPage() {
               const edited = editedPrompts[prompt.prompt_type] || {};
               const Icon = config.icon;
               const isSaving = savingStates[prompt.prompt_type];
+              const isImproving = improvingStates[prompt.prompt_type];
               const changed = hasChanges(prompt.prompt_type);
-              const placeholderGroups = getPlaceholderGroups();
+              const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
 
               return (
                 <Card key={prompt.prompt_type} className="relative">
@@ -419,31 +417,47 @@ export default function AISettingsPage() {
                     {/* Placeholder Toolbar */}
                     <PlaceholderToolbar
                       groups={placeholderGroups}
-                      onInsert={(placeholder) => insertPlaceholder(prompt.prompt_type, placeholder)}
+                      onInsert={() => {}} // Now handled by PromptEditor
                     />
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor={`${prompt.prompt_type}-prompt`}>Prompt Template</Label>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRestoreDefault(prompt.prompt_type)}
-                          className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Restore Default
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleImprovePrompt(prompt.prompt_type)}
+                            disabled={isImproving}
+                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            {isImproving ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Improving...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="h-3 w-3 mr-1" />
+                                Improve
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRestoreDefault(prompt.prompt_type)}
+                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Restore Default
+                          </Button>
+                        </div>
                       </div>
-                      <Textarea
-                        id={`${prompt.prompt_type}-prompt`}
-                        ref={(el) => { textareaRefs.current[prompt.prompt_type] = el; }}
+                      <PromptEditor
                         value={edited.prompt ?? prompt.prompt ?? ''}
-                        onChange={(e) => handleChange(prompt.prompt_type, 'prompt', e.target.value)}
-                        onDrop={(e) => handleDrop(prompt.prompt_type, e)}
-                        onDragOver={handleDragOver}
-                        className="min-h-[180px] font-mono text-sm"
-                        placeholder="Enter your prompt template..."
+                        onChange={(value) => handleChange(prompt.prompt_type, 'prompt', value)}
+                        placeholderGroups={placeholderGroups}
                       />
                     </div>
 
