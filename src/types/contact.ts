@@ -65,6 +65,11 @@ export interface CallbackSchedule {
   notes: string;
 }
 
+export interface WebhookSettings {
+  enabled: boolean;
+  url: string;
+}
+
 export const COMPLETED_REASONS: { value: CompletedReason; label: string }[] = [
   { value: 'appointment_booked', label: 'Appointment Booked' },
   { value: 'sale_closed', label: 'Sale Closed' },
