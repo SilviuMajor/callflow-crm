@@ -1,16 +1,20 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Phone, BarChart3, CheckCircle, Settings, Search } from 'lucide-react';
+import { Phone, BarChart3, CheckCircle, Settings, Search, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 interface TopNavProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   onSettingsClick?: () => void;
+  onExportCSV?: () => void;
+  onExportJSON?: () => void;
 }
 
-export function TopNav({ searchQuery, onSearchChange, onSettingsClick }: TopNavProps) {
+export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportCSV, onExportJSON }: TopNavProps) {
   const location = useLocation();
   
   const navItems = [
@@ -53,6 +57,29 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick }: TopNavP
             </Link>
           </Button>
         ))}
+        
+        {(onExportCSV || onExportJSON) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-xs">
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onExportCSV && (
+                <DropdownMenuItem onClick={onExportCSV}>
+                  Export as CSV
+                </DropdownMenuItem>
+              )}
+              {onExportJSON && (
+                <DropdownMenuItem onClick={onExportJSON}>
+                  Export as JSON
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         
         {onSettingsClick && (
           <Button 

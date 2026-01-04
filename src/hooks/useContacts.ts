@@ -23,7 +23,7 @@ const sampleContacts: Contact[] = [
     lastName: 'Wilson',
     company: 'Growth Industries',
     jobTitle: 'CEO',
-    phone: '+1 (555) 234-5678',
+    phone: '+44 7700 900123',
     email: 'james@growthindustries.io',
     website: 'https://growthindustries.io',
     notes: 'Referred by Mark Thompson',
@@ -36,7 +36,7 @@ const sampleContacts: Contact[] = [
     lastName: 'Chen',
     company: 'DataFlow Analytics',
     jobTitle: 'Head of Operations',
-    phone: '+1 (555) 345-6789',
+    phone: '+44 20 7946 0958',
     email: 'emily.chen@dataflow.co',
     website: 'https://dataflow.co',
     notes: 'Follow up on demo request',
@@ -63,7 +63,7 @@ const sampleContacts: Contact[] = [
     lastName: 'Anderson',
     company: 'Scale Ventures',
     jobTitle: 'Partner',
-    phone: '+1 (555) 567-8901',
+    phone: '+44 7911 123456',
     email: 'lisa@scaleventures.vc',
     website: 'https://scaleventures.vc',
     notes: 'Looking for portfolio companies',
@@ -141,7 +141,8 @@ export function useContacts() {
     callbackDate?: Date, 
     notes?: string,
     completedReason?: CompletedReason,
-    notInterestedReason?: NotInterestedReason
+    notInterestedReason?: NotInterestedReason,
+    appointmentDate?: Date
   ) => {
     setContacts(prev => prev.map(contact => 
       contact.id === contactId 
@@ -149,6 +150,7 @@ export function useContacts() {
             ...contact, 
             status, 
             callbackDate,
+            appointmentDate: status === 'completed' ? appointmentDate : undefined,
             notes: notes || contact.notes,
             lastCalledAt: new Date(),
             completedReason: status === 'completed' ? completedReason : undefined,
@@ -161,12 +163,29 @@ export function useContacts() {
     setSelectedContactId(null);
   }, []);
 
+  const updateContact = useCallback((contactId: string, updates: Partial<Contact>) => {
+    setContacts(prev => prev.map(contact => 
+      contact.id === contactId 
+        ? { ...contact, ...updates }
+        : contact
+    ));
+  }, []);
+
   const updateContactAnswers = useCallback((contactId: string, answers: Record<string, any>) => {
     setContacts(prev => prev.map(contact => 
       contact.id === contactId 
         ? { ...contact, qualifyingAnswers: { ...contact.qualifyingAnswers, ...answers } }
         : contact
     ));
+  }, []);
+
+  const clearContactAnswers = useCallback((questionIds: string[]) => {
+    setContacts(prev => prev.map(contact => {
+      if (!contact.qualifyingAnswers) return contact;
+      const newAnswers = { ...contact.qualifyingAnswers };
+      questionIds.forEach(id => delete newAnswers[id]);
+      return { ...contact, qualifyingAnswers: newAnswers };
+    }));
   }, []);
 
   const addContact = useCallback((contact: Omit<Contact, 'id' | 'createdAt' | 'status'>) => {
@@ -236,7 +255,9 @@ export function useContacts() {
     filteredContacts,
     currentContact,
     updateContactStatus,
+    updateContact,
     updateContactAnswers,
+    clearContactAnswers,
     addContact,
     importContacts,
     selectContact,
