@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,19 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
+
+  // Pre-populate notes when modals open
+  useEffect(() => {
+    if (showCallbackModal) setCallbackNotes(contact.notes || '');
+  }, [showCallbackModal, contact.notes]);
+
+  useEffect(() => {
+    if (showCompletedModal) setCompletedNotes(contact.notes || '');
+  }, [showCompletedModal, contact.notes]);
+
+  useEffect(() => {
+    if (showNotInterestedModal) setNotInterestedNotes(contact.notes || '');
+  }, [showNotInterestedModal, contact.notes]);
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
 
@@ -186,10 +199,10 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="callback-notes" className="text-xs">Notes (optional)</Label>
+              <Label htmlFor="callback-notes" className="text-xs">Notes</Label>
               <Textarea
                 id="callback-notes"
-                placeholder="Add notes..."
+                placeholder="Add or edit notes..."
                 value={callbackNotes}
                 onChange={(e) => setCallbackNotes(e.target.value)}
                 className="text-sm min-h-[60px]"
@@ -260,10 +273,10 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
             )}
             
             <div className="space-y-1">
-              <Label htmlFor="completed-notes" className="text-xs">Notes (optional)</Label>
+              <Label htmlFor="completed-notes" className="text-xs">Notes</Label>
               <Textarea
                 id="completed-notes"
-                placeholder="Add notes..."
+                placeholder="Add or edit notes..."
                 value={completedNotes}
                 onChange={(e) => setCompletedNotes(e.target.value)}
                 className="text-sm min-h-[60px]"
@@ -321,10 +334,10 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
               ))}
             </RadioGroup>
             <div className="space-y-1">
-              <Label htmlFor="not-interested-notes" className="text-xs">Notes (optional)</Label>
+              <Label htmlFor="not-interested-notes" className="text-xs">Notes</Label>
               <Textarea
                 id="not-interested-notes"
-                placeholder="Add notes..."
+                placeholder="Add or edit notes..."
                 value={notInterestedNotes}
                 onChange={(e) => setNotInterestedNotes(e.target.value)}
                 className="text-sm min-h-[60px]"

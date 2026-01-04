@@ -57,6 +57,17 @@ export interface Contact {
   completedReason?: CompletedReason;
   notInterestedReason?: NotInterestedReason;
   qualifyingAnswers?: Record<string, any>;
+  customFields?: Record<string, any>;
+}
+
+export interface CustomContactField {
+  id: string;
+  key: string;
+  label: string;
+  type: QuestionType;
+  options?: string[];
+  order: number;
+  isArchived?: boolean;
 }
 
 export interface CallbackSchedule {

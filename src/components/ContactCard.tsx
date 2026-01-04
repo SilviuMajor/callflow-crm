@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Contact } from '@/types/contact';
+import { Contact, CustomContactField, QuestionType } from '@/types/contact';
 import { Phone, Mail, Globe, ExternalLink, Copy, Pencil, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { useCustomFields } from '@/hooks/useCustomFields';
 
 interface ContactCardProps {
   contact: Contact;
@@ -16,6 +18,9 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const { fields: customFields } = useCustomFields();
+
+  const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
 
   const copyToClipboard = async (value: string, fieldName: string) => {
     await navigator.clipboard.writeText(value);
@@ -40,11 +45,70 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
     setEditingField(null);
   };
 
+  const saveCustomField = (fieldId: string) => {
+    if (onUpdate) {
+      onUpdate({ 
+        customFields: { 
+          ...contact.customFields, 
+          [fieldId]: editValue 
+        } 
+      });
+    }
+    setEditingField(null);
+  };
+
   const formatCallbackDate = (date: Date) => {
     return new Date(date).toLocaleString([], { 
       dateStyle: 'medium', 
       timeStyle: 'short' 
     });
+  };
+
+  const getCustomFieldValue = (field: CustomContactField): string => {
+    const value = contact.customFields?.[field.id];
+    if (value === undefined || value === null) return '';
+    if (Array.isArray(value)) return value.join(', ');
+    return String(value);
+  };
+
+  const renderCustomFieldInput = (field: CustomContactField) => {
+    const value = editValue;
+
+    switch (field.type) {
+      case 'dropdown':
+        return (
+          <Select value={value} onValueChange={setEditValue}>
+            <SelectTrigger className="h-7 text-sm">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'long_text':
+        return (
+          <Textarea
+            value={value}
+            onChange={(e) => setEditValue(e.target.value)}
+            className="text-sm min-h-[60px]"
+            autoFocus
+          />
+        );
+      default:
+        return (
+          <Input
+            value={value}
+            onChange={(e) => setEditValue(e.target.value)}
+            className="h-7 text-sm"
+            autoFocus
+            type={field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
+            onKeyDown={(e) => e.key === 'Enter' && saveCustomField(field.id)}
+          />
+        );
+    }
   };
 
   return (
@@ -210,6 +274,52 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
           </a>
         </div>
       </div>
+
+      {/* Custom Fields */}
+      {activeCustomFields.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-xs text-muted-foreground font-medium">Custom Fields</span>
+          {activeCustomFields.map(field => {
+            const fieldValue = getCustomFieldValue(field);
+            const isEditing = editingField === `custom_${field.id}`;
+            
+            return (
+              <div key={field.id} className="group flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-24 truncate" title={field.label}>
+                  {field.label}:
+                </span>
+                {isEditing ? (
+                  <div className="flex-1 flex gap-1">
+                    {renderCustomFieldInput(field)}
+                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCustomField(field.id)}>
+                      <Check className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span 
+                      className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate"
+                      onClick={() => onUpdate && startEditing(`custom_${field.id}`, fieldValue)}
+                    >
+                      {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                    </span>
+                    {fieldValue && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                        onClick={() => copyToClipboard(fieldValue, `custom_${field.id}`)}
+                      >
+                        {copiedField === `custom_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Editable Notes */}
       <div className="space-y-1">

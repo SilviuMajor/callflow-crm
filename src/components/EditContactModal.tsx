@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Contact } from '@/types/contact';
+import { Contact, CustomContactField, QuestionType } from '@/types/contact';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useCustomFields } from '@/hooks/useCustomFields';
 
 interface EditContactModalProps {
   open: boolean;
@@ -24,6 +26,10 @@ export function EditContactModal({ open, onOpenChange, contact, onSave }: EditCo
     website: '',
     notes: '',
   });
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+  const { fields: customFields } = useCustomFields();
+
+  const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
 
   useEffect(() => {
     if (contact) {
@@ -37,17 +43,112 @@ export function EditContactModal({ open, onOpenChange, contact, onSave }: EditCo
         website: contact.website,
         notes: contact.notes,
       });
+      setCustomFieldValues(contact.customFields || {});
     }
   }, [contact]);
 
   const handleSave = () => {
-    onSave(formData);
+    onSave({
+      ...formData,
+      customFields: customFieldValues,
+    });
     onOpenChange(false);
+  };
+
+  const updateCustomField = (fieldId: string, value: any) => {
+    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  const renderCustomFieldInput = (field: CustomContactField) => {
+    const value = customFieldValues[field.id] || '';
+
+    switch (field.type) {
+      case 'dropdown':
+        return (
+          <Select value={value} onValueChange={(v) => updateCustomField(field.id, v)}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'radio':
+        return (
+          <Select value={value} onValueChange={(v) => updateCustomField(field.id, v)}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'long_text':
+        return (
+          <Textarea
+            value={value}
+            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            className="text-sm min-h-[60px]"
+          />
+        );
+      case 'number':
+      case 'currency':
+        return (
+          <Input
+            type="number"
+            value={value}
+            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            className="h-8 text-sm"
+          />
+        );
+      case 'email':
+        return (
+          <Input
+            type="email"
+            value={value}
+            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            className="h-8 text-sm"
+          />
+        );
+      case 'url':
+        return (
+          <Input
+            type="url"
+            value={value}
+            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            className="h-8 text-sm"
+            placeholder="https://"
+          />
+        );
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={value}
+            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            className="h-8 text-sm"
+          />
+        );
+      default:
+        return (
+          <Input
+            value={value}
+            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            className="h-8 text-sm"
+          />
+        );
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border sm:max-w-lg">
+      <DialogContent className="bg-card border-border sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Contact</DialogTitle>
         </DialogHeader>
@@ -131,6 +232,20 @@ export function EditContactModal({ open, onOpenChange, contact, onSave }: EditCo
               className="text-sm min-h-[80px]"
             />
           </div>
+
+          {activeCustomFields.length > 0 && (
+            <>
+              <div className="border-t border-border pt-3 mt-1">
+                <span className="text-xs font-medium text-muted-foreground">Custom Fields</span>
+              </div>
+              {activeCustomFields.map(field => (
+                <div key={field.id} className="space-y-1">
+                  <Label className="text-xs">{field.label}</Label>
+                  {renderCustomFieldInput(field)}
+                </div>
+              ))}
+            </>
+          )}
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
