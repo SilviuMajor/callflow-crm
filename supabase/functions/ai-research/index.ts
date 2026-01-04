@@ -118,6 +118,34 @@ async function callOpenAI(prompt: string, model: string, apiKey: string): Promis
   };
 }
 
+// Get seller company context
+async function getSellerContext(supabase: any): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('seller_company')
+      .select('*')
+      .limit(1)
+      .single();
+
+    if (!data) return '';
+
+    const parts = [];
+    if (data.company_name) parts.push(`Our company: ${data.company_name}`);
+    if (data.website) parts.push(`Website: ${data.website}`);
+    if (data.product_offering) parts.push(`Product/Service: ${data.product_offering}`);
+    if (data.usps) parts.push(`USPs: ${data.usps}`);
+    if (data.industry) parts.push(`Industry: ${data.industry}`);
+    if (data.target_audience) parts.push(`Target audience: ${data.target_audience}`);
+    if (data.pain_points_solved) parts.push(`Pain points we solve: ${data.pain_points_solved}`);
+    if (data.product_sets) parts.push(`Product sets: ${data.product_sets}`);
+    if (data.tone_style) parts.push(`Communication style: ${data.tone_style}`);
+
+    return parts.length > 0 ? `About our company (the seller):\n${parts.join('\n')}` : '';
+  } catch {
+    return '';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -168,6 +196,9 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
+    // Get seller context for injection
+    const sellerContext = await getSellerContext(supabase);
+
     // Replace placeholders in the prompt
     let prompt = promptConfig.prompt;
     prompt = prompt.replace('{company_name}', context.company_name || 'Unknown');
@@ -176,6 +207,7 @@ serve(async (req) => {
     prompt = prompt.replace('{last_name}', context.last_name || '');
     prompt = prompt.replace('{job_title}', context.job_title || 'Unknown role');
     prompt = prompt.replace('{company}', context.company_name || 'Unknown company');
+    prompt = prompt.replace('{seller_context}', sellerContext);
 
     console.log(`Prompt length: ${prompt.length}`);
 

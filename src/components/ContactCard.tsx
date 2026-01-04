@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Contact, CustomContactField, CompanyField } from '@/types/contact';
 import { Phone, Mail, Globe, ExternalLink, Copy, Pencil, Check, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { useAIResearch } from '@/hooks/useAIResearch';
 import { AIResearchBox } from '@/components/AIResearchBox';
+import { InlineEditField } from '@/components/InlineEditField';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ContactCardProps {
@@ -39,13 +40,12 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
   const [companyAI, setCompanyAI] = useState<AICache>({});
   const [contactPersona, setContactPersona] = useState<string | null>(null);
   const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
-  const hasAutoResearched = useRef<Record<string, boolean>>({});
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const companyData = contact.company ? getCompanyData(contact.company) : {};
 
-  // Load AI research data on mount or contact change
+  // Load AI research data on mount or contact change (NO auto-research)
   useEffect(() => {
     const loadAIData = async () => {
       // Load company AI data
@@ -61,20 +61,6 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
         } else {
           setCompanyAI({});
         }
-
-        // Auto-research company on first view if no summary exists
-        const companyKey = `company_${contact.company}`;
-        if (!companyResult?.ai_summary && !hasAutoResearched.current[companyKey]) {
-          hasAutoResearched.current[companyKey] = true;
-          const result = await researchCompany(contact.company, contact.website);
-          if (result) {
-            setCompanyAI(prev => ({
-              ...prev,
-              ai_summary: result,
-              ai_summary_updated_at: new Date().toISOString()
-            }));
-          }
-        }
       }
 
       // Load contact persona from the contact itself
@@ -87,17 +73,6 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
       if (contactResult) {
         setContactPersona(contactResult.ai_persona);
         setPersonaUpdatedAt(contactResult.ai_persona_updated_at);
-      }
-
-      // Auto-research persona on first view if none exists
-      const personaKey = `persona_${contact.id}`;
-      if (!contactResult?.ai_persona && !hasAutoResearched.current[personaKey]) {
-        hasAutoResearched.current[personaKey] = true;
-        const result = await researchPersona(contact);
-        if (result) {
-          setContactPersona(result);
-          setPersonaUpdatedAt(new Date().toISOString());
-        }
       }
     };
 
@@ -340,9 +315,15 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
       <div className="space-y-2">
         <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
           <Phone className="w-4 h-4 text-success shrink-0" />
-          <a href={`tel:${contact.phone}`} className="text-sm font-medium flex-1">
-            {contact.phone}
-          </a>
+          <div className="flex-1">
+            <InlineEditField
+              value={contact.phone}
+              onSave={(value) => onUpdate?.({ phone: value })}
+              placeholder="Add phone..."
+              type="tel"
+              className="text-sm font-medium"
+            />
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -355,14 +336,20 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
 
         <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
           <Mail className="w-4 h-4 text-info shrink-0" />
-          <a href={`mailto:${contact.email}`} className="text-sm truncate flex-1">
-            {contact.email}
-          </a>
+          <div className="flex-1">
+            <InlineEditField
+              value={contact.email || ''}
+              onSave={(value) => onUpdate?.({ email: value })}
+              placeholder="Add email..."
+              type="email"
+              className="text-sm"
+            />
+          </div>
           <Button
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={() => copyToClipboard(contact.email, 'email')}
+            onClick={() => copyToClipboard(contact.email || '', 'email')}
           >
             {copiedField === 'email' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           </Button>
@@ -378,29 +365,32 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
 
         <div className="group flex items-center gap-2 p-2 rounded bg-secondary/50 hover:bg-secondary transition-colors">
           <Globe className="w-4 h-4 text-warning shrink-0" />
-          <a 
-            href={contact.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm truncate flex-1"
-          >
-            {contact.website.replace('https://', '')}
-          </a>
+          <div className="flex-1">
+            <InlineEditField
+              value={contact.website || ''}
+              onSave={(value) => onUpdate?.({ website: value })}
+              placeholder="Add website..."
+              type="url"
+              className="text-sm"
+            />
+          </div>
           <Button
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={() => copyToClipboard(contact.website, 'website')}
+            onClick={() => copyToClipboard(contact.website || '', 'website')}
           >
             {copiedField === 'website' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           </Button>
-          <a 
-            href={contact.website}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink className="w-3 h-3 text-muted-foreground" />
-          </a>
+          {contact.website && (
+            <a 
+              href={contact.website}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="w-3 h-3 text-muted-foreground" />
+            </a>
+          )}
         </div>
       </div>
 
