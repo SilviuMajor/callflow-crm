@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Contact, CustomContactField, QuestionType } from '@/types/contact';
-import { Phone, Mail, Globe, ExternalLink, Copy, Pencil, Check } from 'lucide-react';
+import { Contact, CustomContactField, CompanyField, QuestionType } from '@/types/contact';
+import { Phone, Mail, Globe, ExternalLink, Copy, Pencil, Check, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { useCustomFields } from '@/hooks/useCustomFields';
+import { useCompanyFields } from '@/hooks/useCompanyFields';
+import { useCompanyData } from '@/hooks/useCompanyData';
 
 interface ContactCardProps {
   contact: Contact;
@@ -19,8 +21,12 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { fields: customFields } = useCustomFields();
+  const { fields: companyFields } = useCompanyFields();
+  const { getCompanyData, updateCompanyData } = useCompanyData();
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+  const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+  const companyData = contact.company ? getCompanyData(contact.company) : {};
 
   const copyToClipboard = async (value: string, fieldName: string) => {
     await navigator.clipboard.writeText(value);
@@ -57,6 +63,14 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
     setEditingField(null);
   };
 
+  const saveCompanyField = (fieldId: string) => {
+    if (contact.company) {
+      updateCompanyData(contact.company, fieldId, editValue);
+      toast({ title: 'Company data updated', description: 'Applied to all contacts at this company', duration: 2000 });
+    }
+    setEditingField(null);
+  };
+
   const formatCallbackDate = (date: Date) => {
     return new Date(date).toLocaleString([], { 
       dateStyle: 'medium', 
@@ -71,7 +85,14 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
     return String(value);
   };
 
-  const renderCustomFieldInput = (field: CustomContactField) => {
+  const getCompanyFieldValue = (field: CompanyField): string => {
+    const value = companyData[field.id];
+    if (value === undefined || value === null) return '';
+    if (Array.isArray(value)) return value.join(', ');
+    return String(value);
+  };
+
+  const renderFieldInput = (field: CustomContactField | CompanyField, isCompany: boolean) => {
     const value = editValue;
 
     switch (field.type) {
@@ -105,7 +126,7 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
             className="h-7 text-sm"
             autoFocus
             type={field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
-            onKeyDown={(e) => e.key === 'Enter' && saveCustomField(field.id)}
+            onKeyDown={(e) => e.key === 'Enter' && (isCompany ? saveCompanyField(field.id) : saveCustomField(field.id))}
           />
         );
     }
@@ -275,10 +296,59 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
         </div>
       </div>
 
+      {/* Company Fields */}
+      {activeCompanyFields.length > 0 && contact.company && (
+        <div className="space-y-2 p-2 rounded border border-primary/20 bg-primary/5">
+          <span className="text-xs text-primary font-medium flex items-center gap-1">
+            <Building2 className="w-3 h-3" />
+            Company Data (syncs to all {contact.company} contacts)
+          </span>
+          {activeCompanyFields.map(field => {
+            const fieldValue = getCompanyFieldValue(field);
+            const isEditing = editingField === `company_${field.id}`;
+            
+            return (
+              <div key={field.id} className="group flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-24 truncate" title={field.label}>
+                  {field.label}:
+                </span>
+                {isEditing ? (
+                  <div className="flex-1 flex gap-1">
+                    {renderFieldInput(field, true)}
+                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCompanyField(field.id)}>
+                      <Check className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span 
+                      className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate"
+                      onClick={() => startEditing(`company_${field.id}`, fieldValue)}
+                    >
+                      {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                    </span>
+                    {fieldValue && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                        onClick={() => copyToClipboard(fieldValue, `company_${field.id}`)}
+                      >
+                        {copiedField === `company_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Custom Fields */}
       {activeCustomFields.length > 0 && (
         <div className="space-y-2">
-          <span className="text-xs text-muted-foreground font-medium">Custom Fields</span>
+          <span className="text-xs text-muted-foreground font-medium">Contact Fields</span>
           {activeCustomFields.map(field => {
             const fieldValue = getCustomFieldValue(field);
             const isEditing = editingField === `custom_${field.id}`;
@@ -290,7 +360,7 @@ export function ContactCard({ contact, onUpdate, onEditClick }: ContactCardProps
                 </span>
                 {isEditing ? (
                   <div className="flex-1 flex gap-1">
-                    {renderCustomFieldInput(field)}
+                    {renderFieldInput(field, false)}
                     <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCustomField(field.id)}>
                       <Check className="w-3 h-3" />
                     </Button>

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { useCustomFields } from '@/hooks/useCustomFields';
+import { useCompanyFields } from '@/hooks/useCompanyFields';
+import { useCompanyData } from '@/hooks/useCompanyData';
 import { TopNav } from '@/components/TopNav';
 import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
@@ -41,6 +43,8 @@ export default function CallingPage() {
   
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
+  const { fields: companyFields } = useCompanyFields();
+  const { companyData } = useCompanyData();
 
   const handleAction = (
     status: CallStatus,
@@ -93,12 +97,12 @@ export default function CallingPage() {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(contacts, questions, customFields);
+    exportToCSV(contacts, questions, customFields, companyFields, companyData);
     toast({ title: 'Exported as CSV', duration: 2000 });
   };
 
   const handleExportJSON = () => {
-    exportToJSON(contacts, questions);
+    exportToJSON(contacts, questions, companyData);
     toast({ title: 'Exported as JSON', duration: 2000 });
   };
 

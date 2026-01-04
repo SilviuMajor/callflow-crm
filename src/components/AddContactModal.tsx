@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Contact, CustomContactField } from '@/types/contact';
+import { Contact, CustomContactField, CompanyField } from '@/types/contact';
 import { useCustomFields } from '@/hooks/useCustomFields';
+import { useCompanyFields } from '@/hooks/useCompanyFields';
+import { useCompanyData } from '@/hooks/useCompanyData';
+import { Building2 } from 'lucide-react';
 
 interface AddContactModalProps {
   open: boolean;
@@ -26,12 +29,32 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
     notes: '',
   });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+  const [companyFieldValues, setCompanyFieldValues] = useState<Record<string, any>>({});
+  
   const { fields: customFields } = useCustomFields();
+  const { fields: companyFields } = useCompanyFields();
+  const { getCompanyData, setCompanyFieldValues: saveCompanyData } = useCompanyData();
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+  const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+
+  // Load existing company data when company name changes
+  useEffect(() => {
+    if (formData.company) {
+      const existingData = getCompanyData(formData.company);
+      if (Object.keys(existingData).length > 0) {
+        setCompanyFieldValues(existingData);
+      }
+    }
+  }, [formData.company, getCompanyData]);
 
   const handleSubmit = () => {
     if (formData.firstName && formData.lastName && formData.phone) {
+      // Save company fields to shared company data store
+      if (formData.company && Object.keys(companyFieldValues).length > 0) {
+        saveCompanyData(formData.company, companyFieldValues);
+      }
+      
       onAdd({
         ...formData,
         customFields: customFieldValues,
@@ -47,6 +70,7 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
         notes: '',
       });
       setCustomFieldValues({});
+      setCompanyFieldValues({});
       onOpenChange(false);
     }
   };
@@ -55,14 +79,16 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
     setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
   };
 
-  const renderCustomFieldInput = (field: CustomContactField) => {
-    const value = customFieldValues[field.id] || '';
+  const updateCompanyField = (fieldId: string, value: any) => {
+    setCompanyFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  };
 
+  const renderFieldInput = (field: CustomContactField | CompanyField, value: any, onChange: (v: any) => void) => {
     switch (field.type) {
       case 'dropdown':
       case 'radio':
         return (
-          <Select value={value} onValueChange={(v) => updateCustomField(field.id, v)}>
+          <Select value={value || ''} onValueChange={onChange}>
             <SelectTrigger className="bg-secondary border-border">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
@@ -76,8 +102,8 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
       case 'long_text':
         return (
           <Textarea
-            value={value}
-            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="bg-secondary border-border"
           />
         );
@@ -86,8 +112,8 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
         return (
           <Input
             type="number"
-            value={value}
-            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="bg-secondary border-border"
           />
         );
@@ -95,8 +121,8 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
         return (
           <Input
             type="email"
-            value={value}
-            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="bg-secondary border-border"
           />
         );
@@ -104,8 +130,8 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
         return (
           <Input
             type="url"
-            value={value}
-            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="bg-secondary border-border"
             placeholder="https://"
           />
@@ -114,16 +140,16 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
         return (
           <Input
             type="date"
-            value={value}
-            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="bg-secondary border-border"
           />
         );
       default:
         return (
           <Input
-            value={value}
-            onChange={(e) => updateCustomField(field.id, e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
             className="bg-secondary border-border"
           />
         );
@@ -214,15 +240,34 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
             />
           </div>
 
+          {/* Company Fields */}
+          {activeCompanyFields.length > 0 && formData.company && (
+            <>
+              <div className="border-t border-primary/20 pt-4">
+                <span className="text-sm font-medium text-primary flex items-center gap-1">
+                  <Building2 className="w-4 h-4" />
+                  Company Fields (shared with all {formData.company} contacts)
+                </span>
+              </div>
+              {activeCompanyFields.map(field => (
+                <div key={field.id} className="grid gap-2">
+                  <Label>{field.label}</Label>
+                  {renderFieldInput(field, companyFieldValues[field.id], (v) => updateCompanyField(field.id, v))}
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Contact Custom Fields */}
           {activeCustomFields.length > 0 && (
             <>
               <div className="border-t border-border pt-4">
-                <span className="text-sm font-medium text-muted-foreground">Custom Fields</span>
+                <span className="text-sm font-medium text-muted-foreground">Contact Fields</span>
               </div>
               {activeCustomFields.map(field => (
                 <div key={field.id} className="grid gap-2">
                   <Label>{field.label}</Label>
-                  {renderCustomFieldInput(field)}
+                  {renderFieldInput(field, customFieldValues[field.id], (v) => updateCustomField(field.id, v))}
                 </div>
               ))}
             </>
