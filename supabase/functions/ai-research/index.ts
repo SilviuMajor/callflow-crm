@@ -8,13 +8,14 @@ const corsHeaders = {
 };
 
 interface ResearchRequest {
-  type: 'company_search' | 'company_custom' | 'persona';
+  type: 'company_search' | 'custom_company_research' | 'persona';
   context: {
     company_name?: string;
     website?: string;
     first_name?: string;
     last_name?: string;
     job_title?: string;
+    custom_fields?: Record<string, any>;
   };
 }
 
@@ -118,8 +119,11 @@ async function callOpenAI(prompt: string, model: string, apiKey: string): Promis
   };
 }
 
-// Get seller company context
-async function getSellerContext(supabase: any): Promise<string> {
+// Get seller company data with all fields
+async function getSellerData(supabase: any): Promise<{ 
+  data: Record<string, any> | null; 
+  customFields: Record<string, any>;
+}> {
   try {
     const { data } = await supabase
       .from('seller_company')
@@ -127,23 +131,84 @@ async function getSellerContext(supabase: any): Promise<string> {
       .limit(1)
       .single();
 
-    if (!data) return '';
+    if (!data) return { data: null, customFields: {} };
 
-    const parts = [];
-    if (data.company_name) parts.push(`Our company: ${data.company_name}`);
-    if (data.website) parts.push(`Website: ${data.website}`);
-    if (data.product_offering) parts.push(`Product/Service: ${data.product_offering}`);
-    if (data.usps) parts.push(`USPs: ${data.usps}`);
-    if (data.industry) parts.push(`Industry: ${data.industry}`);
-    if (data.target_audience) parts.push(`Target audience: ${data.target_audience}`);
-    if (data.pain_points_solved) parts.push(`Pain points we solve: ${data.pain_points_solved}`);
-    if (data.product_sets) parts.push(`Product sets: ${data.product_sets}`);
-    if (data.tone_style) parts.push(`Communication style: ${data.tone_style}`);
+    const customFields = typeof data.custom_fields === 'string' 
+      ? JSON.parse(data.custom_fields) 
+      : (data.custom_fields || {});
 
-    return parts.length > 0 ? `About our company (the seller):\n${parts.join('\n')}` : '';
+    return { data, customFields };
   } catch {
-    return '';
+    return { data: null, customFields: {} };
   }
+}
+
+// Build seller context string from data
+function buildSellerContext(data: Record<string, any> | null): string {
+  if (!data) return '';
+
+  const parts = [];
+  if (data.company_name) parts.push(`Our company: ${data.company_name}`);
+  if (data.website) parts.push(`Website: ${data.website}`);
+  if (data.product_offering) parts.push(`Product/Service: ${data.product_offering}`);
+  if (data.usps) parts.push(`USPs: ${data.usps}`);
+  if (data.industry) parts.push(`Industry: ${data.industry}`);
+  if (data.target_audience) parts.push(`Target audience: ${data.target_audience}`);
+  if (data.pain_points_solved) parts.push(`Pain points we solve: ${data.pain_points_solved}`);
+  if (data.product_sets) parts.push(`Product sets: ${data.product_sets}`);
+  if (data.tone_style) parts.push(`Communication style: ${data.tone_style}`);
+
+  return parts.length > 0 ? `About our company (the seller):\n${parts.join('\n')}` : '';
+}
+
+// Replace all placeholders in the prompt dynamically
+function replacePlaceholders(
+  prompt: string, 
+  context: ResearchRequest['context'],
+  sellerData: Record<string, any> | null,
+  sellerCustomFields: Record<string, any>
+): string {
+  let result = prompt;
+
+  // Replace contact placeholders
+  result = result.replace(/\{company_name\}/g, context.company_name || 'Unknown');
+  result = result.replace(/\{website\}/g, context.website || 'Not provided');
+  result = result.replace(/\{first_name\}/g, context.first_name || '');
+  result = result.replace(/\{last_name\}/g, context.last_name || '');
+  result = result.replace(/\{job_title\}/g, context.job_title || 'Unknown role');
+  result = result.replace(/\{company\}/g, context.company_name || 'Unknown company');
+
+  // Replace custom contact fields
+  if (context.custom_fields) {
+    for (const [key, value] of Object.entries(context.custom_fields)) {
+      const placeholder = new RegExp(`\\{${key}\\}`, 'g');
+      result = result.replace(placeholder, String(value || ''));
+    }
+  }
+
+  // Replace seller company built-in fields
+  if (sellerData) {
+    result = result.replace(/\{seller_company_name\}/g, sellerData.company_name || '');
+    result = result.replace(/\{seller_website\}/g, sellerData.website || '');
+    result = result.replace(/\{seller_product_offering\}/g, sellerData.product_offering || '');
+    result = result.replace(/\{seller_usps\}/g, sellerData.usps || '');
+    result = result.replace(/\{seller_industry\}/g, sellerData.industry || '');
+    result = result.replace(/\{seller_target_audience\}/g, sellerData.target_audience || '');
+    result = result.replace(/\{seller_tone_style\}/g, sellerData.tone_style || '');
+    result = result.replace(/\{seller_pain_points_solved\}/g, sellerData.pain_points_solved || '');
+    result = result.replace(/\{seller_product_sets\}/g, sellerData.product_sets || '');
+  }
+
+  // Replace seller custom fields
+  for (const [key, value] of Object.entries(sellerCustomFields)) {
+    const placeholder = new RegExp(`\\{seller_${key}\\}`, 'g');
+    result = result.replace(placeholder, String(value || ''));
+  }
+
+  // Replace {seller_context} with the full context string
+  result = result.replace(/\{seller_context\}/g, buildSellerContext(sellerData));
+
+  return result;
 }
 
 serve(async (req) => {
@@ -196,18 +261,16 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    // Get seller context for injection
-    const sellerContext = await getSellerContext(supabase);
+    // Get seller company data
+    const { data: sellerData, customFields: sellerCustomFields } = await getSellerData(supabase);
 
-    // Replace placeholders in the prompt
-    let prompt = promptConfig.prompt;
-    prompt = prompt.replace('{company_name}', context.company_name || 'Unknown');
-    prompt = prompt.replace('{website}', context.website || 'Not provided');
-    prompt = prompt.replace('{first_name}', context.first_name || '');
-    prompt = prompt.replace('{last_name}', context.last_name || '');
-    prompt = prompt.replace('{job_title}', context.job_title || 'Unknown role');
-    prompt = prompt.replace('{company}', context.company_name || 'Unknown company');
-    prompt = prompt.replace('{seller_context}', sellerContext);
+    // Replace all placeholders in the prompt
+    const prompt = replacePlaceholders(
+      promptConfig.prompt,
+      context,
+      sellerData,
+      sellerCustomFields
+    );
 
     console.log(`Prompt length: ${prompt.length}`);
 

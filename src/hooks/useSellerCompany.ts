@@ -13,6 +13,7 @@ export interface SellerCompany {
   tone_style: string;
   pain_points_solved: string;
   product_sets: string;
+  custom_fields: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -34,7 +35,15 @@ export function useSellerCompany() {
         throw error;
       }
       
-      setSellerCompany(data || null);
+      // Parse custom_fields if it's a string
+      const parsed = data ? {
+        ...data,
+        custom_fields: typeof data.custom_fields === 'string' 
+          ? JSON.parse(data.custom_fields) 
+          : (data.custom_fields || {})
+      } : null;
+      
+      setSellerCompany(parsed as SellerCompany | null);
     } catch (error) {
       console.error('Error fetching seller company:', error);
     } finally {
@@ -67,10 +76,51 @@ export function useSellerCompany() {
           .single();
 
         if (error) throw error;
-        setSellerCompany(data);
+        setSellerCompany({
+          ...data,
+          custom_fields: data.custom_fields || {}
+        } as SellerCompany);
       }
     } catch (error) {
       console.error('Error updating seller company:', error);
+      toast.error('Failed to save');
+      throw error;
+    }
+  }, [sellerCompany]);
+
+  const updateCustomField = useCallback(async (key: string, value: any) => {
+    try {
+      const newCustomFields = {
+        ...(sellerCompany?.custom_fields || {}),
+        [key]: value,
+      };
+
+      if (sellerCompany) {
+        const { error } = await supabase
+          .from('seller_company')
+          .update({ 
+            custom_fields: newCustomFields, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', sellerCompany.id);
+
+        if (error) throw error;
+        setSellerCompany(prev => prev ? { ...prev, custom_fields: newCustomFields } : null);
+      } else {
+        const { data, error } = await supabase
+          .from('seller_company')
+          .insert({ custom_fields: newCustomFields })
+          .select()
+          .single();
+
+        if (error) throw error;
+        setSellerCompany({
+          ...data,
+          custom_fields: newCustomFields
+        } as SellerCompany);
+      }
+    } catch (error) {
+      console.error('Error updating custom field:', error);
       toast.error('Failed to save');
       throw error;
     }
@@ -97,6 +147,7 @@ export function useSellerCompany() {
     sellerCompany,
     isLoading,
     updateField,
+    updateCustomField,
     getContextString,
     refetch: fetchSellerCompany,
   };
