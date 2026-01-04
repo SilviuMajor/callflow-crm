@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn, getSellerFieldColorClasses } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -16,7 +16,7 @@ interface PlaceholderBadgeProps {
 const categoryStyles: Record<PlaceholderCategory, string> = {
   contact: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200',
   custom_contact: 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200',
-  seller: 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200',
+  seller: '', // Seller uses per-field colors
 };
 
 export function PlaceholderBadge({ 
@@ -27,6 +27,11 @@ export function PlaceholderBadge({
   onDragStart,
   className 
 }: PlaceholderBadgeProps) {
+  // For seller category, use per-field colors; otherwise use category styles
+  const colorClasses = category === 'seller' 
+    ? getSellerFieldColorClasses(name) 
+    : categoryStyles[category];
+
   return (
     <span
       draggable
@@ -34,7 +39,7 @@ export function PlaceholderBadge({
       onDragStart={onDragStart}
       className={cn(
         'inline-flex items-center px-2 py-0.5 text-xs font-mono rounded border cursor-pointer transition-colors select-none relative',
-        categoryStyles[category],
+        colorClasses,
         className
       )}
     >
