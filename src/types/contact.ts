@@ -3,8 +3,6 @@ export type CallStatus = 'pending' | 'no_answer' | 'callback' | 'completed' | 'n
 export type CompletedReason = 
   | 'appointment_booked' 
   | 'sale_closed' 
-  | 'demo_scheduled' 
-  | 'proposal_sent' 
   | 'info_sent' 
   | 'other';
 
@@ -38,6 +36,7 @@ export interface QualifyingQuestion {
   options?: string[];
   required?: boolean;
   order: number;
+  isArchived?: boolean;
 }
 
 export interface Contact {
@@ -52,6 +51,7 @@ export interface Contact {
   notes: string;
   status: CallStatus;
   callbackDate?: Date;
+  appointmentDate?: Date;
   createdAt: Date;
   lastCalledAt?: Date;
   completedReason?: CompletedReason;
@@ -68,8 +68,6 @@ export interface CallbackSchedule {
 export const COMPLETED_REASONS: { value: CompletedReason; label: string }[] = [
   { value: 'appointment_booked', label: 'Appointment Booked' },
   { value: 'sale_closed', label: 'Sale Closed' },
-  { value: 'demo_scheduled', label: 'Demo Scheduled' },
-  { value: 'proposal_sent', label: 'Proposal Sent' },
   { value: 'info_sent', label: 'Info Sent' },
   { value: 'other', label: 'Other' },
 ];

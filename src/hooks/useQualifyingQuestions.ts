@@ -4,11 +4,11 @@ import { QualifyingQuestion } from '@/types/contact';
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const defaultQuestions: QualifyingQuestion[] = [
-  { id: generateId(), label: 'Budget Range', type: 'dropdown', options: ['< $10k', '$10k - $50k', '$50k - $100k', '$100k+'], order: 0 },
-  { id: generateId(), label: 'Timeline', type: 'dropdown', options: ['Immediate', '1-3 months', '3-6 months', '6+ months'], order: 1 },
-  { id: generateId(), label: 'Decision Maker?', type: 'radio', options: ['Yes', 'No', 'Part of committee'], order: 2 },
-  { id: generateId(), label: 'Current Solution', type: 'short_text', order: 3 },
-  { id: generateId(), label: 'Pain Points', type: 'long_text', order: 4 },
+  { id: generateId(), label: 'Budget Range', type: 'dropdown', options: ['< $10k', '$10k - $50k', '$50k - $100k', '$100k+'], order: 0, isArchived: false },
+  { id: generateId(), label: 'Timeline', type: 'dropdown', options: ['Immediate', '1-3 months', '3-6 months', '6+ months'], order: 1, isArchived: false },
+  { id: generateId(), label: 'Decision Maker?', type: 'radio', options: ['Yes', 'No', 'Part of committee'], order: 2, isArchived: false },
+  { id: generateId(), label: 'Current Solution', type: 'short_text', order: 3, isArchived: false },
+  { id: generateId(), label: 'Pain Points', type: 'long_text', order: 4, isArchived: false },
 ];
 
 export function useQualifyingQuestions() {

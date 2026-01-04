@@ -22,7 +22,8 @@ interface OutcomePanelProps {
     callbackDate?: Date, 
     notes?: string,
     completedReason?: CompletedReason,
-    notInterestedReason?: NotInterestedReason
+    notInterestedReason?: NotInterestedReason,
+    appointmentDate?: Date
   ) => void;
 }
 
@@ -37,6 +38,8 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   
   const [completedReason, setCompletedReason] = useState<CompletedReason>('appointment_booked');
   const [completedNotes, setCompletedNotes] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
   
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
@@ -53,10 +56,16 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   };
 
   const handleCompleted = () => {
-    onAction('completed', undefined, completedNotes, completedReason);
+    let aptDate: Date | undefined;
+    if (completedReason === 'appointment_booked' && appointmentDate && appointmentTime) {
+      aptDate = new Date(`${appointmentDate}T${appointmentTime}`);
+    }
+    onAction('completed', undefined, completedNotes, completedReason, undefined, aptDate);
     setShowCompletedModal(false);
     setCompletedReason('appointment_booked');
     setCompletedNotes('');
+    setAppointmentDate('');
+    setAppointmentTime('');
   };
 
   const handleNotInterested = () => {
@@ -186,6 +195,33 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
                 </div>
               ))}
             </RadioGroup>
+            
+            {/* Appointment date/time picker when Appointment Booked is selected */}
+            {completedReason === 'appointment_booked' && (
+              <div className="grid grid-cols-2 gap-2 p-2 bg-muted/50 rounded border border-border">
+                <div className="space-y-1">
+                  <Label htmlFor="apt-date" className="text-xs">Appointment Date</Label>
+                  <Input
+                    id="apt-date"
+                    type="date"
+                    value={appointmentDate}
+                    onChange={(e) => setAppointmentDate(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="apt-time" className="text-xs">Time</Label>
+                  <Input
+                    id="apt-time"
+                    type="time"
+                    value={appointmentTime}
+                    onChange={(e) => setAppointmentTime(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-1">
               <Label htmlFor="completed-notes" className="text-xs">Notes (optional)</Label>
               <Textarea
@@ -201,7 +237,12 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
             <Button variant="outline" size="sm" onClick={() => setShowCompletedModal(false)}>
               Cancel
             </Button>
-            <Button size="sm" className="bg-success hover:bg-success/90" onClick={handleCompleted}>
+            <Button 
+              size="sm" 
+              className="bg-success hover:bg-success/90" 
+              onClick={handleCompleted}
+              disabled={completedReason === 'appointment_booked' && (!appointmentDate || !appointmentTime)}
+            >
               Confirm
             </Button>
           </DialogFooter>
