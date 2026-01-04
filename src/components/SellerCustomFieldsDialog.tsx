@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, GripVertical, Settings } from 'lucide-react';
 import { useSellerCustomFields, SellerCustomField } from '@/hooks/useSellerCustomFields';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getSellerFieldColorClasses } from '@/lib/utils';
 
 const FIELD_TYPES = [
   { value: 'short_text', label: 'Short Text' },
@@ -90,7 +91,7 @@ export function SellerCustomFieldsDialog({ trigger }: SellerCustomFieldsDialogPr
                         {field.options?.length ? ` (${field.options.length} options)` : ''}
                       </div>
                     </div>
-                    <code className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                    <code className={`text-xs px-1.5 py-0.5 rounded ${getSellerFieldColorClasses(`seller_${field.key}`)}`}>
                       {`{seller_${field.key}}`}
                     </code>
                     <Button 

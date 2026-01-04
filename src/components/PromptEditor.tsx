@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, getSellerFieldColor } from '@/lib/utils';
 import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
 
 interface PlaceholderGroup {
@@ -19,8 +19,16 @@ interface PromptEditorProps {
 const categoryColors: Record<PlaceholderCategory, { bg: string; text: string; border: string }> = {
   contact: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
   custom_contact: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
-  seller: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300' },
+  seller: { bg: '', text: '', border: '' }, // Seller uses per-field colors
 };
+
+// Get color classes for a placeholder (handles seller per-field colors)
+function getPlaceholderColorClasses(category: PlaceholderCategory, name: string): { bg: string; text: string; border: string } {
+  if (category === 'seller') {
+    return getSellerFieldColor(name);
+  }
+  return categoryColors[category];
+}
 
 export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, className }: PromptEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -33,6 +41,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
   const autocompleteStartPos = useRef<number | null>(null);
   const isUserInputRef = useRef(false);
   const lastValueRef = useRef(value);
+  const isInitializedRef = useRef(false);
 
   // Flatten all placeholders with their category
   const allPlaceholders = useMemo(() => {
@@ -76,7 +85,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
       // Add placeholder badge
       const name = match[1];
       const category = getCategoryForPlaceholder(name);
-      const colors = categoryColors[category];
+      const colors = getPlaceholderColorClasses(category, name);
       const isFieldEmpty = emptyFields?.has(name);
       
       result += `<span 
@@ -463,42 +472,53 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     setIsDraggingInternal(true);
   }, []);
 
-  // Sync HTML with value - FIXED to only update on external changes
+  // Initialize editor content on mount only
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor) return;
+    if (!editor || isInitializedRef.current) return;
+    
+    editor.innerHTML = textToHtml(value);
+    lastValueRef.current = value;
+    isInitializedRef.current = true;
+  }, [textToHtml, value]);
+
+  // Sync HTML with value - ONLY for external changes (autocomplete, drag-drop, prop changes)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !isInitializedRef.current) return;
 
     // Skip if this change came from user typing
     if (isUserInputRef.current) {
       isUserInputRef.current = false;
+      lastValueRef.current = value;
       return;
     }
 
-    // Only update HTML for external changes (autocomplete, drag-drop, prop changes, etc.)
-    const currentText = htmlToText(editor);
-    if (currentText !== value) {
+    // Only update HTML for external changes - compare with last known value
+    if (lastValueRef.current !== value) {
+      const pos = getCursorPosition();
       editor.innerHTML = textToHtml(value);
       lastValueRef.current = value;
+      requestAnimationFrame(() => {
+        setCursorPosition(Math.min(pos, value.length));
+      });
     }
-  }, [value, textToHtml, htmlToText]);
+  }, [value, textToHtml, getCursorPosition, setCursorPosition]);
 
   // Update innerHTML only when emptyFields changes (to update badge styling)
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor) return;
+    if (!editor || !isInitializedRef.current) return;
     
     // Only refresh for empty field indicator changes, not during typing
     if (!isUserInputRef.current) {
-      const currentText = htmlToText(editor);
-      if (currentText === value) {
-        const pos = getCursorPosition();
-        editor.innerHTML = textToHtml(value);
-        requestAnimationFrame(() => {
-          setCursorPosition(Math.min(pos, value.length));
-        });
-      }
+      const pos = getCursorPosition();
+      editor.innerHTML = textToHtml(value);
+      requestAnimationFrame(() => {
+        setCursorPosition(Math.min(pos, value.length));
+      });
     }
-  }, [emptyFields]);
+  }, [emptyFields, textToHtml, getCursorPosition, setCursorPosition, value]);
 
   // Add event listeners to badges for drag
   useEffect(() => {
@@ -609,7 +629,6 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
           isDraggingInternal && "opacity-75",
           className
         )}
-        dangerouslySetInnerHTML={{ __html: textToHtml(value) }}
       />
       
       {renderInsertionCursor()}
@@ -631,7 +650,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
                 </div>
                 {groupPlaceholders.map((p) => {
                   const globalIndex = filteredPlaceholders.indexOf(p);
-                  const colors = categoryColors[p.category];
+                  const colors = getPlaceholderColorClasses(p.category, p.name);
                   
                   return (
                     <div

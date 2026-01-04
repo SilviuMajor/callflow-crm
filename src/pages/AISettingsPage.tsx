@@ -20,6 +20,7 @@ import { SellerCustomFieldsDialog } from '@/components/SellerCustomFieldsDialog'
 import { PromptEditor } from '@/components/PromptEditor';
 import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
 import { supabase } from '@/integrations/supabase/client';
+import { getSellerFieldColorClasses } from '@/lib/utils';
 
 const PROMPT_CONFIG = {
   company_search: {
@@ -378,7 +379,7 @@ export default function AISettingsPage() {
                   <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
                     <Label htmlFor={field.key} className="text-sm font-medium mb-1.5 block">
                       {field.label}
-                      <code className="ml-2 text-xs bg-amber-100 text-amber-700 px-1 py-0.5 rounded">
+                      <code className={`ml-2 text-xs px-1 py-0.5 rounded ${getSellerFieldColorClasses(`seller_${field.key}`)}`}>
                         {`{seller_${field.key}}`}
                       </code>
                     </Label>
