@@ -1,11 +1,17 @@
-import { Contact, QualifyingQuestion, CustomContactField } from '@/types/contact';
+import { Contact, QualifyingQuestion, CustomContactField, CompanyField } from '@/types/contact';
+
+// Type for company data store
+type CompanyDataStore = Record<string, Record<string, any>>;
 
 export function exportToCSV(
   contacts: Contact[], 
   questions: QualifyingQuestion[],
-  customFields: CustomContactField[] = []
+  customFields: CustomContactField[] = [],
+  companyFields: CompanyField[] = [],
+  companyData: CompanyDataStore = {}
 ): void {
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
+  const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   
   const headers = [
     'First Name',
@@ -23,37 +29,50 @@ export function exportToCSV(
     'Appointment Date',
     'Created At',
     'Last Called At',
+    ...activeCompanyFields.map(f => `[Company] ${f.label}`),
     ...activeCustomFields.map(f => f.label),
     ...questions.filter(q => !q.isArchived).map(q => q.label),
   ];
 
-  const rows = contacts.map(contact => [
-    contact.firstName,
-    contact.lastName,
-    contact.company,
-    contact.jobTitle,
-    contact.phone,
-    contact.email,
-    contact.website,
-    contact.notes,
-    contact.status,
-    contact.callbackDate ? new Date(contact.callbackDate).toISOString() : '',
-    contact.completedReason || '',
-    contact.notInterestedReason || '',
-    contact.appointmentDate ? new Date(contact.appointmentDate).toISOString() : '',
-    contact.createdAt ? new Date(contact.createdAt).toISOString() : '',
-    contact.lastCalledAt ? new Date(contact.lastCalledAt).toISOString() : '',
-    ...activeCustomFields.map(f => {
-      const value = contact.customFields?.[f.id];
-      if (Array.isArray(value)) return value.join('; ');
-      return value ?? '';
-    }),
-    ...questions.filter(q => !q.isArchived).map(q => {
-      const answer = contact.qualifyingAnswers?.[q.id];
-      if (Array.isArray(answer)) return answer.join('; ');
-      return answer ?? '';
-    }),
-  ]);
+  const normalizeCompanyName = (name: string) => name.toLowerCase().trim();
+
+  const rows = contacts.map(contact => {
+    const companyKey = contact.company ? normalizeCompanyName(contact.company) : '';
+    const contactCompanyData = companyData[companyKey] || {};
+    
+    return [
+      contact.firstName,
+      contact.lastName,
+      contact.company,
+      contact.jobTitle,
+      contact.phone,
+      contact.email,
+      contact.website,
+      contact.notes,
+      contact.status,
+      contact.callbackDate ? new Date(contact.callbackDate).toISOString() : '',
+      contact.completedReason || '',
+      contact.notInterestedReason || '',
+      contact.appointmentDate ? new Date(contact.appointmentDate).toISOString() : '',
+      contact.createdAt ? new Date(contact.createdAt).toISOString() : '',
+      contact.lastCalledAt ? new Date(contact.lastCalledAt).toISOString() : '',
+      ...activeCompanyFields.map(f => {
+        const value = contactCompanyData[f.id];
+        if (Array.isArray(value)) return value.join('; ');
+        return value ?? '';
+      }),
+      ...activeCustomFields.map(f => {
+        const value = contact.customFields?.[f.id];
+        if (Array.isArray(value)) return value.join('; ');
+        return value ?? '';
+      }),
+      ...questions.filter(q => !q.isArchived).map(q => {
+        const answer = contact.qualifyingAnswers?.[q.id];
+        if (Array.isArray(answer)) return answer.join('; ');
+        return answer ?? '';
+      }),
+    ];
+  });
 
   const csvContent = [
     headers.map(h => `"${h}"`).join(','),
@@ -63,11 +82,16 @@ export function exportToCSV(
   downloadFile(csvContent, 'contacts-export.csv', 'text/csv');
 }
 
-export function exportToJSON(contacts: Contact[], questions: QualifyingQuestion[]): void {
+export function exportToJSON(
+  contacts: Contact[], 
+  questions: QualifyingQuestion[],
+  companyData: CompanyDataStore = {}
+): void {
   const data = {
     exportedAt: new Date().toISOString(),
     questions: questions,
     contacts: contacts,
+    companyData: companyData,
   };
 
   downloadFile(JSON.stringify(data, null, 2), 'contacts-export.json', 'application/json');

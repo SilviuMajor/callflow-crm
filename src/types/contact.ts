@@ -70,6 +70,16 @@ export interface CustomContactField {
   isArchived?: boolean;
 }
 
+export interface CompanyField {
+  id: string;
+  key: string;
+  label: string;
+  type: QuestionType;
+  options?: string[];
+  order: number;
+  isArchived?: boolean;
+}
+
 export interface CallbackSchedule {
   contactId: string;
   scheduledFor: Date;

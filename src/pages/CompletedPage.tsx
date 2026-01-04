@@ -3,6 +3,8 @@ import { TopNav } from '@/components/TopNav';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { useCustomFields } from '@/hooks/useCustomFields';
+import { useCompanyFields } from '@/hooks/useCompanyFields';
+import { useCompanyData } from '@/hooks/useCompanyData';
 import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +18,8 @@ export default function CompletedPage() {
   const { completedContacts, clearContactAnswers } = useContacts();
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
+  const { fields: companyFields } = useCompanyFields();
+  const { companyData } = useCompanyData();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -60,11 +64,11 @@ export default function CompletedPage() {
   };
 
   const handleExportCSV = () => {
-    exportToCSV(filteredContacts, questions, customFields);
+    exportToCSV(filteredContacts, questions, customFields, companyFields, companyData);
   };
 
   const handleExportJSON = () => {
-    exportToJSON(filteredContacts, questions);
+    exportToJSON(filteredContacts, questions, companyData);
   };
 
   const handleSaveQuestions = (updatedQuestions: typeof questions, _applyToBlank: boolean, deletedIds: string[]) => {
