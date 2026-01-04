@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
 
 interface AIResearchBoxProps {
@@ -107,11 +108,39 @@ export function AIResearchBox({
               <div 
                 ref={contentRef}
                 className={cn(
-                  "text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed overflow-hidden transition-all",
+                  "text-sm text-foreground/90 leading-relaxed overflow-hidden transition-all prose prose-sm dark:prose-invert max-w-none",
                   !isContentExpanded && showReadMore && "max-h-[120px]"
                 )}
               >
-                {content}
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => <h1 className="text-lg font-bold mt-3 mb-2 first:mt-0">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-base font-semibold mt-3 mb-2 first:mt-0">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-sm font-semibold mt-2 mb-1 first:mt-0">{children}</h3>,
+                    h4: ({ children }) => <h4 className="text-sm font-medium mt-2 mb-1 first:mt-0">{children}</h4>,
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                    li: ({ children }) => <li className="text-sm">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    a: ({ href, children }) => (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        {children}
+                      </a>
+                    ),
+                    code: ({ children }) => (
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{children}</code>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-2 border-primary/50 pl-3 italic text-muted-foreground">
+                        {children}
+                      </blockquote>
+                    ),
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
               </div>
               
               {showReadMore && (
