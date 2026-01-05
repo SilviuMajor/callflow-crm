@@ -3,10 +3,12 @@ import { TopNav } from '@/components/TopNav';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { usePots } from '@/hooks/usePots';
-import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
+import { useAnalyticsData } from '@/hooks/useAnalyticsData';
+import { COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { 
   BarChart, 
   Bar, 
@@ -17,25 +19,22 @@ import {
   PieChart, 
   Pie, 
   Cell,
-  LineChart,
-  Line,
-  Funnel,
-  FunnelChart,
-  LabelList
+  Legend
 } from 'recharts';
 import { isAfter, startOfDay, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 
-const COLORS = ['hsl(220, 90%, 56%)', 'hsl(142, 76%, 36%)', 'hsl(38, 92%, 50%)', 'hsl(0, 84%, 60%)', 'hsl(199, 89%, 48%)'];
-
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter';
+type TimeGranularity = 'hourly' | 'daily' | 'weekly' | 'monthly';
 
 export default function AnalyticsPage() {
   const { pots } = usePots();
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>('all');
+  const [dateRange, setDateRange] = useState<DateRange>('week');
+  const [timeGranularity, setTimeGranularity] = useState<TimeGranularity>('daily');
   
-  const { contacts: allContacts, stats: allStats } = useContacts();
+  const { contacts: allContacts } = useContacts();
   const { questions } = useQualifyingQuestions();
+  const { getTimeData, isLoading: isLoadingTimeData } = useAnalyticsData(selectedPotId, dateRange);
 
   const getDateRangeStart = (range: DateRange): Date | null => {
     const now = new Date();
@@ -93,7 +92,6 @@ export default function AnalyticsPage() {
     const pending = appointmentsBooked.filter(c => c.appointmentAttended === null).length;
     const total = appointmentsBooked.length;
     
-    // Only count decided appointments for show rate
     const decidedTotal = attended + noShow;
     const showRate = decidedTotal > 0 ? ((attended / decidedTotal) * 100).toFixed(1) : '0';
     
@@ -114,7 +112,7 @@ export default function AnalyticsPage() {
     value: completedContacts.filter(c => c.completedReason === reason.value).length,
   })).filter(r => r.value > 0);
 
-  // Not interested breakdown
+  // Not interested breakdown (Loss Reasons)
   const notInterestedBreakdown = NOT_INTERESTED_REASONS.map(reason => ({
     name: reason.label,
     value: notInterestedContacts.filter(c => c.notInterestedReason === reason.value).length,
@@ -129,33 +127,8 @@ export default function AnalyticsPage() {
     { name: 'Not Interested', value: stats.notInterested, color: 'hsl(0, 84%, 60%)' },
   ].filter(s => s.value > 0);
 
-  // Appointment status pie chart
-  const appointmentStatusData = [
-    { name: 'Attended', value: appointmentMetrics.attended, color: 'hsl(142, 76%, 36%)' },
-    { name: 'No Show', value: appointmentMetrics.noShow, color: 'hsl(0, 84%, 60%)' },
-    { name: 'Pending', value: appointmentMetrics.pending, color: 'hsl(45, 93%, 47%)' },
-  ].filter(s => s.value > 0);
-
-  // Funnel data
-  const funnelData = [
-    { name: 'Total Contacts', value: stats.total, fill: 'hsl(220, 90%, 56%)' },
-    { name: 'Contacted', value: stats.completed + stats.notInterested + stats.callbacks + stats.noAnswer, fill: 'hsl(199, 89%, 48%)' },
-    { name: 'Engaged', value: stats.completed + stats.notInterested + stats.callbacks, fill: 'hsl(38, 92%, 50%)' },
-    { name: 'Completed', value: stats.completed, fill: 'hsl(142, 76%, 36%)' },
-  ];
-
-  // Time-based mock data (would be real with persistence)
-  const timeData = [
-    { hour: '9am', calls: 12 },
-    { hour: '10am', calls: 18 },
-    { hour: '11am', calls: 15 },
-    { hour: '12pm', calls: 8 },
-    { hour: '1pm', calls: 10 },
-    { hour: '2pm', calls: 22 },
-    { hour: '3pm', calls: 19 },
-    { hour: '4pm', calls: 16 },
-    { hour: '5pm', calls: 11 },
-  ];
+  // Get real time data from hook
+  const timeData = useMemo(() => getTimeData(timeGranularity), [getTimeData, timeGranularity]);
 
   // Qualifying analytics
   const qualifyingAnalytics = useMemo(() => {
@@ -195,6 +168,13 @@ export default function AnalyticsPage() {
     });
   }, [questions, contacts]);
 
+  const OUTCOME_COLORS = {
+    completed: 'hsl(142, 76%, 36%)',
+    not_interested: 'hsl(0, 84%, 60%)',
+    callback: 'hsl(45, 93%, 47%)',
+    no_answer: 'hsl(220, 14%, 70%)',
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <TopNav />
@@ -232,7 +212,6 @@ export default function AnalyticsPage() {
           <TabsList className="h-9">
             <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
             <TabsTrigger value="time" className="text-xs">Time Analysis</TabsTrigger>
-            <TabsTrigger value="pipeline" className="text-xs">Pipeline</TabsTrigger>
             <TabsTrigger value="qualifying" className="text-xs">Qualifying</TabsTrigger>
           </TabsList>
           
@@ -273,7 +252,7 @@ export default function AnalyticsPage() {
               </div>
             </div>
             
-            {/* Status Pie Chart */}
+            {/* Status & Completed Charts */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="p-4 rounded-lg border border-border bg-card">
                 <p className="text-sm font-medium mb-3">Status Distribution</p>
@@ -326,97 +305,10 @@ export default function AnalyticsPage() {
                 )}
               </div>
             </div>
-          </TabsContent>
-          
-          {/* Time Tab */}
-          <TabsContent value="time" className="space-y-4">
-            <div className="p-4 rounded-lg border border-border bg-card">
-              <p className="text-sm font-medium mb-3">Calls by Hour</p>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={timeData}>
-                    <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="calls" fill="hsl(220, 90%, 56%)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            
-            <div className="p-4 rounded-lg border border-border bg-card">
-              <p className="text-sm font-medium mb-3">Trend</p>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={timeData}>
-                    <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="calls" stroke="hsl(220, 90%, 56%)" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </TabsContent>
-          
-          {/* Pipeline Tab */}
-          <TabsContent value="pipeline" className="space-y-4">
-            <div className="p-4 rounded-lg border border-border bg-card">
-              <p className="text-sm font-medium mb-3">Sales Funnel</p>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <FunnelChart>
-                    <Tooltip />
-                    <Funnel
-                      dataKey="value"
-                      data={funnelData}
-                      isAnimationActive
-                    >
-                      <LabelList position="right" fill="#000" stroke="none" dataKey="name" fontSize={12} />
-                    </Funnel>
-                  </FunnelChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
 
-            {/* Appointment Status Chart */}
-            {appointmentStatusData.length > 0 && (
-              <div className="p-4 rounded-lg border border-border bg-card">
-                <p className="text-sm font-medium mb-3">Appointment Outcomes</p>
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={appointmentStatusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {appointmentStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2 justify-center">
-                  {appointmentStatusData.map((entry, index) => (
-                    <div key={index} className="flex items-center gap-1 text-xs">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                      <span>{entry.name} ({entry.value})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Not Interested Breakdown */}
+            {/* Loss Reasons Chart - Moved from Pipeline */}
             <div className="p-4 rounded-lg border border-border bg-card">
-              <p className="text-sm font-medium mb-3">Lost Reasons</p>
+              <p className="text-sm font-medium mb-3">Loss Reasons</p>
               {notInterestedBreakdown.length > 0 ? (
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
@@ -429,7 +321,76 @@ export default function AnalyticsPage() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-8">No data yet</p>
+                <p className="text-xs text-muted-foreground text-center py-8">No loss data yet</p>
+              )}
+            </div>
+          </TabsContent>
+          
+          {/* Time Tab */}
+          <TabsContent value="time" className="space-y-4">
+            {/* Time Granularity Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">View by:</span>
+              <ToggleGroup 
+                type="single" 
+                value={timeGranularity} 
+                onValueChange={(v) => v && setTimeGranularity(v as TimeGranularity)}
+                className="border rounded-lg"
+              >
+                <ToggleGroupItem value="hourly" className="text-xs px-3">Hourly</ToggleGroupItem>
+                <ToggleGroupItem value="daily" className="text-xs px-3">Daily</ToggleGroupItem>
+                <ToggleGroupItem value="weekly" className="text-xs px-3">Weekly</ToggleGroupItem>
+                <ToggleGroupItem value="monthly" className="text-xs px-3">Monthly</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            {/* Total Actions Chart */}
+            <div className="p-4 rounded-lg border border-border bg-card">
+              <p className="text-sm font-medium mb-3">Total Actions</p>
+              {isLoadingTimeData ? (
+                <div className="h-64 flex items-center justify-center text-muted-foreground">Loading...</div>
+              ) : timeData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={timeData}>
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="total" fill="hsl(220, 90%, 56%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                  No activity data for this period
+                </div>
+              )}
+            </div>
+            
+            {/* Outcome Breakdown Chart */}
+            <div className="p-4 rounded-lg border border-border bg-card">
+              <p className="text-sm font-medium mb-3">Outcomes Breakdown</p>
+              {isLoadingTimeData ? (
+                <div className="h-64 flex items-center justify-center text-muted-foreground">Loading...</div>
+              ) : timeData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={timeData}>
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="completed" name="Completed" stackId="a" fill={OUTCOME_COLORS.completed} />
+                      <Bar dataKey="not_interested" name="Not Interested" stackId="a" fill={OUTCOME_COLORS.not_interested} />
+                      <Bar dataKey="callback" name="Callback" stackId="a" fill={OUTCOME_COLORS.callback} />
+                      <Bar dataKey="no_answer" name="No Answer" stackId="a" fill={OUTCOME_COLORS.no_answer} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
+                  No activity data for this period
+                </div>
               )}
             </div>
           </TabsContent>
