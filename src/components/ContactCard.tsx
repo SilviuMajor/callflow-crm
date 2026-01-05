@@ -43,6 +43,7 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
   const [companyAI, setCompanyAI] = useState<AICache>({});
   const [contactPersona, setContactPersona] = useState<string | null>(null);
   const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
+  const [hasCompanyResearch, setHasCompanyResearch] = useState(false);
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
@@ -61,9 +62,13 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
 
         if (companyResult) {
           setCompanyAI(companyResult);
+          setHasCompanyResearch(Boolean(companyResult.ai_summary));
         } else {
           setCompanyAI({});
+          setHasCompanyResearch(false);
         }
+      } else {
+        setHasCompanyResearch(false);
       }
 
       // Load contact persona from the contact itself
@@ -91,6 +96,7 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
         ai_summary: result,
         ai_summary_updated_at: new Date().toISOString()
       }));
+      setHasCompanyResearch(true); // Enable targeted research after company research is done
     }
   };
 
@@ -834,7 +840,7 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
       <div className="space-y-3">
         {/* Custom Company Research */}
         <AIResearchBox
-          title="Custom Research"
+          title="Targeted Research"
           content={companyAI.ai_custom_research}
           isLoading={isResearching[`custom_${contact.company}`] || false}
           onRefresh={handleRefreshCustomResearch}
@@ -842,6 +848,8 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
           variant="custom"
           buttonLabel="Run Research"
           maxCollapsedLines={5}
+          disabled={!hasCompanyResearch}
+          disabledReason="Run Company Research first"
         />
 
         {/* Persona */}

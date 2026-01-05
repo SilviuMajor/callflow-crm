@@ -18,6 +18,8 @@ interface AIResearchBoxProps {
   buttonLabel?: string;
   provider?: 'perplexity' | 'openai' | null;
   maxCollapsedLines?: number;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export const AIResearchBox = forwardRef<HTMLDivElement, AIResearchBoxProps>(
@@ -32,6 +34,8 @@ export const AIResearchBox = forwardRef<HTMLDivElement, AIResearchBoxProps>(
     buttonLabel = 'Refresh',
     provider,
     maxCollapsedLines = 5,
+    disabled = false,
+    disabledReason,
   }, ref) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -200,12 +204,18 @@ export const AIResearchBox = forwardRef<HTMLDivElement, AIResearchBoxProps>(
                 e.stopPropagation();
                 onRefresh();
               }}
-              disabled={isLoading}
+              disabled={isLoading || disabled}
               className="h-7 text-xs"
+              title={disabled ? disabledReason : undefined}
             >
               <RefreshCw className={cn('h-3 w-3 mr-1', isLoading && 'animate-spin')} />
               {content ? buttonLabel : 'Generate'}
             </Button>
+            {disabled && disabledReason && (
+              <span className="text-xs text-muted-foreground italic">
+                {disabledReason}
+              </span>
+            )}
             {content && (
               <Button
                 variant="ghost"
