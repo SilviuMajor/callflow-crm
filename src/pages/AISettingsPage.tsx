@@ -11,13 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2 } from 'lucide-react';
+import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { PlaceholderToolbar } from '@/components/PlaceholderToolbar';
 import { SellerCustomFieldsDialog } from '@/components/SellerCustomFieldsDialog';
 import { PromptEditor } from '@/components/PromptEditor';
+import { RefinePromptDialog } from '@/components/RefinePromptDialog';
 import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { getSellerFieldColorClasses } from '@/lib/utils';
@@ -136,6 +137,7 @@ export default function AISettingsPage() {
   const [editedPrompts, setEditedPrompts] = useState<Record<string, Partial<AIPrompt & { default_prompt?: string }>>>({});
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({});
   const [improvingStates, setImprovingStates] = useState<Record<string, boolean>>({});
+  const [refineDialogOpen, setRefineDialogOpen] = useState<string | null>(null);
 
   useEffect(() => {
     if (prompts.length > 0) {
@@ -504,6 +506,15 @@ export default function AISettingsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setRefineDialogOpen(prompt.prompt_type)}
+                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <FlaskConical className="h-3 w-3 mr-1" />
+                            Refine
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleImprovePrompt(prompt.prompt_type)}
                             disabled={isImproving}
                             className="h-7 text-xs text-muted-foreground hover:text-foreground"
@@ -597,6 +608,30 @@ export default function AISettingsPage() {
             })}
           </div>
         )}
+
+        {/* Refine Prompt Dialogs */}
+        {prompts.map((prompt) => {
+          const { config } = getConfigForPromptType(prompt.prompt_type);
+          if (!config) return null;
+          const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
+          const currentPromptValue = editedPrompts[prompt.prompt_type]?.prompt ?? prompt.prompt ?? '';
+          
+          return (
+            <RefinePromptDialog
+              key={`refine-${prompt.prompt_type}`}
+              open={refineDialogOpen === prompt.prompt_type}
+              onOpenChange={(open) => setRefineDialogOpen(open ? prompt.prompt_type : null)}
+              promptType={prompt.prompt_type}
+              promptTitle={config.title}
+              currentPrompt={currentPromptValue}
+              placeholderGroups={placeholderGroups}
+              onApply={(refinedPrompt) => {
+                handleChange(prompt.prompt_type, 'prompt', refinedPrompt);
+                setRefineDialogOpen(null);
+              }}
+            />
+          );
+        })}
       </main>
     </div>
   );
