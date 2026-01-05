@@ -175,7 +175,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
         <Button
           variant="outline"
           onClick={() => setShowNotInterestedModal(true)}
-          className="w-full justify-start gap-2 h-9"
+          className="w-full justify-start gap-2 h-9 border-destructive text-destructive hover:bg-destructive/10"
         >
           <XCircle className="w-4 h-4" />
           Not Interested

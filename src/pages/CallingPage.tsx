@@ -16,17 +16,15 @@ import { AddContactModal } from '@/components/AddContactModal';
 import { ImportCSVModal } from '@/components/ImportCSVModal';
 import { MobilePanelIndicator } from '@/components/MobilePanelIndicator';
 import { NotesSection } from '@/components/NotesSection';
-import { OutcomeSettingsDialog } from '@/components/OutcomeSettingsDialog';
 import { CallStatus, CompletedReason, NotInterestedReason, Contact } from '@/types/contact';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, Settings2 } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 export default function CallingPage() {
   const [showSettings, setShowSettings] = useState(false);
-  const [showOutcomeSettings, setShowOutcomeSettings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activePanel, setActivePanel] = useState(1);
@@ -241,17 +239,7 @@ export default function CallingPage() {
           <div className="w-full flex-shrink-0 snap-center snap-always overflow-y-auto p-3 space-y-4" style={{ minWidth: '100%' }}>
             {currentContact && (
               <>
-                <div className="flex items-center justify-between">
-                  <OutcomePanel contact={currentContact} onAction={handleAction} />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => setShowOutcomeSettings(true)}
-                  >
-                    <Settings2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                <OutcomePanel contact={currentContact} onAction={handleAction} />
                 
                 <div className="border-t border-border pt-3">
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -366,20 +354,7 @@ export default function CallingPage() {
             <div className="h-full border-l border-border bg-card p-3 overflow-y-auto space-y-4">
               {currentContact && (
                 <>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <OutcomePanel contact={currentContact} onAction={handleAction} />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 flex-shrink-0"
-                      onClick={() => setShowOutcomeSettings(true)}
-                      title="Outcome Settings"
-                    >
-                      <Settings2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  <OutcomePanel contact={currentContact} onAction={handleAction} />
                   
                   <div className="border-t border-border pt-3">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -427,11 +402,6 @@ export default function CallingPage() {
         onOpenChange={setShowImportModal}
         onImport={handleImportContacts}
         onCreatePot={createPot}
-      />
-
-      <OutcomeSettingsDialog
-        open={showOutcomeSettings}
-        onOpenChange={setShowOutcomeSettings}
       />
     </div>
   );

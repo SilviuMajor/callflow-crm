@@ -8,13 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw, Webhook, Send, CheckCircle2, AlertCircle, Database, Building2 } from 'lucide-react';
+import { Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw, Webhook, Send, CheckCircle2, AlertCircle, Database, Building2, HelpCircle } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useWebhookSettings } from '@/hooks/useWebhookSettings';
 import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
+import { useOutcomeOptions, OutcomeOption } from '@/hooks/useOutcomeOptions';
 import { toast } from 'sonner';
 
 interface QualifyingQuestionsSettingsProps {
@@ -182,6 +183,154 @@ function SortableItem({
   );
 }
 
+// Sortable item for outcome options
+function SortableOutcomeItem({ option, onDelete, onUpdate }: { 
+  option: OutcomeOption; 
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, label: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editLabel, setEditLabel] = useState(option.label);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: option.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const handleSave = () => {
+    if (editLabel.trim() && editLabel !== option.label) {
+      onUpdate(option.id, editLabel.trim());
+    }
+    setIsEditing(false);
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-2 bg-background border rounded-md"
+    >
+      <button {...attributes} {...listeners} className="cursor-grab hover:bg-muted p-1 rounded">
+        <GripVertical className="w-4 h-4 text-muted-foreground" />
+      </button>
+      
+      {isEditing ? (
+        <Input
+          value={editLabel}
+          onChange={(e) => setEditLabel(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          className="flex-1 h-8"
+          autoFocus
+        />
+      ) : (
+        <span 
+          className="flex-1 text-sm cursor-pointer hover:text-primary"
+          onClick={() => setIsEditing(true)}
+        >
+          {option.label}
+        </span>
+      )}
+      
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+        onClick={() => onDelete(option.id)}
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+}
+
+function OutcomeOptionsList({ 
+  options, 
+  outcomeType, 
+  onDelete, 
+  onUpdate, 
+  onReorder,
+  onAdd 
+}: {
+  options: OutcomeOption[];
+  outcomeType: 'completed' | 'not_interested';
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, label: string) => void;
+  onReorder: (outcomeType: 'completed' | 'not_interested', ids: string[]) => void;
+  onAdd: (label: string) => void;
+}) {
+  const [newLabel, setNewLabel] = useState('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = options.findIndex((o) => o.id === active.id);
+      const newIndex = options.findIndex((o) => o.id === over.id);
+      const newOrder = arrayMove(options, oldIndex, newIndex);
+      onReorder(outcomeType, newOrder.map(o => o.id));
+    }
+  };
+
+  const handleAdd = () => {
+    if (newLabel.trim()) {
+      onAdd(newLabel.trim());
+      setNewLabel('');
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={options.map(o => o.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {options.map((option) => (
+              <SortableOutcomeItem 
+                key={option.id} 
+                option={option} 
+                onDelete={onDelete}
+                onUpdate={onUpdate}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      <div className="flex gap-2 pt-2 border-t">
+        <Input
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          placeholder="Add new option..."
+          className="flex-1 h-8"
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        />
+        <Button size="sm" className="h-8" onClick={handleAdd} disabled={!newLabel.trim()}>
+          <Plus className="w-4 h-4 mr-1" />
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function QualifyingQuestionsSettings({ 
   open, 
   onOpenChange, 
@@ -194,7 +343,7 @@ export function QualifyingQuestionsSettings({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingDeleteType, setPendingDeleteType] = useState<'question' | 'field' | 'company'>('question');
   const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState('questions');
+  const [activeTab, setActiveTab] = useState('custom-fields');
   
   // Custom fields
   const { 
@@ -222,6 +371,17 @@ export function QualifyingQuestionsSettings({
   const { settings: webhookSettings, updateSettings: updateWebhookSettings, testWebhook } = useWebhookSettings();
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Outcome options
+  const { 
+    completedOptions, 
+    notInterestedOptions, 
+    isLoading: outcomesLoading, 
+    addOption: addOutcomeOption, 
+    updateOption: updateOutcomeOption, 
+    deleteOption: deleteOutcomeOption, 
+    reorderOptions: reorderOutcomeOptions 
+  } = useOutcomeOptions();
 
   useEffect(() => {
     setQuestions(initialQuestions);
@@ -493,71 +653,81 @@ export function QualifyingQuestionsSettings({
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="questions" className="text-xs">Questions</TabsTrigger>
               <TabsTrigger value="custom-fields" className="flex items-center gap-1 text-xs">
                 <Database className="w-3 h-3" />
                 Custom Fields
+              </TabsTrigger>
+              <TabsTrigger value="outcomes" className="flex items-center gap-1 text-xs">
+                <CheckCircle2 className="w-3 h-3" />
+                Outcomes
               </TabsTrigger>
               <TabsTrigger value="webhooks" className="flex items-center gap-1 text-xs">
                 <Webhook className="w-3 h-3" />
                 Webhooks
               </TabsTrigger>
             </TabsList>
-            
-            {/* Questions Tab */}
-            <TabsContent value="questions" className="space-y-4 py-4">
-              {activeQuestions.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No questions configured. Add your first question below.
+
+            {/* Custom Fields Tab (Questions + Contact + Company) */}
+            <TabsContent value="custom-fields" className="space-y-6 py-4">
+              {/* Qualifying Questions Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                  <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                  <h4 className="font-medium text-sm">Qualifying Questions</h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Questions to ask during calls to qualify leads.
                 </p>
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndQuestions}>
-                  <SortableContext items={activeQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
+                {activeQuestions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    No questions configured.
+                  </p>
+                ) : (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndQuestions}>
+                    <SortableContext items={activeQuestions.map(q => q.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {activeQuestions.map((question) => (
+                          <SortableItem
+                            key={question.id}
+                            item={question}
+                            updateItem={updateQuestion}
+                            onArchive={archiveQuestion}
+                            onDelete={(id) => confirmDeleteItem(id, 'question')}
+                            addOption={(id) => addOptionToItem(id, 'question')}
+                            updateOption={(id, idx, val) => updateOptionInItem(id, idx, val, 'question')}
+                            removeOption={(id, idx) => removeOptionFromItem(id, idx, 'question')}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                )}
+                <Button variant="outline" className="w-full" onClick={addQuestion}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Question
+                </Button>
+                {archivedQuestions.length > 0 && (
+                  <div className="border-t border-border pt-4 mt-4">
+                    <h5 className="text-xs font-medium text-muted-foreground mb-2">Archived Questions</h5>
                     <div className="space-y-2">
-                      {activeQuestions.map((question) => (
-                        <SortableItem
-                          key={question.id}
-                          item={question}
-                          updateItem={updateQuestion}
-                          onArchive={archiveQuestion}
-                          onDelete={(id) => confirmDeleteItem(id, 'question')}
-                          addOption={(id) => addOptionToItem(id, 'question')}
-                          updateOption={(id, idx, val) => updateOptionInItem(id, idx, val, 'question')}
-                          removeOption={(id, idx) => removeOptionFromItem(id, idx, 'question')}
-                        />
+                      {archivedQuestions.map(question => (
+                        <div key={question.id} className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between">
+                          <span className="text-sm">{question.label}</span>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-7" onClick={() => restoreQuestion(question.id)}>
+                              <RotateCcw className="w-3 h-3 mr-1" /> Restore
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => confirmDeleteItem(question.id, 'question')}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-              <Button variant="outline" className="w-full" onClick={addQuestion}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Question
-              </Button>
-              {archivedQuestions.length > 0 && (
-                <div className="border-t border-border pt-4 mt-4">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Questions</h4>
-                  <div className="space-y-2">
-                    {archivedQuestions.map(question => (
-                      <div key={question.id} className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between">
-                        <span className="text-sm">{question.label}</span>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-7" onClick={() => restoreQuestion(question.id)}>
-                            <RotateCcw className="w-3 h-3 mr-1" /> Restore
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => confirmDeleteItem(question.id, 'question')}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                </div>
-              )}
-            </TabsContent>
+                )}
+              </div>
 
-            {/* Custom Fields Tab (Contact + Company) */}
-            <TabsContent value="custom-fields" className="space-y-6 py-4">
               {/* Contact Fields Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-border">
@@ -679,6 +849,61 @@ export function QualifyingQuestionsSettings({
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            {/* Outcomes Tab */}
+            <TabsContent value="outcomes" className="space-y-6 py-4">
+              {outcomesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                <>
+                  {/* Completed Options */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <h4 className="font-medium text-sm">Completed Options</h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Options shown when marking a contact as "Completed".
+                    </p>
+                    <OutcomeOptionsList
+                      options={completedOptions}
+                      outcomeType="completed"
+                      onDelete={deleteOutcomeOption}
+                      onUpdate={(id, label) => updateOutcomeOption(id, { label })}
+                      onReorder={reorderOutcomeOptions}
+                      onAdd={(label) => {
+                        const value = label.toLowerCase().replace(/\s+/g, '_');
+                        addOutcomeOption('completed', value, label);
+                      }}
+                    />
+                  </div>
+
+                  {/* Not Interested Options */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                      <h4 className="font-medium text-sm">Not Interested Options</h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Options shown when marking a contact as "Not Interested".
+                    </p>
+                    <OutcomeOptionsList
+                      options={notInterestedOptions}
+                      outcomeType="not_interested"
+                      onDelete={deleteOutcomeOption}
+                      onUpdate={(id, label) => updateOutcomeOption(id, { label })}
+                      onReorder={reorderOutcomeOptions}
+                      onAdd={(label) => {
+                        const value = label.toLowerCase().replace(/\s+/g, '_');
+                        addOutcomeOption('not_interested', value, label);
+                      }}
+                    />
+                  </div>
+                </>
+              )}
             </TabsContent>
             
             {/* Webhooks Tab */}
