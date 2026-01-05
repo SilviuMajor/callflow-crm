@@ -26,6 +26,12 @@ export const AI_MODELS = [
   { value: 'openai:gpt-5-nano-2025-08-07', label: 'ChatGPT-5 Nano (Fastest)', provider: 'openai' },
   { value: 'openai:gpt-5-mini-2025-08-07', label: 'ChatGPT-5 Mini (Balanced)', provider: 'openai' },
   { value: 'openai:gpt-5-2025-08-07', label: 'ChatGPT-5 (Flagship)', provider: 'openai' },
+  // Anthropic Models (Claude)
+  { value: 'anthropic:claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Recommended)', provider: 'anthropic' },
+  { value: 'anthropic:claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Premium)', provider: 'anthropic' },
+  { value: 'anthropic:claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'anthropic' },
+  { value: 'anthropic:claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet', provider: 'anthropic' },
+  { value: 'anthropic:claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast)', provider: 'anthropic' },
 ];
 
 export function useAIPrompts() {

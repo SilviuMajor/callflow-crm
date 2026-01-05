@@ -209,11 +209,6 @@ export default function CompletedPage() {
                   </Badge>
                 </div>
                 
-                {selectedContact.notes && (
-                  <div className="p-2 bg-muted/50 rounded text-sm">
-                    {selectedContact.notes}
-                  </div>
-                )}
                 
                 {selectedContact.qualifyingAnswers && Object.keys(selectedContact.qualifyingAnswers).length > 0 && (
                   <div className="pt-2 border-t border-border">

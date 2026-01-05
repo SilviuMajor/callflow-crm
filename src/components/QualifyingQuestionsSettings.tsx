@@ -492,15 +492,11 @@ export function QualifyingQuestionsSettings({
           </DialogHeader>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="questions" className="text-xs">Questions</TabsTrigger>
-              <TabsTrigger value="fields" className="flex items-center gap-1 text-xs">
+              <TabsTrigger value="custom-fields" className="flex items-center gap-1 text-xs">
                 <Database className="w-3 h-3" />
-                Contact
-              </TabsTrigger>
-              <TabsTrigger value="company" className="flex items-center gap-1 text-xs">
-                <Building2 className="w-3 h-3" />
-                Company
+                Custom Fields
               </TabsTrigger>
               <TabsTrigger value="webhooks" className="flex items-center gap-1 text-xs">
                 <Webhook className="w-3 h-3" />
@@ -560,118 +556,129 @@ export function QualifyingQuestionsSettings({
               )}
             </TabsContent>
 
-            {/* Contact Fields Tab */}
-            <TabsContent value="fields" className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                Contact fields are per-contact data (like LinkedIn URL, Account ID).
-              </p>
-              {activeCustomFields.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No custom fields configured.
+            {/* Custom Fields Tab (Contact + Company) */}
+            <TabsContent value="custom-fields" className="space-y-6 py-4">
+              {/* Contact Fields Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                  <Database className="w-4 h-4 text-muted-foreground" />
+                  <h4 className="font-medium text-sm">Contact Fields</h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Contact fields are per-contact data (like LinkedIn URL, Account ID).
                 </p>
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndFields}>
-                  <SortableContext items={activeCustomFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                {activeCustomFields.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    No contact fields configured.
+                  </p>
+                ) : (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndFields}>
+                    <SortableContext items={activeCustomFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {activeCustomFields.map((field) => (
+                          <SortableItem
+                            key={field.id}
+                            item={field}
+                            updateItem={updateCustomField}
+                            onArchive={archiveCustomFieldLocal}
+                            onDelete={(id) => confirmDeleteItem(id, 'field')}
+                            addOption={(id) => addOptionToItem(id, 'field')}
+                            updateOption={(id, idx, val) => updateOptionInItem(id, idx, val, 'field')}
+                            removeOption={(id, idx) => removeOptionFromItem(id, idx, 'field')}
+                            isCustomField
+                            fieldLabel="Field Label"
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                )}
+                <Button variant="outline" className="w-full" onClick={addNewCustomField}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Contact Field
+                </Button>
+                {archivedCustomFields.length > 0 && (
+                  <div className="border-t border-border pt-4 mt-4">
+                    <h5 className="text-xs font-medium text-muted-foreground mb-2">Archived Contact Fields</h5>
                     <div className="space-y-2">
-                      {activeCustomFields.map((field) => (
-                        <SortableItem
-                          key={field.id}
-                          item={field}
-                          updateItem={updateCustomField}
-                          onArchive={archiveCustomFieldLocal}
-                          onDelete={(id) => confirmDeleteItem(id, 'field')}
-                          addOption={(id) => addOptionToItem(id, 'field')}
-                          updateOption={(id, idx, val) => updateOptionInItem(id, idx, val, 'field')}
-                          removeOption={(id, idx) => removeOptionFromItem(id, idx, 'field')}
-                          isCustomField
-                          fieldLabel="Field Label"
-                        />
+                      {archivedCustomFields.map(field => (
+                        <div key={field.id} className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between">
+                          <span className="text-sm">{field.label}</span>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-7" onClick={() => restoreCustomFieldLocal(field.id)}>
+                              <RotateCcw className="w-3 h-3 mr-1" /> Restore
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => confirmDeleteItem(field.id, 'field')}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-              <Button variant="outline" className="w-full" onClick={addNewCustomField}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Contact Field
-              </Button>
-              {archivedCustomFields.length > 0 && (
-                <div className="border-t border-border pt-4 mt-4">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Fields</h4>
-                  <div className="space-y-2">
-                    {archivedCustomFields.map(field => (
-                      <div key={field.id} className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between">
-                        <span className="text-sm">{field.label}</span>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-7" onClick={() => restoreCustomFieldLocal(field.id)}>
-                            <RotateCcw className="w-3 h-3 mr-1" /> Restore
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => confirmDeleteItem(field.id, 'field')}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                </div>
-              )}
-            </TabsContent>
+                )}
+              </div>
 
-            {/* Company Fields Tab */}
-            <TabsContent value="company" className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                Company fields are shared across all contacts at the same company. When you update a company field for one contact, it updates for all contacts at that company.
-              </p>
-              {activeCompanyFields.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No company fields configured.
+              {/* Company Fields Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                  <Building2 className="w-4 h-4 text-primary" />
+                  <h4 className="font-medium text-sm">Company Fields</h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Company fields are shared across all contacts at the same company. When you update a company field for one contact, it updates for all contacts at that company.
                 </p>
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCompanyFields}>
-                  <SortableContext items={activeCompanyFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                {activeCompanyFields.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    No company fields configured.
+                  </p>
+                ) : (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCompanyFields}>
+                    <SortableContext items={activeCompanyFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {activeCompanyFields.map((field) => (
+                          <SortableItem
+                            key={field.id}
+                            item={field}
+                            updateItem={updateLocalCompanyField}
+                            onArchive={archiveCompanyFieldLocal}
+                            onDelete={(id) => confirmDeleteItem(id, 'company')}
+                            addOption={(id) => addOptionToItem(id, 'company')}
+                            updateOption={(id, idx, val) => updateOptionInItem(id, idx, val, 'company')}
+                            removeOption={(id, idx) => removeOptionFromItem(id, idx, 'company')}
+                            isCustomField
+                            fieldLabel="Company Field Label"
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                )}
+                <Button variant="outline" className="w-full" onClick={addNewCompanyField}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Company Field
+                </Button>
+                {archivedCompanyFields.length > 0 && (
+                  <div className="border-t border-border pt-4 mt-4">
+                    <h5 className="text-xs font-medium text-muted-foreground mb-2">Archived Company Fields</h5>
                     <div className="space-y-2">
-                      {activeCompanyFields.map((field) => (
-                        <SortableItem
-                          key={field.id}
-                          item={field}
-                          updateItem={updateLocalCompanyField}
-                          onArchive={archiveCompanyFieldLocal}
-                          onDelete={(id) => confirmDeleteItem(id, 'company')}
-                          addOption={(id) => addOptionToItem(id, 'company')}
-                          updateOption={(id, idx, val) => updateOptionInItem(id, idx, val, 'company')}
-                          removeOption={(id, idx) => removeOptionFromItem(id, idx, 'company')}
-                          isCustomField
-                          fieldLabel="Company Field Label"
-                        />
+                      {archivedCompanyFields.map(field => (
+                        <div key={field.id} className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between">
+                          <span className="text-sm">{field.label}</span>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-7" onClick={() => restoreCompanyFieldLocal(field.id)}>
+                              <RotateCcw className="w-3 h-3 mr-1" /> Restore
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => confirmDeleteItem(field.id, 'company')}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-              <Button variant="outline" className="w-full" onClick={addNewCompanyField}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Company Field
-              </Button>
-              {archivedCompanyFields.length > 0 && (
-                <div className="border-t border-border pt-4 mt-4">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Archived Fields</h4>
-                  <div className="space-y-2">
-                    {archivedCompanyFields.map(field => (
-                      <div key={field.id} className="p-2 border border-border rounded bg-muted/30 flex items-center justify-between">
-                        <span className="text-sm">{field.label}</span>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-7" onClick={() => restoreCompanyFieldLocal(field.id)}>
-                            <RotateCcw className="w-3 h-3 mr-1" /> Restore
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => confirmDeleteItem(field.id, 'company')}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </TabsContent>
             
             {/* Webhooks Tab */}

@@ -46,18 +46,18 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
 
-  // Pre-populate notes when modals open
+  // Pre-populate notes from last callback note when modals open
   useEffect(() => {
-    if (showCallbackModal) setCallbackNotes(contact.notes || '');
-  }, [showCallbackModal, contact.notes]);
+    if (showCallbackModal) setCallbackNotes('');
+  }, [showCallbackModal]);
 
   useEffect(() => {
-    if (showCompletedModal) setCompletedNotes(contact.notes || '');
-  }, [showCompletedModal, contact.notes]);
+    if (showCompletedModal) setCompletedNotes('');
+  }, [showCompletedModal]);
 
   useEffect(() => {
-    if (showNotInterestedModal) setNotInterestedNotes(contact.notes || '');
-  }, [showNotInterestedModal, contact.notes]);
+    if (showNotInterestedModal) setNotInterestedNotes('');
+  }, [showNotInterestedModal]);
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
   const { completedOptions, notInterestedOptions } = useOutcomeOptions();
@@ -92,13 +92,13 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
       aptDate = new Date(`${appointmentDate}T${appointmentTime}`);
     }
 
-    // Build the updated contact data
+    // Build the updated contact data for webhook
     const updatedContact = {
       ...contact,
       status: 'completed' as const,
       completedReason,
       appointmentDate: aptDate?.toISOString(),
-      notes: completedNotes || contact.notes,
+      completedNotes: completedNotes,
       lastCalledAt: new Date().toISOString(),
     };
 
