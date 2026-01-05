@@ -338,9 +338,10 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     if (autocompleteStartPos.current === null) return;
 
     const currentPos = getCursorPosition();
-    const before = value.slice(0, autocompleteStartPos.current);
+    // autocompleteStartPos is AFTER the { is inserted, so go back 1 to exclude the { we already typed
+    const beforeBrace = value.slice(0, autocompleteStartPos.current - 1);
     const after = value.slice(currentPos);
-    const newValue = before + `{${name}}` + after;
+    const newValue = beforeBrace + `{${name}}` + after;
     
     isUserInputRef.current = false; // Force HTML sync for insertions
     lastValueRef.current = newValue;
@@ -349,7 +350,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
 
     // Set cursor after inserted placeholder
     requestAnimationFrame(() => {
-      setCursorPosition(before.length + name.length + 2);
+      setCursorPosition(beforeBrace.length + name.length + 2);
     });
   }, [value, onChange, getCursorPosition, setCursorPosition, closeAutocomplete]);
 
