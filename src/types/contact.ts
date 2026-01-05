@@ -58,6 +58,7 @@ export interface Contact {
   qualifyingAnswers?: Record<string, any>;
   customFields?: Record<string, any>;
   aiPersona?: string;
+  potId?: string;
 }
 
 export interface CustomContactField {

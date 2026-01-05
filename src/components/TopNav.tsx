@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Phone, BarChart3, CheckCircle, Settings, Search, Download, Sparkles } from 'lucide-react';
+import { Target, BarChart3, CheckCircle, Settings, Search, Download, Sparkles, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -12,13 +11,14 @@ interface TopNavProps {
   onSettingsClick?: () => void;
   onExportCSV?: () => void;
   onExportJSON?: () => void;
+  onImportClick?: () => void;
 }
 
-export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportCSV, onExportJSON }: TopNavProps) {
+export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportCSV, onExportJSON, onImportClick }: TopNavProps) {
   const location = useLocation();
   
   const navItems = [
-    { path: '/calling', label: 'Calling', icon: Phone },
+    { path: '/calling', label: 'Attack', icon: Target },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/completed', label: 'Completed', icon: CheckCircle },
     { path: '/ai-settings', label: 'AI', icon: Sparkles },
@@ -27,7 +27,7 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportC
   return (
     <header className="h-12 border-b border-border bg-card flex items-center px-3 gap-3">
       <Link to="/" className="font-semibold text-sm text-foreground shrink-0">
-        TeleSales
+        Attack
       </Link>
       
       {onSearchChange && (
@@ -58,6 +58,18 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportC
             </Link>
           </Button>
         ))}
+        
+        {onImportClick && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 px-3 text-xs"
+            onClick={onImportClick}
+          >
+            <Upload className="w-3.5 h-3.5 mr-1.5" />
+            Import
+          </Button>
+        )}
         
         {(onExportCSV || onExportJSON) && (
           <DropdownMenu>

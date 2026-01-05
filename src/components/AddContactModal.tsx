@@ -9,15 +9,21 @@ import { Contact, CustomContactField, CompanyField } from '@/types/contact';
 import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
-import { Building2 } from 'lucide-react';
+import { Building2, Plus } from 'lucide-react';
+import { PotWithStats } from '@/hooks/usePots';
 
 interface AddContactModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>) => void;
+  onAdd: (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>, potId: string) => void;
+  pots: PotWithStats[];
+  onCreatePot: (name: string) => Promise<string | null>;
 }
 
-export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalProps) {
+export function AddContactModal({ open, onOpenChange, onAdd, pots, onCreatePot }: AddContactModalProps) {
+  const [selectedPotId, setSelectedPotId] = useState<string>('');
+  const [isCreatingPot, setIsCreatingPot] = useState(false);
+  const [newPotName, setNewPotName] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,7 +32,6 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
     phone: '',
     email: '',
     website: '',
-    notes: '',
   });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [companyFieldValues, setCompanyFieldValues] = useState<Record<string, any>>({});
@@ -38,6 +43,13 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
 
+  // Set default pot when pots load
+  useEffect(() => {
+    if (pots.length > 0 && !selectedPotId) {
+      setSelectedPotId(pots[0].id);
+    }
+  }, [pots, selectedPotId]);
+
   // Load existing company data when company name changes
   useEffect(() => {
     if (formData.company) {
@@ -48,8 +60,18 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
     }
   }, [formData.company, getCompanyFieldValues]);
 
+  const handleCreatePot = async () => {
+    if (!newPotName.trim()) return;
+    const potId = await onCreatePot(newPotName.trim());
+    if (potId) {
+      setSelectedPotId(potId);
+      setNewPotName('');
+      setIsCreatingPot(false);
+    }
+  };
+
   const handleSubmit = () => {
-    if (formData.firstName && formData.lastName && formData.phone) {
+    if (formData.firstName && formData.lastName && formData.phone && selectedPotId) {
       // Save company fields to shared company data store
       if (formData.company && Object.keys(companyFieldValues).length > 0) {
         saveCompanyData(formData.company, companyFieldValues);
@@ -58,7 +80,8 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
       onAdd({
         ...formData,
         customFields: customFieldValues,
-      });
+      }, selectedPotId);
+      
       setFormData({
         firstName: '',
         lastName: '',
@@ -67,7 +90,6 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
         phone: '',
         email: '',
         website: '',
-        notes: '',
       });
       setCustomFieldValues({});
       setCompanyFieldValues({});
@@ -163,6 +185,46 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
           <DialogTitle className="text-xl">Add New Contact</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {/* POT Selector */}
+          <div className="grid gap-2">
+            <Label>Select POT *</Label>
+            {isCreatingPot ? (
+              <div className="flex gap-2">
+                <Input
+                  value={newPotName}
+                  onChange={(e) => setNewPotName(e.target.value)}
+                  placeholder="New POT name..."
+                  className="bg-secondary border-border"
+                  autoFocus
+                />
+                <Button size="sm" onClick={handleCreatePot} disabled={!newPotName.trim()}>
+                  Create
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsCreatingPot(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select value={selectedPotId} onValueChange={setSelectedPotId}>
+                  <SelectTrigger className="bg-secondary border-border flex-1">
+                    <SelectValue placeholder="Select a POT..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pots.map(pot => (
+                      <SelectItem key={pot.id} value={pot.id}>
+                        {pot.name} ({pot.totalRecords} records)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={() => setIsCreatingPot(true)}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="firstName">First Name *</Label>
@@ -230,15 +292,6 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
               placeholder="https://"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="bg-secondary border-border"
-            />
-          </div>
 
           {/* Company Fields */}
           {activeCompanyFields.length > 0 && formData.company && (
@@ -279,7 +332,7 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={!formData.firstName || !formData.lastName || !formData.phone}
+            disabled={!formData.firstName || !formData.lastName || !formData.phone || !selectedPotId}
           >
             Add Contact
           </Button>

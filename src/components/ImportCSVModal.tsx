@@ -12,14 +12,15 @@ import { toast } from 'sonner';
 interface ImportCSVModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (contacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[]) => void;
+  onImport: (contacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => void;
+  onCreatePot: (name: string) => Promise<string | null>;
 }
 
-type ImportStep = 'upload' | 'mapping' | 'review';
+type ImportStep = 'name' | 'upload' | 'mapping' | 'review';
 
 interface FieldMapping {
   csvHeader: string;
-  targetField: string; // 'skip' | 'firstName' | 'lastName' | ... | 'custom:field_id' | 'create_new'
+  targetField: string;
   confidence: 'high' | 'medium' | 'low' | 'none';
   newFieldConfig?: {
     label: string;
@@ -36,7 +37,6 @@ const STANDARD_FIELDS = [
   { key: 'phone', label: 'Phone' },
   { key: 'email', label: 'Email' },
   { key: 'website', label: 'Website' },
-  { key: 'notes', label: 'Notes' },
 ];
 
 const STANDARD_FIELD_ALIASES: Record<string, string[]> = {
@@ -47,20 +47,17 @@ const STANDARD_FIELD_ALIASES: Record<string, string[]> = {
   phone: ['phone', 'telephone', 'tel', 'mobile', 'cell', 'phone number', 'phonenumber'],
   email: ['email', 'e-mail', 'email address', 'emailaddress', 'mail'],
   website: ['website', 'site', 'url', 'web', 'homepage', 'web site'],
-  notes: ['notes', 'note', 'comments', 'comment', 'description'],
 };
 
 function autoMatchColumn(csvHeader: string, customFields: CustomContactField[]): { targetField: string; confidence: 'high' | 'medium' | 'low' | 'none' } {
   const normalized = csvHeader.toLowerCase().trim();
   
-  // Check standard fields
   for (const [fieldKey, aliases] of Object.entries(STANDARD_FIELD_ALIASES)) {
     if (aliases.some(alias => normalized === alias || normalized.includes(alias))) {
       return { targetField: fieldKey, confidence: normalized === aliases[0] ? 'high' : 'medium' };
     }
   }
   
-  // Check custom fields
   for (const field of customFields) {
     const fieldLabel = field.label.toLowerCase();
     const fieldKey = field.key.toLowerCase();
@@ -72,8 +69,10 @@ function autoMatchColumn(csvHeader: string, customFields: CustomContactField[]):
   return { targetField: 'skip', confidence: 'none' };
 }
 
-export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalProps) {
-  const [step, setStep] = useState<ImportStep>('upload');
+export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: ImportCSVModalProps) {
+  const [step, setStep] = useState<ImportStep>('name');
+  const [potName, setPotName] = useState('');
+  const [potId, setPotId] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<string[][]>([]);
@@ -114,7 +113,6 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
       setCsvHeaders(headers);
       setCsvRows(rows);
       
-      // Auto-match columns
       const autoMappings: FieldMapping[] = headers.map(header => {
         const match = autoMatchColumn(header, customFields);
         return {
@@ -182,7 +180,6 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
         phone: '',
         email: '',
         website: '',
-        notes: '',
         customFields: {},
       };
 
@@ -202,17 +199,29 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
     }).filter(c => c.firstName || c.lastName || c.phone || c.email);
   }, [csvRows, mappings, step]);
 
+  const handleProceedToUpload = async () => {
+    if (!potName.trim()) return;
+    
+    const newPotId = await onCreatePot(potName.trim());
+    if (newPotId) {
+      setPotId(newPotId);
+      setStep('upload');
+    }
+  };
+
   const handleImport = () => {
-    if (mappedContacts.length > 0) {
-      onImport(mappedContacts);
-      toast.success(`Imported ${mappedContacts.length} contacts`);
+    if (mappedContacts.length > 0 && potId) {
+      onImport(mappedContacts, potId);
+      toast.success(`Imported ${mappedContacts.length} contacts to "${potName}"`);
       resetState();
       onOpenChange(false);
     }
   };
 
   const resetState = () => {
-    setStep('upload');
+    setStep('name');
+    setPotName('');
+    setPotId(null);
     setCsvHeaders([]);
     setCsvRows([]);
     setMappings([]);
@@ -231,26 +240,61 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
     return standard ? standard.label : targetField;
   };
 
+  const getStepNumber = () => {
+    switch (step) {
+      case 'name': return 1;
+      case 'upload': return 2;
+      case 'mapping': return 3;
+      case 'review': return 4;
+    }
+  };
+
+  const getStepLabel = () => {
+    switch (step) {
+      case 'name': return 'Name Your POT';
+      case 'upload': return 'Upload CSV';
+      case 'mapping': return 'Map Fields';
+      case 'review': return 'Review & Import';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) resetState(); onOpenChange(isOpen); }}>
       <DialogContent className="bg-card border-border max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            Import Contacts from CSV
-            {step !== 'upload' && (
-              <span className="text-sm font-normal text-muted-foreground ml-2">
-                Step {step === 'mapping' ? '2' : '3'} of 3: {step === 'mapping' ? 'Map Fields' : 'Review & Import'}
-              </span>
-            )}
+            Import Contacts
+            <span className="text-sm font-normal text-muted-foreground ml-2">
+              Step {getStepNumber()} of 4: {getStepLabel()}
+            </span>
           </DialogTitle>
-          {step === 'upload' && (
+          {step === 'name' && (
             <DialogDescription className="text-muted-foreground">
-              Upload a CSV file to import contacts. You'll be able to map columns to fields in the next step.
+              Each import creates a new POT (data set). Give it a descriptive name.
             </DialogDescription>
           )}
         </DialogHeader>
         
         <div className="py-4">
+          {step === 'name' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="potName">POT Name *</Label>
+                <Input
+                  id="potName"
+                  value={potName}
+                  onChange={(e) => setPotName(e.target.value)}
+                  placeholder="e.g., Q1 2026 Leads, Tech Startups, Event Contacts..."
+                  className="text-lg"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  This name will appear in the POT dropdown to filter your contacts.
+                </p>
+              </div>
+            </div>
+          )}
+
           {step === 'upload' && (
             <div
               className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
@@ -276,6 +320,9 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
                   if (file) handleFile(file);
                 }}
               />
+              <p className="text-sm text-muted-foreground mt-4">
+                Importing to: <span className="font-medium text-foreground">{potName}</span>
+              </p>
             </div>
           )}
 
@@ -376,7 +423,7 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-success">
                 <FileText className="w-5 h-5" />
-                <span className="font-medium">{mappedContacts.length} contacts ready to import</span>
+                <span className="font-medium">{mappedContacts.length} contacts ready to import to "{potName}"</span>
               </div>
 
               <div className="text-sm text-muted-foreground">
@@ -436,15 +483,28 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
         </div>
 
         <DialogFooter className="gap-2">
+          {step === 'name' && (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleProceedToUpload} disabled={!potName.trim()}>
+                Next: Upload CSV
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </>
+          )}
+
           {step === 'upload' && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+            <Button variant="outline" onClick={() => setStep('name')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
             </Button>
           )}
           
           {step === 'mapping' && (
             <>
-              <Button variant="outline" onClick={() => { resetState(); }}>
+              <Button variant="outline" onClick={() => setStep('upload')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>

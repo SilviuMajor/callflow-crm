@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useContacts } from '@/hooks/useContacts';
+import { usePots } from '@/hooks/usePots';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
@@ -28,9 +29,12 @@ export default function CallingPage() {
   const [showOutcomeSettings, setShowOutcomeSettings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [activePanel, setActivePanel] = useState(1); // 0=Queue, 1=Contact, 2=Outcomes
+  const [activePanel, setActivePanel] = useState(1);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  
+  // POTs management
+  const { potsWithStats, selectedPotId, selectPot, createPot, refreshStats, totalStats } = usePots();
   
   const {
     contacts,
@@ -45,12 +49,31 @@ export default function CallingPage() {
     sortByCompany,
     addContact,
     importContacts,
-  } = useContacts();
+  } = useContacts(selectedPotId);
   
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
   const { companyData } = useCompanyData();
+
+  // Create a map of contact ID to pot name for display in queue
+  const contactPotMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    contacts.forEach(contact => {
+      if (contact.potId) {
+        const pot = potsWithStats.find(p => p.id === contact.potId);
+        if (pot) {
+          map[contact.id] = pot.name;
+        }
+      }
+    });
+    return map;
+  }, [contacts, potsWithStats]);
+
+  // Refresh POT stats when contacts change
+  useEffect(() => {
+    refreshStats();
+  }, [contacts, refreshStats]);
 
   // Handle scroll snap end to update active panel indicator
   useEffect(() => {
@@ -113,7 +136,6 @@ export default function CallingPage() {
   };
 
   const handleSaveQuestions = (newQuestions: typeof questions, applyToBlank: boolean, deletedQuestionIds: string[]) => {
-    // Clear data for permanently deleted questions
     if (deletedQuestionIds.length > 0) {
       clearContactAnswers(deletedQuestionIds);
     }
@@ -141,16 +163,23 @@ export default function CallingPage() {
     toast({ title: 'Exported as JSON', duration: 2000 });
   };
 
-  // Handle selecting a contact (including from linked contacts)
   const handleSelectContact = (contactId: string) => {
     selectContact(contactId);
-    // On mobile, scroll to contact panel
     if (isMobile) {
       scrollToPanel(1);
     }
   };
 
-  // Filter to only show active (non-archived) questions
+  const handleAddContact = async (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>, potId: string) => {
+    await addContact(contact, potId);
+    refreshStats();
+  };
+
+  const handleImportContacts = async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => {
+    await importContacts(newContacts, potId);
+    refreshStats();
+  };
+
   const activeQuestions = questions.filter(q => !q.isArchived);
 
   // Mobile layout
@@ -161,15 +190,14 @@ export default function CallingPage() {
           onSettingsClick={() => setShowSettings(true)} 
           onExportCSV={handleExportCSV}
           onExportJSON={handleExportJSON}
+          onImportClick={() => setShowImportModal(true)}
         />
         
-        {/* Swipeable panels container */}
         <div 
           ref={scrollContainerRef}
           className="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
           style={{ scrollSnapType: 'x mandatory' }}
         >
-          {/* Panel 1: Queue */}
           <div className="w-full flex-shrink-0 snap-center snap-always overflow-y-auto" style={{ minWidth: '100%' }}>
             <QueueList
               contacts={queueContacts}
@@ -178,10 +206,14 @@ export default function CallingPage() {
               onShuffle={shufflePending}
               onSortByCompany={sortByCompany}
               isMobile={true}
+              pots={potsWithStats}
+              selectedPotId={selectedPotId}
+              onSelectPot={selectPot}
+              totalStats={totalStats}
+              contactPotMap={contactPotMap}
             />
           </div>
           
-          {/* Panel 2: Contact Card */}
           <div className="w-full flex-shrink-0 snap-center snap-always overflow-y-auto p-4" style={{ minWidth: '100%' }}>
             {currentContact ? (
               <ContactCard 
@@ -206,7 +238,6 @@ export default function CallingPage() {
             )}
           </div>
           
-          {/* Panel 3: Outcomes + Notes + Qualifying */}
           <div className="w-full flex-shrink-0 snap-center snap-always overflow-y-auto p-3 space-y-4" style={{ minWidth: '100%' }}>
             {currentContact && (
               <>
@@ -246,7 +277,6 @@ export default function CallingPage() {
           </div>
         </div>
         
-        {/* Bottom indicator */}
         <MobilePanelIndicator
           activeIndex={activePanel}
           total={3}
@@ -264,13 +294,16 @@ export default function CallingPage() {
         <AddContactModal
           open={showAddModal}
           onOpenChange={setShowAddModal}
-          onAdd={addContact}
+          onAdd={handleAddContact}
+          pots={potsWithStats}
+          onCreatePot={createPot}
         />
         
         <ImportCSVModal
           open={showImportModal}
           onOpenChange={setShowImportModal}
-          onImport={importContacts}
+          onImport={handleImportContacts}
+          onCreatePot={createPot}
         />
       </div>
     );
@@ -283,21 +316,24 @@ export default function CallingPage() {
         onSettingsClick={() => setShowSettings(true)} 
         onExportCSV={handleExportCSV}
         onExportJSON={handleExportJSON}
+        onImportClick={() => setShowImportModal(true)}
       />
       
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Queue (fixed width) */}
         <QueueList
           contacts={queueContacts}
           currentContactId={currentContact?.id || null}
           onSelectContact={handleSelectContact}
           onShuffle={shufflePending}
           onSortByCompany={sortByCompany}
+          pots={potsWithStats}
+          selectedPotId={selectedPotId}
+          onSelectPot={selectPot}
+          totalStats={totalStats}
+          contactPotMap={contactPotMap}
         />
         
-        {/* Center + Right: Resizable */}
         <ResizablePanelGroup direction="horizontal" className="flex-1">
-          {/* Center: Current Contact */}
           <ResizablePanel defaultSize={65} minSize={40}>
             <div className="h-full p-4 overflow-y-auto">
               {currentContact ? (
@@ -326,7 +362,6 @@ export default function CallingPage() {
           
           <ResizableHandle withHandle />
           
-          {/* Right: Outcomes & Qualifying */}
           <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
             <div className="h-full border-l border-border bg-card p-3 overflow-y-auto space-y-4">
               {currentContact && (
@@ -382,13 +417,16 @@ export default function CallingPage() {
       <AddContactModal
         open={showAddModal}
         onOpenChange={setShowAddModal}
-        onAdd={addContact}
+        onAdd={handleAddContact}
+        pots={potsWithStats}
+        onCreatePot={createPot}
       />
       
       <ImportCSVModal
         open={showImportModal}
         onOpenChange={setShowImportModal}
-        onImport={importContacts}
+        onImport={handleImportContacts}
+        onCreatePot={createPot}
       />
 
       <OutcomeSettingsDialog

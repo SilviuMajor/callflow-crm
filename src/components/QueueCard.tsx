@@ -5,6 +5,7 @@ interface QueueCardProps {
   contact: Contact;
   isActive: boolean;
   onClick: () => void;
+  potName?: string;
 }
 
 function getCallbackStatus(callbackDate: Date | undefined): {
@@ -51,7 +52,7 @@ function getCardStyle(contact: Contact, isActive: boolean): string {
   return 'bg-card hover:bg-accent/50';
 }
 
-export function QueueCard({ contact, isActive, onClick }: QueueCardProps) {
+export function QueueCard({ contact, isActive, onClick, potName }: QueueCardProps) {
   const { isFuture } = contact.status === 'callback' && contact.callbackDate 
     ? getCallbackStatus(contact.callbackDate) 
     : { isFuture: false };
@@ -64,15 +65,24 @@ export function QueueCard({ contact, isActive, onClick }: QueueCardProps) {
         getCardStyle(contact, isActive)
       )}
     >
-      <p className="font-medium text-sm text-foreground truncate">
-        {contact.firstName} {contact.lastName}
-      </p>
-      <p className="text-xs text-muted-foreground truncate">
-        {contact.jobTitle}
-      </p>
-      <p className="text-xs text-muted-foreground truncate">
-        {contact.company}
-      </p>
+      <div className="flex items-start justify-between gap-1">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm text-foreground truncate">
+            {contact.firstName} {contact.lastName}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {contact.jobTitle}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {contact.company}
+          </p>
+        </div>
+        {potName && (
+          <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded shrink-0 max-w-[60px] truncate">
+            {potName}
+          </span>
+        )}
+      </div>
       {isFuture && contact.callbackDate && (
         <p className="text-[10px] text-muted-foreground mt-1">
           📅 {new Date(contact.callbackDate).toLocaleDateString()}
