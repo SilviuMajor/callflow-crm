@@ -44,6 +44,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
   const isUserInputRef = useRef(false);
   const lastValueRef = useRef(value);
   const lastInputTimeRef = useRef<number>(0);
+  const lastEmptyFieldsRef = useRef<Set<string>>(new Set());
   const isInitializedRef = useRef(false);
 
   // Flatten all placeholders with their category
@@ -509,22 +510,33 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     }
   }, [value, textToHtml, getCursorPosition, setCursorPosition]);
 
-  // Update innerHTML only when emptyFields changes (to update badge styling)
+  // Update badge styling only when emptyFields actually changes
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !isInitializedRef.current) return;
     
-    // Skip if user typed within last 150ms to prevent focus loss
-    if (Date.now() - lastInputTimeRef.current < 150) return;
+    // Compare current emptyFields with previous to detect actual changes
+    const currentEmptyFields = emptyFields || new Set<string>();
+    const prevEmptyFields = lastEmptyFieldsRef.current;
     
-    // Only refresh for empty field indicator changes, not during typing
-    if (!isUserInputRef.current) {
-      const pos = getCursorPosition();
-      editor.innerHTML = textToHtml(value);
-      requestAnimationFrame(() => {
-        setCursorPosition(Math.min(pos, value.length));
-      });
-    }
+    // Check if emptyFields actually changed
+    const hasChanged = currentEmptyFields.size !== prevEmptyFields.size ||
+      [...currentEmptyFields].some(field => !prevEmptyFields.has(field)) ||
+      [...prevEmptyFields].some(field => !currentEmptyFields.has(field));
+    
+    if (!hasChanged) return;
+    
+    // Update the ref
+    lastEmptyFieldsRef.current = new Set(currentEmptyFields);
+    
+    // Skip if user typed within last 500ms to prevent focus loss
+    if (Date.now() - lastInputTimeRef.current < 500) return;
+    
+    const pos = getCursorPosition();
+    editor.innerHTML = textToHtml(value);
+    requestAnimationFrame(() => {
+      setCursorPosition(Math.min(pos, value.length));
+    });
   }, [emptyFields, textToHtml, getCursorPosition, setCursorPosition, value]);
 
   // Add event listeners to badges for drag
