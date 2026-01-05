@@ -241,6 +241,14 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     isUserInputRef.current = true;
     lastInputTimeRef.current = Date.now();
     const newText = htmlToText(editor);
+    
+    // Check if a placeholder was just completed (text ends with } and matches {placeholder})
+    const justCompletedPlaceholder = newText.endsWith('}') && /\{[^{}]+\}$/.test(newText);
+    if (justCompletedPlaceholder) {
+      // Force HTML sync to transform to badge
+      isUserInputRef.current = false;
+    }
+    
     lastValueRef.current = newText;
     onChange(newText);
   }, [htmlToText, onChange]);
@@ -267,25 +275,27 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     }
 
     if (e.key === '{') {
-      // Open autocomplete
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        const editorRect = editorRef.current?.getBoundingClientRect();
-        
-        if (editorRect) {
-          setAutocompletePosition({
-            x: rect.left - editorRect.left,
-            y: rect.bottom - editorRect.top + 4,
-          });
+      // Delay autocomplete opening to after the { is inserted
+      requestAnimationFrame(() => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          const editorRect = editorRef.current?.getBoundingClientRect();
+          
+          if (editorRect) {
+            setAutocompletePosition({
+              x: rect.left - editorRect.left,
+              y: rect.bottom - editorRect.top + 4,
+            });
+          }
+          
+          autocompleteStartPos.current = getCursorPosition();
+          setShowAutocomplete(true);
+          setAutocompleteFilter('');
+          setSelectedIndex(0);
         }
-        
-        autocompleteStartPos.current = getCursorPosition();
-        setShowAutocomplete(true);
-        setAutocompleteFilter('');
-        setSelectedIndex(0);
-      }
+      });
     }
   }, [showAutocomplete, filteredPlaceholders, selectedIndex, getCursorPosition]);
 
