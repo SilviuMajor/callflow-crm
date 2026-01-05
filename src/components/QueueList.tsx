@@ -1,8 +1,10 @@
 import { Contact } from '@/types/contact';
 import { QueueCard } from './QueueCard';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shuffle, ArrowDownAZ } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PotWithStats } from '@/hooks/usePots';
 
 interface QueueListProps {
   contacts: Contact[];
@@ -11,6 +13,11 @@ interface QueueListProps {
   onShuffle: () => void;
   onSortByCompany: () => void;
   isMobile?: boolean;
+  pots?: PotWithStats[];
+  selectedPotId?: string | null;
+  onSelectPot?: (potId: string | null) => void;
+  totalStats?: { total: number; readyCallbacks: number; completed: number };
+  contactPotMap?: Record<string, string>; // contactId -> potName
 }
 
 export function QueueList({ 
@@ -19,13 +26,54 @@ export function QueueList({
   onSelectContact, 
   onShuffle, 
   onSortByCompany,
-  isMobile = false
+  isMobile = false,
+  pots = [],
+  selectedPotId,
+  onSelectPot,
+  totalStats,
+  contactPotMap = {},
 }: QueueListProps) {
+  const showPotOnCard = selectedPotId === null && pots.length > 0;
+
   return (
     <div className={cn(
       "border-r border-border bg-card flex flex-col h-full",
       isMobile ? "w-full border-r-0" : "w-64"
     )}>
+      {/* POT Selector */}
+      {pots.length > 0 && onSelectPot && (
+        <div className="p-2 border-b border-border">
+          <Select 
+            value={selectedPotId || 'all'} 
+            onValueChange={(v) => onSelectPot(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select POT" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <span className="flex items-center justify-between w-full gap-2">
+                  <span>All POTs</span>
+                  <span className="text-muted-foreground text-xs">
+                    {totalStats?.total || 0} records
+                  </span>
+                </span>
+              </SelectItem>
+              {pots.map(pot => (
+                <SelectItem key={pot.id} value={pot.id}>
+                  <span className="flex flex-col">
+                    <span>{pot.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {pot.totalRecords} | {pot.readyCallbacks} ready | {pot.completedCount} done
+                    </span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="p-2 border-b border-border flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Queue ({contacts.length})
@@ -64,6 +112,7 @@ export function QueueList({
               contact={contact}
               isActive={contact.id === currentContactId}
               onClick={() => onSelectContact(contact.id)}
+              potName={showPotOnCard ? contactPotMap[contact.id] : undefined}
             />
           ))
         )}

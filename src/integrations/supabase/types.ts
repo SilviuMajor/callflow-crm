@@ -177,6 +177,7 @@ export type Database = {
           job_title: string | null
           last_name: string
           phone: string
+          pot_id: string | null
           qualifying_answers: Json | null
           status: string
           updated_at: string
@@ -195,6 +196,7 @@ export type Database = {
           job_title?: string | null
           last_name: string
           phone: string
+          pot_id?: string | null
           qualifying_answers?: Json | null
           status?: string
           updated_at?: string
@@ -213,12 +215,21 @@ export type Database = {
           job_title?: string | null
           last_name?: string
           phone?: string
+          pot_id?: string | null
           qualifying_answers?: Json | null
           status?: string
           updated_at?: string
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_pot_id_fkey"
+            columns: ["pot_id"]
+            isOneToOne: false
+            referencedRelation: "pots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_contact_fields: {
         Row: {
@@ -286,6 +297,24 @@ export type Database = {
           outcome_type?: string
           updated_at?: string | null
           value?: string
+        }
+        Relationships: []
+      }
+      pots: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }

@@ -21,7 +21,7 @@ async function addContactHistoryEntry(entry: {
   }
 }
 
-export function useContacts() {
+export function useContacts(selectedPotId?: string | null) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +55,7 @@ export function useContacts() {
           customFields: (row.custom_fields as Record<string, any>) || {},
           createdAt: new Date(row.created_at),
           aiPersona: row.ai_persona || '',
+          potId: row.pot_id || undefined,
         }));
         setContacts(mappedContacts);
       }
@@ -65,32 +66,46 @@ export function useContacts() {
   }, []);
 
   // Queue contacts: overdue callbacks -> pending -> future callbacks
+  // Filter by selected POT if provided
   const queueContacts = useMemo(() => {
     const now = new Date();
     
-    const overdueCallbacks = contacts
+    let filtered = contacts;
+    if (selectedPotId) {
+      filtered = contacts.filter(c => c.potId === selectedPotId);
+    }
+    
+    const overdueCallbacks = filtered
       .filter(c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) <= now)
       .sort((a, b) => new Date(a.callbackDate!).getTime() - new Date(b.callbackDate!).getTime());
     
-    const pendingClean = contacts.filter(c => c.status === 'pending' || c.status === 'no_answer');
+    const pendingClean = filtered.filter(c => c.status === 'pending' || c.status === 'no_answer');
     
-    const futureCallbacks = contacts
+    const futureCallbacks = filtered
       .filter(c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) > now)
       .sort((a, b) => new Date(a.callbackDate!).getTime() - new Date(b.callbackDate!).getTime());
     
     return [...overdueCallbacks, ...pendingClean, ...futureCallbacks];
-  }, [contacts]);
+  }, [contacts, selectedPotId]);
 
-  const completedContacts = useMemo(() => 
-    contacts.filter(c => c.status === 'completed' || c.status === 'not_interested'),
-    [contacts]
-  );
+  const completedContacts = useMemo(() => {
+    let filtered = contacts.filter(c => c.status === 'completed' || c.status === 'not_interested');
+    if (selectedPotId) {
+      filtered = filtered.filter(c => c.potId === selectedPotId);
+    }
+    return filtered;
+  }, [contacts, selectedPotId]);
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery.trim()) return contacts;
+    let filtered = contacts;
+    if (selectedPotId) {
+      filtered = filtered.filter(c => c.potId === selectedPotId);
+    }
+    
+    if (!searchQuery.trim()) return filtered;
     
     const query = searchQuery.toLowerCase();
-    return contacts.filter(contact => 
+    return filtered.filter(contact => 
       contact.firstName.toLowerCase().includes(query) ||
       contact.lastName.toLowerCase().includes(query) ||
       contact.company.toLowerCase().includes(query) ||
@@ -98,7 +113,7 @@ export function useContacts() {
       contact.phone.toLowerCase().includes(query) ||
       contact.jobTitle.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery]);
+  }, [contacts, searchQuery, selectedPotId]);
 
   const currentContact = useMemo(() => {
     if (selectedContactId) {
@@ -241,7 +256,7 @@ export function useContacts() {
     }
   }, []);
 
-  const addContact = useCallback(async (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>) => {
+  const addContact = useCallback(async (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>, potId: string) => {
     const { data, error } = await supabase
       .from('contacts')
       .insert({
@@ -255,6 +270,7 @@ export function useContacts() {
         status: 'pending',
         qualifying_answers: contact.qualifyingAnswers || {},
         custom_fields: contact.customFields || {},
+        pot_id: potId,
       })
       .select()
       .single();
@@ -279,12 +295,13 @@ export function useContacts() {
         qualifyingAnswers: (data.qualifying_answers as Record<string, any>) || {},
         customFields: (data.custom_fields as Record<string, any>) || {},
         createdAt: new Date(data.created_at),
+        potId: data.pot_id || undefined,
       };
       setContacts(prev => [...prev, newContact]);
     }
   }, []);
 
-  const importContacts = useCallback(async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[]) => {
+  const importContacts = useCallback(async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => {
     const inserts = newContacts.map(contact => ({
       first_name: contact.firstName,
       last_name: contact.lastName,
@@ -296,6 +313,7 @@ export function useContacts() {
       status: 'pending',
       qualifying_answers: contact.qualifyingAnswers || {},
       custom_fields: contact.customFields || {},
+      pot_id: potId,
     }));
 
     const { data, error } = await supabase
@@ -323,6 +341,7 @@ export function useContacts() {
         qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
         customFields: (row.custom_fields as Record<string, any>) || {},
         createdAt: new Date(row.created_at),
+        potId: row.pot_id || undefined,
       }));
       setContacts(prev => [...prev, ...mappedContacts]);
       toast.success(`Imported ${data.length} contacts`);
@@ -335,8 +354,14 @@ export function useContacts() {
 
   const shufflePending = useCallback(() => {
     setContacts(prev => {
-      const pending = prev.filter(c => c.status === 'pending' || c.status === 'no_answer');
-      const others = prev.filter(c => c.status !== 'pending' && c.status !== 'no_answer');
+      const pending = prev.filter(c => 
+        (c.status === 'pending' || c.status === 'no_answer') &&
+        (!selectedPotId || c.potId === selectedPotId)
+      );
+      const others = prev.filter(c => 
+        (c.status !== 'pending' && c.status !== 'no_answer') ||
+        (selectedPotId && c.potId !== selectedPotId)
+      );
       
       // Fisher-Yates shuffle
       for (let i = pending.length - 1; i > 0; i--) {
@@ -346,18 +371,24 @@ export function useContacts() {
       
       return [...others, ...pending];
     });
-  }, []);
+  }, [selectedPotId]);
 
   const sortByCompany = useCallback(() => {
     setContacts(prev => {
-      const pending = prev.filter(c => c.status === 'pending' || c.status === 'no_answer');
-      const others = prev.filter(c => c.status !== 'pending' && c.status !== 'no_answer');
+      const pending = prev.filter(c => 
+        (c.status === 'pending' || c.status === 'no_answer') &&
+        (!selectedPotId || c.potId === selectedPotId)
+      );
+      const others = prev.filter(c => 
+        (c.status !== 'pending' && c.status !== 'no_answer') ||
+        (selectedPotId && c.potId !== selectedPotId)
+      );
       
       pending.sort((a, b) => a.company.localeCompare(b.company));
       
       return [...others, ...pending];
     });
-  }, []);
+  }, [selectedPotId]);
 
   const stats = useMemo(() => ({
     total: contacts.length,
