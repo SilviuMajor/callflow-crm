@@ -58,6 +58,7 @@ export interface Contact {
   notInterestedReason?: NotInterestedReason;
   qualifyingAnswers?: Record<string, any>;
   customFields?: Record<string, any>;
+  aiPersona?: string;
 }
 
 export interface CustomContactField {

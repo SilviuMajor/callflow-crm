@@ -1,7 +1,8 @@
 import { Contact, QualifyingQuestion, CustomContactField, CompanyField } from '@/types/contact';
+import { CompanyDataEntry } from '@/hooks/useCompanyData';
 
 // Type for company data store
-type CompanyDataStore = Record<string, Record<string, any>>;
+type CompanyDataStore = Record<string, CompanyDataEntry>;
 
 export function exportToCSV(
   contacts: Contact[], 
@@ -29,6 +30,9 @@ export function exportToCSV(
     'Appointment Date',
     'Created At',
     'Last Called At',
+    'AI Company Research',
+    'AI Targeted Research',
+    'AI Contact Persona',
     ...activeCompanyFields.map(f => `[Company] ${f.label}`),
     ...activeCustomFields.map(f => f.label),
     ...questions.filter(q => !q.isArchived).map(q => q.label),
@@ -38,7 +42,7 @@ export function exportToCSV(
 
   const rows = contacts.map(contact => {
     const companyKey = contact.company ? normalizeCompanyName(contact.company) : '';
-    const contactCompanyData = companyData[companyKey] || {};
+    const contactCompanyData = companyData[companyKey] || { fieldValues: {} };
     
     return [
       contact.firstName,
@@ -56,8 +60,11 @@ export function exportToCSV(
       contact.appointmentDate ? new Date(contact.appointmentDate).toISOString() : '',
       contact.createdAt ? new Date(contact.createdAt).toISOString() : '',
       contact.lastCalledAt ? new Date(contact.lastCalledAt).toISOString() : '',
+      contactCompanyData.aiSummary || '',
+      contactCompanyData.aiCustomResearch || '',
+      contact.aiPersona || '',
       ...activeCompanyFields.map(f => {
-        const value = contactCompanyData[f.id];
+        const value = contactCompanyData.fieldValues[f.id];
         if (Array.isArray(value)) return value.join('; ');
         return value ?? '';
       }),

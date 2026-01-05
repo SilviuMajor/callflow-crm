@@ -33,7 +33,7 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
   
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
-  const { getCompanyData, setCompanyFieldValues: saveCompanyData } = useCompanyData();
+  const { getCompanyFieldValues, setCompanyFieldValues: saveCompanyData } = useCompanyData();
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
@@ -41,12 +41,12 @@ export function AddContactModal({ open, onOpenChange, onAdd }: AddContactModalPr
   // Load existing company data when company name changes
   useEffect(() => {
     if (formData.company) {
-      const existingData = getCompanyData(formData.company);
+      const existingData = getCompanyFieldValues(formData.company);
       if (Object.keys(existingData).length > 0) {
         setCompanyFieldValues(existingData);
       }
     }
-  }, [formData.company, getCompanyData]);
+  }, [formData.company, getCompanyFieldValues]);
 
   const handleSubmit = () => {
     if (formData.firstName && formData.lastName && formData.phone) {

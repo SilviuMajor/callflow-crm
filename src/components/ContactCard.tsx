@@ -36,7 +36,7 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
-  const { getCompanyData, updateCompanyData } = useCompanyData();
+  const { getCompanyFieldValues, updateCompanyData } = useCompanyData();
   const { isResearching, researchCompany, researchCompanyCustom, researchPersona } = useAIResearch();
 
   // AI Research state
@@ -54,7 +54,7 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
-  const companyData = contact.company ? getCompanyData(contact.company) : {};
+  const companyFieldValues = contact.company ? getCompanyFieldValues(contact.company) : {};
 
   // Fetch prompt dependencies on mount
   useEffect(() => {
@@ -225,7 +225,7 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
   };
 
   const getCompanyFieldValue = (field: CompanyField): string => {
-    const value = companyData[field.id];
+    const value = companyFieldValues[field.id];
     if (value === undefined || value === null) return '';
     if (Array.isArray(value)) return value.join(', ');
     return String(value);

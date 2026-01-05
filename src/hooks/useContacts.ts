@@ -37,6 +37,7 @@ export function useContacts() {
           qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
           customFields: (row.custom_fields as Record<string, any>) || {},
           createdAt: new Date(row.created_at),
+          aiPersona: row.ai_persona || '',
         }));
         setContacts(mappedContacts);
       }
