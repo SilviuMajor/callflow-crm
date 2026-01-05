@@ -34,7 +34,7 @@ export function EditContactModal({ open, onOpenChange, contact, onSave }: EditCo
   
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
-  const { getCompanyData, setCompanyFieldValues: saveCompanyData } = useCompanyData();
+  const { getCompanyFieldValues, setCompanyFieldValues: saveCompanyData } = useCompanyData();
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
@@ -54,10 +54,10 @@ export function EditContactModal({ open, onOpenChange, contact, onSave }: EditCo
       setCustomFieldValues(contact.customFields || {});
       // Load company data
       if (contact.company) {
-        setCompanyFieldValues(getCompanyData(contact.company));
+        setCompanyFieldValues(getCompanyFieldValues(contact.company));
       }
     }
-  }, [contact, getCompanyData]);
+  }, [contact, getCompanyFieldValues]);
 
   const handleSave = () => {
     // Save company fields to shared company data store
