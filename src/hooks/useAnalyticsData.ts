@@ -4,7 +4,11 @@ import {
   startOfDay, 
   startOfWeek, 
   startOfMonth, 
-  startOfQuarter, 
+  startOfYear,
+  endOfDay,
+  endOfWeek,
+  endOfMonth,
+  endOfYear,
   format, 
   getHours, 
   getDay, 
@@ -12,18 +16,11 @@ import {
   getMonth,
   eachDayOfInterval,
   eachWeekOfInterval,
-  eachMonthOfInterval,
   eachHourOfInterval,
-  isWithinInterval,
-  endOfDay,
-  endOfWeek,
-  endOfMonth,
-  endOfQuarter,
-  isAfter
+  addHours
 } from 'date-fns';
 
-type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter';
-type TimeGranularity = 'hourly' | 'daily' | 'weekly' | 'monthly';
+export type TimeGranularity = 'hourly' | 'daily' | 'weekly' | 'monthly';
 
 interface HistoryEntry {
   id: string;
@@ -33,7 +30,7 @@ interface HistoryEntry {
   pot_id: string | null;
 }
 
-interface TimeDataPoint {
+export interface TimeDataPoint {
   label: string;
   total: number;
   no_answer: number;
@@ -42,26 +39,35 @@ interface TimeDataPoint {
   not_interested: number;
 }
 
-export function useAnalyticsData(potId: string | null, dateRange: DateRange) {
+export function useAnalyticsData(
+  potId: string | null, 
+  granularity: TimeGranularity, 
+  selectedDate: Date
+) {
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get date range bounds
-  const getDateBounds = (range: DateRange): { start: Date | null; end: Date } => {
-    const now = new Date();
-    switch (range) {
-      case 'today': 
-        return { start: startOfDay(now), end: endOfDay(now) };
-      case 'week': 
-        return { start: startOfWeek(now), end: endOfWeek(now) };
-      case 'month': 
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-      case 'quarter': 
-        return { start: startOfQuarter(now), end: endOfQuarter(now) };
+  // Get date range bounds based on granularity
+  const getDateBounds = (gran: TimeGranularity, date: Date): { start: Date; end: Date } => {
+    switch (gran) {
+      case 'hourly': 
+        // Single day - all 24 hours
+        return { start: startOfDay(date), end: endOfDay(date) };
+      case 'daily': 
+        // Week view
+        return { start: startOfWeek(date), end: endOfWeek(date) };
+      case 'weekly': 
+        // Month view
+        return { start: startOfMonth(date), end: endOfMonth(date) };
+      case 'monthly': 
+        // Year view
+        return { start: startOfYear(date), end: endOfYear(date) };
       default: 
-        return { start: null, end: now };
+        return { start: startOfDay(date), end: endOfDay(date) };
     }
   };
+
+  const { start, end } = useMemo(() => getDateBounds(granularity, selectedDate), [granularity, selectedDate]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -77,12 +83,9 @@ export function useAnalyticsData(potId: string | null, dateRange: DateRange) {
             action_timestamp,
             contacts!inner(pot_id)
           `)
-          .in('action_type', ['no_answer', 'callback', 'completed', 'not_interested']);
-
-        const { start } = getDateBounds(dateRange);
-        if (start) {
-          query = query.gte('action_timestamp', start.toISOString());
-        }
+          .in('action_type', ['no_answer', 'callback', 'completed', 'not_interested'])
+          .gte('action_timestamp', start.toISOString())
+          .lte('action_timestamp', end.toISOString());
 
         const { data, error } = await query;
 
@@ -111,17 +114,10 @@ export function useAnalyticsData(potId: string | null, dateRange: DateRange) {
     };
 
     fetchHistory();
-  }, [potId, dateRange]);
+  }, [potId, start, end]);
 
   // Function to aggregate data by time granularity
-  const getTimeData = (granularity: TimeGranularity): TimeDataPoint[] => {
-    if (historyEntries.length === 0) return [];
-
-    const { start, end } = getDateBounds(dateRange);
-    const now = new Date();
-    const effectiveStart = start || new Date(Math.min(...historyEntries.map(e => new Date(e.action_timestamp).getTime())));
-    const effectiveEnd = end || now;
-
+  const getTimeData = useMemo((): TimeDataPoint[] => {
     const createEmptyPoint = (label: string): TimeDataPoint => ({
       label,
       total: 0,
@@ -140,102 +136,73 @@ export function useAnalyticsData(potId: string | null, dateRange: DateRange) {
     };
 
     if (granularity === 'hourly') {
-      // Group by hour (8am - 6pm working hours)
-      const hours: Record<number, TimeDataPoint> = {};
-      for (let h = 8; h <= 18; h++) {
-        hours[h] = createEmptyPoint(`${h > 12 ? h - 12 : h}${h >= 12 ? 'pm' : 'am'}`);
+      // All 24 hours of the selected day
+      const hours: TimeDataPoint[] = [];
+      for (let h = 0; h < 24; h++) {
+        const label = h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+        hours.push(createEmptyPoint(label));
       }
 
       historyEntries.forEach(entry => {
         const hour = getHours(new Date(entry.action_timestamp));
-        if (hours[hour]) {
-          countAction(hours[hour], entry.action_type);
-        }
+        countAction(hours[hour], entry.action_type);
       });
 
-      return Object.values(hours);
+      return hours;
     }
 
     if (granularity === 'daily') {
-      // Group by day of week or specific dates
-      if (dateRange === 'week') {
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const dayData: Record<number, TimeDataPoint> = {};
-        days.forEach((day, i) => {
-          dayData[i] = createEmptyPoint(day);
-        });
+      // Days of the week
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayData: TimeDataPoint[] = days.map(day => createEmptyPoint(day));
 
-        historyEntries.forEach(entry => {
-          const dayOfWeek = getDay(new Date(entry.action_timestamp));
-          countAction(dayData[dayOfWeek], entry.action_type);
-        });
+      historyEntries.forEach(entry => {
+        const dayOfWeek = getDay(new Date(entry.action_timestamp));
+        countAction(dayData[dayOfWeek], entry.action_type);
+      });
 
-        return Object.values(dayData);
-      } else {
-        // For other ranges, show actual dates
-        const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
-        const dayData: Record<string, TimeDataPoint> = {};
-        
-        days.slice(-14).forEach(day => { // Max 14 days to not overcrowd
-          const key = format(day, 'MMM d');
-          dayData[key] = createEmptyPoint(key);
-        });
-
-        historyEntries.forEach(entry => {
-          const key = format(new Date(entry.action_timestamp), 'MMM d');
-          if (dayData[key]) {
-            countAction(dayData[key], entry.action_type);
-          }
-        });
-
-        return Object.values(dayData);
-      }
+      return dayData;
     }
 
     if (granularity === 'weekly') {
-      // Group by week
-      const weeks = eachWeekOfInterval({ start: effectiveStart, end: effectiveEnd });
-      const weekData: Record<number, TimeDataPoint> = {};
-
-      weeks.forEach((week, i) => {
-        weekData[getWeek(week)] = createEmptyPoint(`Week ${i + 1}`);
-      });
+      // Weeks of the month
+      const weeks = eachWeekOfInterval({ start, end });
+      const weekData: TimeDataPoint[] = weeks.map((_, i) => createEmptyPoint(`Week ${i + 1}`));
+      
+      // Create a map of week start dates to indices
+      const weekStartDates = weeks.map(w => startOfWeek(w).getTime());
 
       historyEntries.forEach(entry => {
-        const weekNum = getWeek(new Date(entry.action_timestamp));
-        if (weekData[weekNum]) {
-          countAction(weekData[weekNum], entry.action_type);
+        const entryWeekStart = startOfWeek(new Date(entry.action_timestamp)).getTime();
+        const weekIndex = weekStartDates.findIndex(ws => ws === entryWeekStart);
+        if (weekIndex >= 0 && weekIndex < weekData.length) {
+          countAction(weekData[weekIndex], entry.action_type);
         }
       });
 
-      return Object.values(weekData);
+      return weekData;
     }
 
     if (granularity === 'monthly') {
-      // Group by month
+      // All 12 months
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const monthData: Record<number, TimeDataPoint> = {};
+      const monthData: TimeDataPoint[] = months.map(month => createEmptyPoint(month));
 
       historyEntries.forEach(entry => {
         const monthNum = getMonth(new Date(entry.action_timestamp));
-        if (!monthData[monthNum]) {
-          monthData[monthNum] = createEmptyPoint(months[monthNum]);
-        }
         countAction(monthData[monthNum], entry.action_type);
       });
 
-      // Sort by month and return
-      return Object.entries(monthData)
-        .sort(([a], [b]) => parseInt(a) - parseInt(b))
-        .map(([, data]) => data);
+      return monthData;
     }
 
     return [];
-  };
+  }, [historyEntries, granularity, start, end]);
 
   return {
     historyEntries,
     isLoading,
     getTimeData,
+    dateRange: { start, end },
   };
 }
