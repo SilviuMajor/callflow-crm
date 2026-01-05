@@ -688,7 +688,10 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
                         "px-3 py-2 cursor-pointer flex items-center gap-2 hover:bg-accent",
                         globalIndex === selectedIndex && "bg-accent"
                       )}
-                      onClick={() => insertPlaceholderFromAutocomplete(p.name)}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Prevent focus loss from editor
+                        insertPlaceholderFromAutocomplete(p.name);
+                      }}
                     >
                       <span className={cn(
                         "px-1.5 py-0.5 text-xs font-mono rounded",
