@@ -3,6 +3,24 @@ import { Contact, CallStatus, CompletedReason, NotInterestedReason } from '@/typ
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Helper to add history entry
+async function addContactHistoryEntry(entry: {
+  contact_id: string;
+  action_type: string;
+  action_timestamp: string;
+  callback_date?: string | null;
+  reason?: string | null;
+  note?: string | null;
+}) {
+  const { error } = await supabase
+    .from('contact_history')
+    .insert(entry);
+  
+  if (error) {
+    console.error('Error adding history entry:', error);
+  }
+}
+
 export function useContacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -31,7 +49,6 @@ export function useContacts() {
           phone: row.phone,
           email: row.email || '',
           website: row.website || '',
-          notes: row.notes || '',
           status: row.status as CallStatus,
           callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
           qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
@@ -79,8 +96,7 @@ export function useContacts() {
       contact.company.toLowerCase().includes(query) ||
       contact.email.toLowerCase().includes(query) ||
       contact.phone.toLowerCase().includes(query) ||
-      contact.jobTitle.toLowerCase().includes(query) ||
-      contact.notes.toLowerCase().includes(query)
+      contact.jobTitle.toLowerCase().includes(query)
     );
   }, [contacts, searchQuery]);
 
@@ -95,7 +111,7 @@ export function useContacts() {
     contactId: string, 
     status: CallStatus, 
     callbackDate?: Date, 
-    notes?: string,
+    note?: string,
     completedReason?: CompletedReason,
     notInterestedReason?: NotInterestedReason,
     appointmentDate?: Date
@@ -108,7 +124,6 @@ export function useContacts() {
       status, 
       callbackDate,
       appointmentDate: status === 'completed' ? appointmentDate : undefined,
-      notes: notes || contact.notes,
       lastCalledAt: new Date(),
       completedReason: status === 'completed' ? completedReason : undefined,
       notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
@@ -124,14 +139,24 @@ export function useContacts() {
       .update({
         status,
         callback_date: callbackDate?.toISOString() || null,
-        notes: notes || contact.notes,
       })
       .eq('id', contactId);
 
     if (error) {
       console.error('Error updating contact status:', error);
       toast.error('Failed to save contact status');
+      return;
     }
+
+    // Add history entry
+    await addContactHistoryEntry({
+      contact_id: contactId,
+      action_type: status,
+      action_timestamp: new Date().toISOString(),
+      callback_date: callbackDate?.toISOString() || null,
+      reason: completedReason || notInterestedReason || null,
+      note: note || null,
+    });
   }, [contacts]);
 
   const updateContact = useCallback(async (contactId: string, updates: Partial<Contact>) => {
@@ -149,7 +174,7 @@ export function useContacts() {
     if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
     if (updates.email !== undefined) dbUpdates.email = updates.email;
     if (updates.website !== undefined) dbUpdates.website = updates.website;
-    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.callbackDate !== undefined) dbUpdates.callback_date = updates.callbackDate?.toISOString() || null;
     if (updates.qualifyingAnswers !== undefined) dbUpdates.qualifying_answers = updates.qualifyingAnswers;
@@ -227,7 +252,6 @@ export function useContacts() {
         phone: contact.phone,
         email: contact.email || null,
         website: contact.website || null,
-        notes: contact.notes || null,
         status: 'pending',
         qualifying_answers: contact.qualifyingAnswers || {},
         custom_fields: contact.customFields || {},
@@ -251,7 +275,6 @@ export function useContacts() {
         phone: data.phone,
         email: data.email || '',
         website: data.website || '',
-        notes: data.notes || '',
         status: data.status as CallStatus,
         qualifyingAnswers: (data.qualifying_answers as Record<string, any>) || {},
         customFields: (data.custom_fields as Record<string, any>) || {},
@@ -270,7 +293,6 @@ export function useContacts() {
       phone: contact.phone,
       email: contact.email || null,
       website: contact.website || null,
-      notes: contact.notes || null,
       status: 'pending',
       qualifying_answers: contact.qualifyingAnswers || {},
       custom_fields: contact.customFields || {},
@@ -297,7 +319,6 @@ export function useContacts() {
         phone: row.phone,
         email: row.email || '',
         website: row.website || '',
-        notes: row.notes || '',
         status: row.status as CallStatus,
         qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
         customFields: (row.custom_fields as Record<string, any>) || {},

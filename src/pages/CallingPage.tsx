@@ -13,9 +13,8 @@ import { QualifyingFields } from '@/components/QualifyingFields';
 import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
 import { AddContactModal } from '@/components/AddContactModal';
 import { ImportCSVModal } from '@/components/ImportCSVModal';
-import { EditContactModal } from '@/components/EditContactModal';
 import { MobilePanelIndicator } from '@/components/MobilePanelIndicator';
-import { NotesEditor } from '@/components/NotesEditor';
+import { NotesSection } from '@/components/NotesSection';
 import { OutcomeSettingsDialog } from '@/components/OutcomeSettingsDialog';
 import { CallStatus, CompletedReason, NotInterestedReason, Contact } from '@/types/contact';
 import { toast } from '@/hooks/use-toast';
@@ -29,7 +28,6 @@ export default function CallingPage() {
   const [showOutcomeSettings, setShowOutcomeSettings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [activePanel, setActivePanel] = useState(1); // 0=Queue, 1=Contact, 2=Outcomes
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -189,7 +187,6 @@ export default function CallingPage() {
               <ContactCard 
                 contact={currentContact} 
                 onUpdate={handleUpdateContact}
-                onEditClick={() => setShowEditModal(true)}
                 onSelectContact={handleSelectContact}
               />
             ) : (
@@ -229,9 +226,8 @@ export default function CallingPage() {
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                     Notes
                   </h3>
-                  <NotesEditor
-                    notes={currentContact.notes}
-                    onSave={(notes) => updateContact(currentContact.id, { notes })}
+                  <NotesSection
+                    contactId={currentContact.id}
                   />
                 </div>
                 
@@ -276,15 +272,6 @@ export default function CallingPage() {
           onOpenChange={setShowImportModal}
           onImport={importContacts}
         />
-
-        {currentContact && (
-          <EditContactModal
-            open={showEditModal}
-            onOpenChange={setShowEditModal}
-            contact={currentContact}
-            onSave={handleUpdateContact}
-          />
-        )}
       </div>
     );
   }
@@ -317,7 +304,6 @@ export default function CallingPage() {
                 <ContactCard 
                   contact={currentContact} 
                   onUpdate={handleUpdateContact}
-                  onEditClick={() => setShowEditModal(true)}
                   onSelectContact={handleSelectContact}
                 />
               ) : (
@@ -364,9 +350,8 @@ export default function CallingPage() {
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                       Notes
                     </h3>
-                    <NotesEditor
-                      notes={currentContact.notes}
-                      onSave={(notes) => updateContact(currentContact.id, { notes })}
+                    <NotesSection
+                      contactId={currentContact.id}
                     />
                   </div>
                   
@@ -405,15 +390,6 @@ export default function CallingPage() {
         onOpenChange={setShowImportModal}
         onImport={importContacts}
       />
-
-      {currentContact && (
-        <EditContactModal
-          open={showEditModal}
-          onOpenChange={setShowEditModal}
-          contact={currentContact}
-          onSave={handleUpdateContact}
-        />
-      )}
 
       <OutcomeSettingsDialog
         open={showOutcomeSettings}

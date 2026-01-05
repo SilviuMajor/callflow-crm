@@ -48,7 +48,6 @@ export interface Contact {
   phone: string;
   email: string;
   website: string;
-  notes: string;
   status: CallStatus;
   callbackDate?: Date;
   appointmentDate?: Date;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Contact, CustomContactField, CompanyField } from '@/types/contact';
-import { Phone, Mail, Globe, ExternalLink, Copy, Pencil, Check, Building2, User } from 'lucide-react';
+import { Phone, Mail, Globe, ExternalLink, Copy, Check, Building2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,13 +13,13 @@ import { useAIResearch } from '@/hooks/useAIResearch';
 import { AIResearchBox } from '@/components/AIResearchBox';
 import { InlineEditField } from '@/components/InlineEditField';
 import { LinkedContacts } from '@/components/LinkedContacts';
+import { ContactHistoryBar } from '@/components/ContactHistoryBar';
 import { supabase } from '@/integrations/supabase/client';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 interface ContactCardProps {
   contact: Contact;
   onUpdate?: (updates: Partial<Contact>) => void;
-  onEditClick?: () => void;
   onSelectContact?: (contactId: string) => void;
 }
 
@@ -30,7 +30,7 @@ interface AICache {
   ai_custom_updated_at?: string | null;
 }
 
-export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }: ContactCardProps) {
+export function ContactCard({ contact, onUpdate, onSelectContact }: ContactCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -282,14 +282,8 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
         </div>
       )}
 
-      {/* Header - Edit button only */}
-      {onEditClick && (
-        <div className="flex justify-end">
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onEditClick}>
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      )}
+      {/* History bar - horizontal scrollable */}
+      <ContactHistoryBar contactId={contact.id} />
 
       {/* Two-column resizable layout (stacks on mobile) */}
       <div className="hidden md:block">

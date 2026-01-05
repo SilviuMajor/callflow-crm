@@ -122,6 +122,47 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_history: {
+        Row: {
+          action_timestamp: string
+          action_type: string
+          callback_date: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          note: string | null
+          reason: string | null
+        }
+        Insert: {
+          action_timestamp?: string
+          action_type: string
+          callback_date?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          reason?: string | null
+        }
+        Update: {
+          action_timestamp?: string
+          action_type?: string
+          callback_date?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           ai_persona: string | null
@@ -135,7 +176,6 @@ export type Database = {
           id: string
           job_title: string | null
           last_name: string
-          notes: string | null
           phone: string
           qualifying_answers: Json | null
           status: string
@@ -154,7 +194,6 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name: string
-          notes?: string | null
           phone: string
           qualifying_answers?: Json | null
           status?: string
@@ -173,7 +212,6 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name?: string
-          notes?: string | null
           phone?: string
           qualifying_answers?: Json | null
           status?: string
