@@ -218,6 +218,39 @@ export type Database = {
         }
         Relationships: []
       }
+      outcome_options: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_archived: boolean
+          label: string
+          option_order: number
+          outcome_type: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_archived?: boolean
+          label: string
+          option_order?: number
+          outcome_type: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_archived?: boolean
+          label?: string
+          option_order?: number
+          outcome_type?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       qualifying_questions: {
         Row: {
           created_at: string

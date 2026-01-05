@@ -122,9 +122,10 @@ const SELLER_PLACEHOLDERS = [
   { name: 'seller_context', description: 'All seller info combined' },
 ];
 
-// AI Research Results placeholders (require Company Research to be run first)
+// AI Research Results placeholders (require prior research to be run)
 const AI_RESEARCH_PLACEHOLDERS = [
   { name: 'company_research', description: 'AI-generated company summary (requires Company Research)' },
+  { name: 'contact_persona', description: 'AI-generated contact persona (requires Persona research)' },
 ];
 
 export default function AISettingsPage() {
@@ -253,11 +254,19 @@ export default function AISettingsPage() {
       });
 
       // Add AI Research Results placeholders for company_custom and persona prompts
-      groups.push({
-        label: 'AI Research Results',
-        category: 'ai_research',
-        placeholders: AI_RESEARCH_PLACEHOLDERS,
-      });
+      // company_research only for company_custom, contact_persona only for company_custom
+      if (promptType === 'company_custom' || promptType === 'custom_company_research') {
+        groups.push({
+          label: 'AI Research Results',
+          category: 'ai_research',
+          placeholders: [{ name: 'company_research', description: 'AI-generated company summary (requires Company Research)' }],
+        });
+        groups.push({
+          label: 'AI Persona',
+          category: 'ai_persona' as PlaceholderCategory,
+          placeholders: [{ name: 'contact_persona', description: 'AI-generated contact persona (requires Persona research)' }],
+        });
+      }
     }
 
     return groups;

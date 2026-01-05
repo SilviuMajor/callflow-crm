@@ -17,6 +17,8 @@ interface ResearchRequest {
     job_title?: string;
     custom_fields?: Record<string, any>;
     company_research?: string; // Previous AI-generated company research
+    contact_persona?: string; // Previous AI-generated contact persona
+    contact_id?: string; // Contact ID for fetching persona
   };
 }
 
@@ -181,6 +183,7 @@ function replacePlaceholders(
 
   // Replace AI research placeholders
   result = result.replace(/\{company_research\}/g, context.company_research || '[Company research not yet generated - run Company Research first]');
+  result = result.replace(/\{contact_persona\}/g, context.contact_persona || '[Contact persona not yet generated - run Persona research first]');
 
   // Replace custom contact fields
   if (context.custom_fields) {
