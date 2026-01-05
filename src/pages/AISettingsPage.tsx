@@ -54,14 +54,12 @@ About us:
 - Our unique selling points: {seller_usps}
 - Pain points we address: {seller_pain_points_solved}
 - Our target audience: {seller_target_audience}
-- Product sets available: {seller_product_sets}
 
 Based on this context, provide:
 1. How our offering could specifically benefit {company_name}
 2. Potential pain points at {company_name} we could address
 3. Suggested talking points that align with our {seller_tone_style} communication style
-4. Relevant product sets to propose
-5. Any specific angles to approach them with given their industry
+4. Any specific angles to approach them with given their industry
 
 Keep the response actionable and focused.`,
   },
@@ -96,7 +94,6 @@ const SELLER_FIELDS = [
   { key: 'target_audience', label: 'Target Audience', placeholder: 'Who your ideal customers are...' },
   { key: 'tone_style', label: 'Communication Tone/Style', placeholder: 'Professional, casual, consultative...' },
   { key: 'pain_points_solved', label: 'Pain Points We Solve', placeholder: 'Problems your product addresses...', multiline: true },
-  { key: 'product_sets', label: 'Product Sets/Tiers', placeholder: 'Different product lines or packages...', multiline: true },
 ];
 
 // Standard contact placeholders
@@ -119,7 +116,6 @@ const SELLER_PLACEHOLDERS = [
   { name: 'seller_target_audience', description: 'Your target audience' },
   { name: 'seller_tone_style', description: 'Your communication style' },
   { name: 'seller_pain_points_solved', description: 'Pain points you solve' },
-  { name: 'seller_product_sets', description: 'Your product sets' },
   { name: 'seller_context', description: 'All seller info combined' },
 ];
 
@@ -282,7 +278,7 @@ export default function AISettingsPage() {
       // All seller fields are empty
       ['seller_company_name', 'seller_website', 'seller_product_offering', 
        'seller_usps', 'seller_industry', 'seller_target_audience', 
-       'seller_tone_style', 'seller_pain_points_solved', 'seller_product_sets', 'seller_context'].forEach(f => emptySet.add(f));
+       'seller_tone_style', 'seller_pain_points_solved', 'seller_context'].forEach(f => emptySet.add(f));
       // Add custom seller fields as empty too
       sellerCustomFields.forEach(f => emptySet.add(`seller_${f.key}`));
     } else {
@@ -295,14 +291,12 @@ export default function AISettingsPage() {
       if (!sellerCompany.target_audience?.trim()) emptySet.add('seller_target_audience');
       if (!sellerCompany.tone_style?.trim()) emptySet.add('seller_tone_style');
       if (!sellerCompany.pain_points_solved?.trim()) emptySet.add('seller_pain_points_solved');
-      if (!sellerCompany.product_sets?.trim()) emptySet.add('seller_product_sets');
       
       // seller_context is empty if ALL fields are empty
       const hasAnyContent = sellerCompany.company_name?.trim() || sellerCompany.website?.trim() || 
         sellerCompany.product_offering?.trim() || sellerCompany.usps?.trim() || 
         sellerCompany.industry?.trim() || sellerCompany.target_audience?.trim() ||
-        sellerCompany.tone_style?.trim() || sellerCompany.pain_points_solved?.trim() ||
-        sellerCompany.product_sets?.trim();
+        sellerCompany.tone_style?.trim() || sellerCompany.pain_points_solved?.trim();
       if (!hasAnyContent) emptySet.add('seller_context');
       
       // Check custom seller fields
