@@ -15,6 +15,7 @@ import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
+import { AIResearchBox } from '@/components/AIResearchBox';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { format, isAfter, isBefore, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 import { Label } from '@/components/ui/label';
@@ -414,19 +415,39 @@ export default function CompletedPage() {
                       <td className="p-2 text-muted-foreground">
                         {aptStatus ? format(new Date(aptStatus.date), 'do MMM HH:mm') : '-'}
                       </td>
-                      <td className="p-2">
+                      <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         {aptStatus ? (
                           aptStatus.status === 'upcoming' ? (
                             <Badge variant="outline" className="border-blue-500 text-blue-600">Upcoming</Badge>
                           ) : aptStatus.status === 'pending_review' ? (
-                            <Badge variant="outline" className="border-warning text-warning bg-warning/10">
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              Pending
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs border-success text-success hover:bg-success hover:text-success-foreground"
+                                onClick={() => handleAttendedYes(contact)}
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                Yes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => handleAttendedNo(contact)}
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                No
+                              </Button>
+                            </div>
                           ) : aptStatus.status === 'attended' ? (
-                            <Badge className="bg-success"><Check className="w-3 h-3 mr-1" />Yes</Badge>
+                            <span className="flex items-center gap-1 text-success text-sm font-medium">
+                              <Check className="w-4 h-4" /> Yes
+                            </span>
                           ) : (
-                            <Badge variant="destructive"><X className="w-3 h-3 mr-1" />No</Badge>
+                            <span className="flex items-center gap-1 text-destructive text-sm font-medium">
+                              <X className="w-4 h-4" /> No
+                            </span>
                           )
                         ) : (
                           <span className="text-muted-foreground">-</span>
@@ -442,8 +463,8 @@ export default function CompletedPage() {
       </div>
 
       {/* Enhanced Detail Modal */}
-      <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
-        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)} modal={true}>
+        <DialogContent className="bg-card border-border w-[90vw] max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
           {selectedContact && (
             <>
               <DialogHeader>
@@ -595,28 +616,44 @@ export default function CompletedPage() {
                     if (!hasAIData) return null;
                     
                     return (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Research</p>
-                        <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-3">
-                          {contactCompanyData.aiSummary && (
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Company Summary</p>
-                              <p className="text-sm">{contactCompanyData.aiSummary}</p>
-                            </div>
-                          )}
-                          {contactCompanyData.aiCustomResearch && (
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Custom Research</p>
-                              <p className="text-sm">{contactCompanyData.aiCustomResearch}</p>
-                            </div>
-                          )}
-                          {selectedContact.aiPersona && (
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Contact Persona</p>
-                              <p className="text-sm">{selectedContact.aiPersona}</p>
-                            </div>
-                          )}
-                        </div>
+                        {contactCompanyData.aiSummary && (
+                          <AIResearchBox
+                            title="Company Summary"
+                            content={contactCompanyData.aiSummary}
+                            isLoading={false}
+                            onRefresh={() => {}}
+                            variant="company"
+                            maxCollapsedLines={3}
+                            disabled={true}
+                            disabledReason="View only"
+                          />
+                        )}
+                        {contactCompanyData.aiCustomResearch && (
+                          <AIResearchBox
+                            title="Targeted Research"
+                            content={contactCompanyData.aiCustomResearch}
+                            isLoading={false}
+                            onRefresh={() => {}}
+                            variant="custom"
+                            maxCollapsedLines={3}
+                            disabled={true}
+                            disabledReason="View only"
+                          />
+                        )}
+                        {selectedContact.aiPersona && (
+                          <AIResearchBox
+                            title="Persona"
+                            content={selectedContact.aiPersona}
+                            isLoading={false}
+                            onRefresh={() => {}}
+                            variant="persona"
+                            maxCollapsedLines={3}
+                            disabled={true}
+                            disabledReason="View only"
+                          />
+                        )}
                       </div>
                     );
                   })()}
