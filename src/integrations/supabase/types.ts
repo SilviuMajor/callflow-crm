@@ -251,6 +251,50 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_refinements: {
+        Row: {
+          created_at: string
+          example_output: string | null
+          feedback: string
+          id: string
+          original_prompt: string
+          prompt_type: string
+          refined_prompt: string
+          refinement_summary: Json
+          sample_contact_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          example_output?: string | null
+          feedback: string
+          id?: string
+          original_prompt: string
+          prompt_type: string
+          refined_prompt: string
+          refinement_summary?: Json
+          sample_contact_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          example_output?: string | null
+          feedback?: string
+          id?: string
+          original_prompt?: string
+          prompt_type?: string
+          refined_prompt?: string
+          refinement_summary?: Json
+          sample_contact_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_refinements_sample_contact_id_fkey"
+            columns: ["sample_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qualifying_questions: {
         Row: {
           created_at: string
