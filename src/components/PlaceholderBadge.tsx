@@ -2,7 +2,7 @@ import { cn, getSellerFieldColorClasses } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-export type PlaceholderCategory = 'contact' | 'custom_contact' | 'seller' | 'ai_research';
+export type PlaceholderCategory = 'contact' | 'custom_contact' | 'seller' | 'ai_research' | 'ai_persona';
 
 interface PlaceholderBadgeProps {
   name: string;
@@ -18,6 +18,7 @@ const categoryStyles: Record<PlaceholderCategory, string> = {
   custom_contact: 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200',
   seller: '', // Seller uses per-field colors
   ai_research: 'bg-blue-500 text-white border-blue-600 hover:bg-blue-600',
+  ai_persona: 'bg-purple-500 text-white border-purple-600 hover:bg-purple-600',
 };
 
 export function PlaceholderBadge({ 

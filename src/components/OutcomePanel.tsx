@@ -12,10 +12,9 @@ import {
   CallStatus, 
   CompletedReason, 
   NotInterestedReason,
-  COMPLETED_REASONS,
-  NOT_INTERESTED_REASONS 
 } from '@/types/contact';
 import { useWebhookSettings } from '@/hooks/useWebhookSettings';
+import { useOutcomeOptions } from '@/hooks/useOutcomeOptions';
 
 interface OutcomePanelProps {
   contact: Contact;
@@ -61,6 +60,20 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   }, [showNotInterestedModal, contact.notes]);
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
+  const { completedOptions, notInterestedOptions } = useOutcomeOptions();
+
+  // Set default values based on first option from database
+  useEffect(() => {
+    if (completedOptions.length > 0 && completedReason === 'appointment_booked') {
+      setCompletedReason(completedOptions[0].value as CompletedReason);
+    }
+  }, [completedOptions]);
+
+  useEffect(() => {
+    if (notInterestedOptions.length > 0 && notInterestedReason === 'no_budget') {
+      setNotInterestedReason(notInterestedOptions[0].value as NotInterestedReason);
+    }
+  }, [notInterestedOptions]);
 
   const handleCallback = () => {
     if (callbackDate && callbackTime) {
@@ -236,7 +249,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
           </DialogHeader>
           <div className="grid gap-3 py-3">
             <RadioGroup value={completedReason} onValueChange={(v) => setCompletedReason(v as CompletedReason)}>
-              {COMPLETED_REASONS.map(reason => (
+              {completedOptions.map(reason => (
                 <div key={reason.value} className="flex items-center space-x-2">
                   <RadioGroupItem value={reason.value} id={`completed-${reason.value}`} />
                   <Label htmlFor={`completed-${reason.value}`} className="text-sm cursor-pointer">
@@ -324,7 +337,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
           </DialogHeader>
           <div className="grid gap-3 py-3">
             <RadioGroup value={notInterestedReason} onValueChange={(v) => setNotInterestedReason(v as NotInterestedReason)}>
-              {NOT_INTERESTED_REASONS.map(reason => (
+              {notInterestedOptions.map(reason => (
                 <div key={reason.value} className="flex items-center space-x-2">
                   <RadioGroupItem value={reason.value} id={`not-interested-${reason.value}`} />
                   <Label htmlFor={`not-interested-${reason.value}`} className="text-sm cursor-pointer">

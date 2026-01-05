@@ -21,6 +21,7 @@ const categoryColors: Record<PlaceholderCategory, { bg: string; text: string; bo
   custom_contact: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
   seller: { bg: '', text: '', border: '' }, // Seller uses per-field colors
   ai_research: { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600' },
+  ai_persona: { bg: 'bg-purple-500', text: 'text-white', border: 'border-purple-600' },
 };
 
 // Get color classes for a placeholder (handles seller per-field colors)
@@ -42,6 +43,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
   const autocompleteStartPos = useRef<number | null>(null);
   const isUserInputRef = useRef(false);
   const lastValueRef = useRef(value);
+  const lastInputTimeRef = useRef<number>(0);
   const isInitializedRef = useRef(false);
 
   // Flatten all placeholders with their category
@@ -236,6 +238,7 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
     if (!editor) return;
 
     isUserInputRef.current = true;
+    lastInputTimeRef.current = Date.now();
     const newText = htmlToText(editor);
     lastValueRef.current = newText;
     onChange(newText);
@@ -510,6 +513,9 @@ export function PromptEditor({ value, onChange, placeholderGroups, emptyFields, 
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor || !isInitializedRef.current) return;
+    
+    // Skip if user typed within last 150ms to prevent focus loss
+    if (Date.now() - lastInputTimeRef.current < 150) return;
     
     // Only refresh for empty field indicator changes, not during typing
     if (!isUserInputRef.current) {

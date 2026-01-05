@@ -44,10 +44,36 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
   const [contactPersona, setContactPersona] = useState<string | null>(null);
   const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
   const [hasCompanyResearch, setHasCompanyResearch] = useState(false);
+  const [hasContactPersona, setHasContactPersona] = useState(false);
+  
+  // Smart dependency state - tracks what the prompt requires
+  const [promptDependencies, setPromptDependencies] = useState<{
+    needsCompanyResearch: boolean;
+    needsContactPersona: boolean;
+  }>({ needsCompanyResearch: false, needsContactPersona: false });
 
   const activeCustomFields = customFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const activeCompanyFields = companyFields.filter(f => !f.isArchived).sort((a, b) => a.order - b.order);
   const companyData = contact.company ? getCompanyData(contact.company) : {};
+
+  // Fetch prompt dependencies on mount
+  useEffect(() => {
+    const checkPromptDependencies = async () => {
+      const { data: prompt } = await supabase
+        .from('ai_prompts')
+        .select('prompt')
+        .eq('prompt_type', 'company_custom')
+        .single();
+      
+      if (prompt) {
+        setPromptDependencies({
+          needsCompanyResearch: prompt.prompt.includes('{company_research}'),
+          needsContactPersona: prompt.prompt.includes('{contact_persona}'),
+        });
+      }
+    };
+    checkPromptDependencies();
+  }, []);
 
   // Load AI research data on mount or contact change (NO auto-research)
   useEffect(() => {
@@ -81,6 +107,9 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
       if (contactResult) {
         setContactPersona(contactResult.ai_persona);
         setPersonaUpdatedAt(contactResult.ai_persona_updated_at);
+        setHasContactPersona(Boolean(contactResult.ai_persona));
+      } else {
+        setHasContactPersona(false);
       }
     };
 
@@ -117,7 +146,25 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
     if (result) {
       setContactPersona(result);
       setPersonaUpdatedAt(new Date().toISOString());
+      setHasContactPersona(true); // Enable targeted research if persona is required
     }
+  };
+
+  // Compute smart dependency disabled state
+  const targetedResearchDisabled = 
+    (promptDependencies.needsCompanyResearch && !hasCompanyResearch) ||
+    (promptDependencies.needsContactPersona && !hasContactPersona);
+
+  // Build disabled reason message
+  const getDisabledReason = (): string | undefined => {
+    const missing: string[] = [];
+    if (promptDependencies.needsCompanyResearch && !hasCompanyResearch) {
+      missing.push('Company Research');
+    }
+    if (promptDependencies.needsContactPersona && !hasContactPersona) {
+      missing.push('Persona');
+    }
+    return missing.length > 0 ? `Run ${missing.join(' and ')} first` : undefined;
   };
 
   const copyToClipboard = async (value: string, fieldName: string) => {
@@ -848,8 +895,8 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
           variant="custom"
           buttonLabel="Run Research"
           maxCollapsedLines={5}
-          disabled={!hasCompanyResearch}
-          disabledReason="Run Company Research first"
+          disabled={targetedResearchDisabled}
+          disabledReason={getDisabledReason()}
         />
 
         {/* Persona */}
@@ -914,37 +961,6 @@ export function ContactCard({ contact, onUpdate, onEditClick, onSelectContact }:
         </div>
       )}
 
-      {/* Editable Notes */}
-      <div className="space-y-1">
-        <span className="text-xs text-muted-foreground">Notes</span>
-        {editingField === 'notes' ? (
-          <div className="space-y-1">
-            <Textarea
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              className="text-sm min-h-[80px]"
-              autoFocus
-            />
-            <div className="flex justify-end gap-1">
-              <Button variant="ghost" size="sm" className="h-7" onClick={() => setEditingField(null)}>
-                Cancel
-              </Button>
-              <Button size="sm" className="h-7" onClick={() => saveField('notes')}>
-                Save
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div 
-            className="p-2 rounded bg-muted/50 border border-border min-h-[60px] cursor-pointer hover:bg-muted/70"
-            onClick={() => onUpdate && startEditing('notes', contact.notes)}
-          >
-            <p className="text-sm text-foreground whitespace-pre-wrap">
-              {contact.notes || 'Click to add notes...'}
-            </p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -21,10 +21,11 @@ export function useAIResearch() {
     type: 'company_search' | 'company_custom' | 'persona',
     context: Record<string, string | undefined>
   ): Promise<ResearchResult> => {
-    // For company_custom and persona, enrich context with company_research if available
+    // For company_custom, enrich context with company_research and contact_persona if available
     let enrichedContext = { ...context };
     
-    if ((type === 'company_custom' || type === 'persona') && context.company_name) {
+    if (type === 'company_custom' && context.company_name) {
+      // Fetch company research
       const { data: companyData } = await supabase
         .from('company_data')
         .select('ai_summary')
@@ -33,6 +34,19 @@ export function useAIResearch() {
       
       if (companyData?.ai_summary) {
         enrichedContext.company_research = companyData.ai_summary;
+      }
+
+      // Fetch contact persona if contact_id is provided
+      if (context.contact_id) {
+        const { data: contactData } = await supabase
+          .from('contacts')
+          .select('ai_persona')
+          .eq('id', context.contact_id)
+          .single();
+        
+        if (contactData?.ai_persona) {
+          enrichedContext.contact_persona = contactData.ai_persona;
+        }
       }
     }
 
