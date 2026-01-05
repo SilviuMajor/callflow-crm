@@ -16,7 +16,7 @@ interface QueueListProps {
   pots?: PotWithStats[];
   selectedPotId?: string | null;
   onSelectPot?: (potId: string | null) => void;
-  totalStats?: { total: number; readyCallbacks: number; completed: number };
+  totalStats?: { total: number; callbacks: number; notInterested: number; completed: number };
   contactPotMap?: Record<string, string>; // contactId -> potName
 }
 
@@ -42,29 +42,29 @@ export function QueueList({
     )}>
       {/* POT Selector */}
       {pots.length > 0 && onSelectPot && (
-        <div className="p-2 border-b border-border">
+        <div className="p-3 border-b border-border">
           <Select 
             value={selectedPotId || 'all'} 
             onValueChange={(v) => onSelectPot(v === 'all' ? null : v)}
           >
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-auto min-h-[48px] text-sm py-2">
               <SelectValue placeholder="Select POT" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="min-w-[300px]">
               <SelectItem value="all">
-                <span className="flex items-center justify-between w-full gap-2">
-                  <span>All POTs</span>
+                <span className="flex flex-col py-1">
+                  <span className="font-medium">All POTs</span>
                   <span className="text-muted-foreground text-xs">
-                    {totalStats?.total || 0} records
+                    {totalStats?.total || 0} Contacts | {totalStats?.callbacks || 0} Callbacks | {totalStats?.notInterested || 0} Not Interested | {totalStats?.completed || 0} Completed
                   </span>
                 </span>
               </SelectItem>
               {pots.map(pot => (
                 <SelectItem key={pot.id} value={pot.id}>
-                  <span className="flex flex-col">
-                    <span>{pot.name}</span>
+                  <span className="flex flex-col py-1">
+                    <span className="font-medium">{pot.name}</span>
                     <span className="text-muted-foreground text-xs">
-                      {pot.totalRecords} | {pot.readyCallbacks} ready | {pot.completedCount} done
+                      {pot.totalRecords} Contacts | {pot.callbackCount} Callbacks | {pot.notInterestedCount} Not Interested | {pot.completedCount} Completed
                     </span>
                   </span>
                 </SelectItem>

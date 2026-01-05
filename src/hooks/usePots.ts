@@ -10,14 +10,15 @@ export interface Pot {
 
 export interface PotWithStats extends Pot {
   totalRecords: number;
-  readyCallbacks: number;
+  callbackCount: number;
+  notInterestedCount: number;
   completedCount: number;
 }
 
 export function usePots() {
   const [pots, setPots] = useState<Pot[]>([]);
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
-  const [contactStats, setContactStats] = useState<Record<string, { total: number; readyCallbacks: number; completed: number }>>({});
+  const [contactStats, setContactStats] = useState<Record<string, { total: number; callbacks: number; notInterested: number; completed: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Load pots
@@ -56,21 +57,24 @@ export function usePots() {
         return;
       }
 
-      const now = new Date();
-      const stats: Record<string, { total: number; readyCallbacks: number; completed: number }> = {};
+      const stats: Record<string, { total: number; callbacks: number; notInterested: number; completed: number }> = {};
 
       data?.forEach(contact => {
         const potId = contact.pot_id || 'unknown';
         if (!stats[potId]) {
-          stats[potId] = { total: 0, readyCallbacks: 0, completed: 0 };
+          stats[potId] = { total: 0, callbacks: 0, notInterested: 0, completed: 0 };
         }
         stats[potId].total++;
         
-        if (contact.status === 'callback' && contact.callback_date && new Date(contact.callback_date) <= now) {
-          stats[potId].readyCallbacks++;
+        if (contact.status === 'callback') {
+          stats[potId].callbacks++;
         }
         
-        if (contact.status === 'completed' || contact.status === 'not_interested') {
+        if (contact.status === 'not_interested') {
+          stats[potId].notInterested++;
+        }
+        
+        if (contact.status === 'completed') {
           stats[potId].completed++;
         }
       });
@@ -85,23 +89,26 @@ export function usePots() {
     return pots.map(pot => ({
       ...pot,
       totalRecords: contactStats[pot.id]?.total || 0,
-      readyCallbacks: contactStats[pot.id]?.readyCallbacks || 0,
+      callbackCount: contactStats[pot.id]?.callbacks || 0,
+      notInterestedCount: contactStats[pot.id]?.notInterested || 0,
       completedCount: contactStats[pot.id]?.completed || 0,
     }));
   }, [pots, contactStats]);
 
   const totalStats = useMemo(() => {
     let total = 0;
-    let readyCallbacks = 0;
+    let callbacks = 0;
+    let notInterested = 0;
     let completed = 0;
     
     Object.values(contactStats).forEach(stats => {
       total += stats.total;
-      readyCallbacks += stats.readyCallbacks;
+      callbacks += stats.callbacks;
+      notInterested += stats.notInterested;
       completed += stats.completed;
     });
 
-    return { total, readyCallbacks, completed };
+    return { total, callbacks, notInterested, completed };
   }, [contactStats]);
 
   const createPot = useCallback(async (name: string): Promise<string | null> => {
@@ -141,21 +148,24 @@ export function usePots() {
       return;
     }
 
-    const now = new Date();
-    const stats: Record<string, { total: number; readyCallbacks: number; completed: number }> = {};
+    const stats: Record<string, { total: number; callbacks: number; notInterested: number; completed: number }> = {};
 
     data?.forEach(contact => {
       const potId = contact.pot_id || 'unknown';
       if (!stats[potId]) {
-        stats[potId] = { total: 0, readyCallbacks: 0, completed: 0 };
+        stats[potId] = { total: 0, callbacks: 0, notInterested: 0, completed: 0 };
       }
       stats[potId].total++;
       
-      if (contact.status === 'callback' && contact.callback_date && new Date(contact.callback_date) <= now) {
-        stats[potId].readyCallbacks++;
+      if (contact.status === 'callback') {
+        stats[potId].callbacks++;
       }
       
-      if (contact.status === 'completed' || contact.status === 'not_interested') {
+      if (contact.status === 'not_interested') {
+        stats[potId].notInterested++;
+      }
+      
+      if (contact.status === 'completed') {
         stats[potId].completed++;
       }
     });
