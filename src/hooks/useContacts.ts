@@ -51,6 +51,8 @@ export function useContacts(selectedPotId?: string | null) {
           website: row.website || '',
           status: row.status as CallStatus,
           callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
+          appointmentDate: row.appointment_date ? new Date(row.appointment_date) : undefined,
+          appointmentAttended: row.appointment_attended,
           qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
           customFields: (row.custom_fields as Record<string, any>) || {},
           createdAt: new Date(row.created_at),
@@ -154,6 +156,7 @@ export function useContacts(selectedPotId?: string | null) {
       .update({
         status,
         callback_date: callbackDate?.toISOString() || null,
+        appointment_date: appointmentDate?.toISOString() || null,
       })
       .eq('id', contactId);
 
@@ -390,6 +393,75 @@ export function useContacts(selectedPotId?: string | null) {
     });
   }, [selectedPotId]);
 
+  // Mark appointment as attended or no-show
+  const markAppointmentAttended = useCallback(async (contactId: string, attended: boolean) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { ...c, appointmentAttended: attended } : c
+    ));
+
+    const { error } = await supabase
+      .from('contacts')
+      .update({ appointment_attended: attended })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error marking appointment attended:', error);
+      toast.error('Failed to update appointment status');
+    }
+  }, [contacts]);
+
+  // Return contact to pot after no-show
+  const returnToPot = useCallback(async (
+    contactId: string, 
+    callbackDate: Date, 
+    originalReason: string
+  ) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    // Update locally
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { 
+        ...c, 
+        status: 'callback' as CallStatus, 
+        callbackDate, 
+        appointmentAttended: false,
+        completedReason: undefined,
+      } : c
+    ));
+
+    // Persist to database
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        status: 'callback',
+        callback_date: callbackDate.toISOString(),
+        appointment_attended: false,
+      })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error returning contact to pot:', error);
+      toast.error('Failed to return contact to pot');
+      return;
+    }
+
+    // Add history entry for return to pot
+    await addContactHistoryEntry({
+      contact_id: contactId,
+      action_type: 'returned_to_pot',
+      action_timestamp: new Date().toISOString(),
+      callback_date: callbackDate.toISOString(),
+      reason: 'appointment_no_show',
+      note: `Returned to pot after appointment no-show. Originally completed as ${originalReason}.`,
+    });
+
+    toast.success('Contact returned to pot');
+  }, [contacts]);
+
   const stats = useMemo(() => ({
     total: contacts.length,
     pending: contacts.filter(c => c.status === 'pending').length,
@@ -415,6 +487,8 @@ export function useContacts(selectedPotId?: string | null) {
     selectContact,
     shufflePending,
     sortByCompany,
+    markAppointmentAttended,
+    returnToPot,
     searchQuery,
     setSearchQuery,
     stats,
