@@ -16,6 +16,7 @@ interface ResearchRequest {
     last_name?: string;
     job_title?: string;
     custom_fields?: Record<string, any>;
+    company_research?: string; // Previous AI-generated company research
   };
 }
 
@@ -177,6 +178,9 @@ function replacePlaceholders(
   result = result.replace(/\{last_name\}/g, context.last_name || '');
   result = result.replace(/\{job_title\}/g, context.job_title || 'Unknown role');
   result = result.replace(/\{company\}/g, context.company_name || 'Unknown company');
+
+  // Replace AI research placeholders
+  result = result.replace(/\{company_research\}/g, context.company_research || '[Company research not yet generated - run Company Research first]');
 
   // Replace custom contact fields
   if (context.custom_fields) {

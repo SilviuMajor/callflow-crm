@@ -21,8 +21,23 @@ export function useAIResearch() {
     type: 'company_search' | 'company_custom' | 'persona',
     context: Record<string, string | undefined>
   ): Promise<ResearchResult> => {
+    // For company_custom and persona, enrich context with company_research if available
+    let enrichedContext = { ...context };
+    
+    if ((type === 'company_custom' || type === 'persona') && context.company_name) {
+      const { data: companyData } = await supabase
+        .from('company_data')
+        .select('ai_summary')
+        .eq('company_name', context.company_name)
+        .single();
+      
+      if (companyData?.ai_summary) {
+        enrichedContext.company_research = companyData.ai_summary;
+      }
+    }
+
     const { data, error } = await supabase.functions.invoke('ai-research', {
-      body: { type, context }
+      body: { type, context: enrichedContext }
     });
 
     if (error) throw error;
@@ -30,6 +45,17 @@ export function useAIResearch() {
     
     return data;
   };
+
+  // Check if company research exists for a given company
+  const checkHasCompanyResearch = useCallback(async (companyName: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from('company_data')
+      .select('ai_summary')
+      .eq('company_name', companyName)
+      .single();
+    
+    return Boolean(data?.ai_summary);
+  }, []);
 
   const researchCompany = useCallback(async (
     companyName: string, 
@@ -170,5 +196,6 @@ export function useAIResearch() {
     researchCompany,
     researchCompanyCustom,
     researchPersona,
+    checkHasCompanyResearch,
   };
 }

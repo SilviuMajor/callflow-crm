@@ -20,6 +20,7 @@ const categoryColors: Record<PlaceholderCategory, { bg: string; text: string; bo
   contact: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
   custom_contact: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
   seller: { bg: '', text: '', border: '' }, // Seller uses per-field colors
+  ai_research: { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600' },
 };
 
 // Get color classes for a placeholder (handles seller per-field colors)

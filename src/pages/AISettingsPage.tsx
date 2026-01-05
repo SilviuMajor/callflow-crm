@@ -122,6 +122,11 @@ const SELLER_PLACEHOLDERS = [
   { name: 'seller_context', description: 'All seller info combined' },
 ];
 
+// AI Research Results placeholders (require Company Research to be run first)
+const AI_RESEARCH_PLACEHOLDERS = [
+  { name: 'company_research', description: 'AI-generated company summary (requires Company Research)' },
+];
+
 export default function AISettingsPage() {
   const { prompts, isLoading, updatePrompt } = useAIPrompts();
   const { sellerCompany, isLoading: isLoadingSeller, updateField } = useSellerCompany();
@@ -227,8 +232,8 @@ export default function AISettingsPage() {
       });
     }
 
-    // Only show seller placeholders for Targeted Research and Suggestions (company_custom)
-    if (promptType === 'company_custom' || promptType === 'custom_company_research') {
+    // Only show seller placeholders for Targeted Research and Suggestions (company_custom) and persona
+    if (promptType === 'company_custom' || promptType === 'custom_company_research' || promptType === 'persona') {
       const sellerPlaceholders = [...SELLER_PLACEHOLDERS];
       
       // Add custom seller fields
@@ -245,6 +250,13 @@ export default function AISettingsPage() {
         label: 'My Company Fields',
         category: 'seller',
         placeholders: sellerPlaceholders,
+      });
+
+      // Add AI Research Results placeholders for company_custom and persona prompts
+      groups.push({
+        label: 'AI Research Results',
+        category: 'ai_research',
+        placeholders: AI_RESEARCH_PLACEHOLDERS,
       });
     }
 
