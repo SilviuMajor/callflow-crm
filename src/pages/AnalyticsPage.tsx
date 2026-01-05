@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
+import { usePots } from '@/hooks/usePots';
 import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   BarChart, 
   Bar, 
@@ -21,18 +23,82 @@ import {
   FunnelChart,
   LabelList
 } from 'recharts';
+import { isAfter, startOfDay, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 
 const COLORS = ['hsl(220, 90%, 56%)', 'hsl(142, 76%, 36%)', 'hsl(38, 92%, 50%)', 'hsl(0, 84%, 60%)', 'hsl(199, 89%, 48%)'];
 
+type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter';
+
 export default function AnalyticsPage() {
-  const { contacts, stats } = useContacts();
+  const { pots } = usePots();
+  const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>('all');
+  
+  const { contacts: allContacts, stats: allStats } = useContacts();
   const { questions } = useQualifyingQuestions();
+
+  const getDateRangeStart = (range: DateRange): Date | null => {
+    const now = new Date();
+    switch (range) {
+      case 'today': return startOfDay(now);
+      case 'week': return startOfWeek(now);
+      case 'month': return startOfMonth(now);
+      case 'quarter': return startOfQuarter(now);
+      default: return null;
+    }
+  };
+
+  // Apply POT and date range filtering
+  const contacts = useMemo(() => {
+    let filtered = allContacts;
+    
+    if (selectedPotId) {
+      filtered = filtered.filter(c => c.potId === selectedPotId);
+    }
+    
+    const rangeStart = getDateRangeStart(dateRange);
+    if (rangeStart) {
+      filtered = filtered.filter(c => 
+        c.createdAt && isAfter(new Date(c.createdAt), rangeStart)
+      );
+    }
+    
+    return filtered;
+  }, [allContacts, selectedPotId, dateRange]);
+
+  // Recalculate stats based on filtered contacts
+  const stats = useMemo(() => ({
+    total: contacts.length,
+    pending: contacts.filter(c => c.status === 'pending').length,
+    noAnswer: contacts.filter(c => c.status === 'no_answer').length,
+    callbacks: contacts.filter(c => c.status === 'callback').length,
+    completed: contacts.filter(c => c.status === 'completed').length,
+    notInterested: contacts.filter(c => c.status === 'not_interested').length,
+  }), [contacts]);
 
   const completedContacts = useMemo(() => 
     contacts.filter(c => c.status === 'completed'), [contacts]);
   
   const notInterestedContacts = useMemo(() => 
     contacts.filter(c => c.status === 'not_interested'), [contacts]);
+
+  // Appointment metrics
+  const appointmentMetrics = useMemo(() => {
+    const appointmentsBooked = contacts.filter(
+      c => c.completedReason === 'appointment_booked'
+    );
+    
+    const attended = appointmentsBooked.filter(c => c.appointmentAttended === true).length;
+    const noShow = appointmentsBooked.filter(c => c.appointmentAttended === false).length;
+    const pending = appointmentsBooked.filter(c => c.appointmentAttended === null).length;
+    const total = appointmentsBooked.length;
+    
+    // Only count decided appointments for show rate
+    const decidedTotal = attended + noShow;
+    const showRate = decidedTotal > 0 ? ((attended / decidedTotal) * 100).toFixed(1) : '0';
+    
+    return { total, attended, noShow, pending, showRate };
+  }, [contacts]);
 
   const conversionRate = stats.total > 0 
     ? ((stats.completed / stats.total) * 100).toFixed(1) 
@@ -61,6 +127,13 @@ export default function AnalyticsPage() {
     { name: 'Callback', value: stats.callbacks, color: 'hsl(45, 93%, 47%)' },
     { name: 'Completed', value: stats.completed, color: 'hsl(142, 76%, 36%)' },
     { name: 'Not Interested', value: stats.notInterested, color: 'hsl(0, 84%, 60%)' },
+  ].filter(s => s.value > 0);
+
+  // Appointment status pie chart
+  const appointmentStatusData = [
+    { name: 'Attended', value: appointmentMetrics.attended, color: 'hsl(142, 76%, 36%)' },
+    { name: 'No Show', value: appointmentMetrics.noShow, color: 'hsl(0, 84%, 60%)' },
+    { name: 'Pending', value: appointmentMetrics.pending, color: 'hsl(45, 93%, 47%)' },
   ].filter(s => s.value > 0);
 
   // Funnel data
@@ -127,6 +200,34 @@ export default function AnalyticsPage() {
       <TopNav />
       
       <div className="flex-1 overflow-y-auto p-4">
+        {/* Top Filters */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Select value={selectedPotId || 'all'} onValueChange={(v) => setSelectedPotId(v === 'all' ? null : v)}>
+            <SelectTrigger className="w-48 h-9">
+              <SelectValue placeholder="All POTs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All POTs</SelectItem>
+              {pots.map(pot => (
+                <SelectItem key={pot.id} value={pot.id}>{pot.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+            <SelectTrigger className="w-36 h-9">
+              <SelectValue placeholder="Date Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="quarter">This Quarter</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="h-9">
             <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
@@ -158,6 +259,17 @@ export default function AnalyticsPage() {
                 <p className="text-xs text-muted-foreground mb-1">Contact Rate</p>
                 <p className="text-2xl font-semibold text-primary">{contactRate}%</p>
                 <Progress value={parseFloat(contactRate)} className="mt-2 h-2" />
+              </div>
+            </div>
+
+            {/* Appointment Metrics */}
+            <div className="grid md:grid-cols-4 gap-3">
+              <StatCard label="Appointments Booked" value={appointmentMetrics.total} color="text-primary" />
+              <StatCard label="Attended" value={appointmentMetrics.attended} color="text-success" />
+              <StatCard label="No Show" value={appointmentMetrics.noShow} color="text-destructive" />
+              <div className="p-3 rounded-lg border border-border bg-card">
+                <p className="text-xs text-muted-foreground">Show Rate</p>
+                <p className="text-xl font-semibold text-success">{appointmentMetrics.showRate}%</p>
               </div>
             </div>
             
@@ -266,6 +378,41 @@ export default function AnalyticsPage() {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Appointment Status Chart */}
+            {appointmentStatusData.length > 0 && (
+              <div className="p-4 rounded-lg border border-border bg-card">
+                <p className="text-sm font-medium mb-3">Appointment Outcomes</p>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={appointmentStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {appointmentStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                  {appointmentStatusData.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-1 text-xs">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                      <span>{entry.name} ({entry.value})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Not Interested Breakdown */}
             <div className="p-4 rounded-lg border border-border bg-card">

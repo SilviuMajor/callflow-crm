@@ -51,6 +51,7 @@ export interface Contact {
   status: CallStatus;
   callbackDate?: Date;
   appointmentDate?: Date;
+  appointmentAttended?: boolean | null;
   createdAt: Date;
   lastCalledAt?: Date;
   completedReason?: CompletedReason;

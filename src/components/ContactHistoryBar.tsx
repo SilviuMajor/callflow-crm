@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useContactHistory, HistoryEntry } from '@/hooks/useContactHistory';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2 } from 'lucide-react';
+import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +47,12 @@ const ACTION_CONFIG: Record<string, { icon: typeof Phone; label: string; bgClass
     bgClass: 'bg-info/10',
     borderClass: 'border-info/30'
   },
+  returned_to_pot: { 
+    icon: RotateCcw, 
+    label: 'Returned to Pot', 
+    bgClass: 'bg-orange-500/10',
+    borderClass: 'border-orange-500/30'
+  },
 };
 
 function formatHistoryEntry(entry: HistoryEntry): string {
@@ -69,6 +75,8 @@ function formatHistoryEntry(entry: HistoryEntry): string {
       return `Not Interested${entry.reason ? ` - ${entry.reason.replace(/_/g, ' ')}` : ''} on ${date}`;
     case 'note':
       return `Note added on ${date}`;
+    case 'returned_to_pot':
+      return `Returned to pot${entry.reason ? ` (${entry.reason.replace(/_/g, ' ')})` : ''} on ${date}`;
     default:
       return `Action on ${date}`;
   }

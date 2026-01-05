@@ -167,6 +167,8 @@ export type Database = {
         Row: {
           ai_persona: string | null
           ai_persona_updated_at: string | null
+          appointment_attended: boolean | null
+          appointment_date: string | null
           callback_date: string | null
           company: string
           created_at: string
@@ -186,6 +188,8 @@ export type Database = {
         Insert: {
           ai_persona?: string | null
           ai_persona_updated_at?: string | null
+          appointment_attended?: boolean | null
+          appointment_date?: string | null
           callback_date?: string | null
           company: string
           created_at?: string
@@ -205,6 +209,8 @@ export type Database = {
         Update: {
           ai_persona?: string | null
           ai_persona_updated_at?: string | null
+          appointment_attended?: boolean | null
+          appointment_date?: string | null
           callback_date?: string | null
           company?: string
           created_at?: string
