@@ -1,185 +1,253 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useContactHistory, HistoryEntry } from '@/hooks/useContactHistory';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX, CalendarClock } from 'lucide-react';
+import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX, CalendarClock, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ContactHistoryBarProps {
   contactId: string;
   onHistoryChange?: () => void;
 }
 
-const ACTION_CONFIG: Record<string, { icon: typeof Phone; label: string; bgClass: string; borderClass: string }> = {
+const ACTION_CONFIG: Record<string, { 
+  icon: typeof Phone; 
+  label: string; 
+  bgClass: string; 
+  borderClass: string;
+  iconColor: string;
+}> = {
   no_answer: { 
     icon: PhoneOff, 
     label: 'No Answer', 
     bgClass: 'bg-muted/50',
-    borderClass: 'border-muted-foreground/20'
+    borderClass: 'border-muted-foreground/30',
+    iconColor: 'text-muted-foreground'
   },
   callback: { 
     icon: Clock, 
     label: 'Callback', 
-    bgClass: 'bg-[hsl(var(--callback-light))]',
-    borderClass: 'border-[hsl(var(--callback))]'
+    bgClass: 'bg-amber-500/10',
+    borderClass: 'border-amber-500/50',
+    iconColor: 'text-amber-500'
   },
   completed: { 
     icon: CheckCircle2, 
     label: 'Completed', 
     bgClass: 'bg-success/10',
-    borderClass: 'border-success'
+    borderClass: 'border-success/50',
+    iconColor: 'text-success'
   },
   not_interested: { 
     icon: XCircle, 
     label: 'Not Interested', 
     bgClass: 'bg-muted/50',
-    borderClass: 'border-muted-foreground/30'
+    borderClass: 'border-muted-foreground/30',
+    iconColor: 'text-muted-foreground'
   },
   note: { 
     icon: StickyNote, 
     label: 'Note', 
-    bgClass: 'bg-info/10',
-    borderClass: 'border-info/30'
+    bgClass: 'bg-blue-500/10',
+    borderClass: 'border-blue-500/50',
+    iconColor: 'text-blue-500'
   },
   returned_to_pot: { 
     icon: RotateCcw, 
     label: 'Returned to Pot', 
     bgClass: 'bg-orange-500/10',
-    borderClass: 'border-orange-500/30'
+    borderClass: 'border-orange-500/50',
+    iconColor: 'text-orange-500'
   },
   rebooked: { 
     icon: CalendarPlus, 
     label: 'Rebooked', 
     bgClass: 'bg-blue-500/10',
-    borderClass: 'border-blue-500/30'
+    borderClass: 'border-blue-500/50',
+    iconColor: 'text-blue-500'
   },
   rescheduled: { 
     icon: CalendarClock, 
     label: 'Rescheduled', 
     bgClass: 'bg-orange-500/10',
-    borderClass: 'border-orange-500/30'
+    borderClass: 'border-orange-500/50',
+    iconColor: 'text-orange-500'
   },
   appointment_attended: { 
     icon: UserCheck, 
     label: 'Attended', 
     bgClass: 'bg-success/10',
-    borderClass: 'border-success'
+    borderClass: 'border-success/50',
+    iconColor: 'text-success'
   },
   appointment_no_show: { 
     icon: UserX, 
     label: 'No Show', 
     bgClass: 'bg-destructive/10',
-    borderClass: 'border-destructive'
+    borderClass: 'border-destructive/50',
+    iconColor: 'text-destructive'
   },
 };
 
-function formatHistoryEntry(entry: HistoryEntry): string {
-  const time = format(new Date(entry.action_timestamp), 'h:mm a');
-  const date = format(new Date(entry.action_timestamp), 'do MMM');
+function getContextDetails(entry: HistoryEntry): { label: string; value: string }[] {
+  const details: { label: string; value: string }[] = [];
   
-  switch (entry.action_type) {
-    case 'no_answer':
-      return `No answer at ${time} on ${date}`;
-    case 'callback':
-      if (entry.callback_date) {
-        const cbTime = format(new Date(entry.callback_date), 'HH:mm');
-        const cbDate = format(new Date(entry.callback_date), 'do MMM');
-        return `Callback set for ${cbTime} on ${cbDate}`;
-      }
-      return `Callback scheduled on ${date}`;
-    case 'completed':
-      if (entry.appointment_date) {
-        const aptDate = format(new Date(entry.appointment_date), 'do MMM HH:mm');
-        return `Completed - Appt: ${aptDate}`;
-      }
-      return `Completed${entry.reason ? ` (${entry.reason.replace(/_/g, ' ')})` : ''} on ${date}`;
-    case 'not_interested':
-      return `Not Interested${entry.reason ? ` - ${entry.reason.replace(/_/g, ' ')}` : ''} on ${date}`;
-    case 'note':
-      return `Note added on ${date}`;
-    case 'returned_to_pot':
-      if (entry.callback_date) {
-        const cbDate = format(new Date(entry.callback_date), 'do MMM HH:mm');
-        return `Returned to pot - Callback: ${cbDate}`;
-      }
-      return `Returned to pending queue on ${date}`;
-    case 'rebooked':
-      if (entry.appointment_date) {
-        const aptDate = format(new Date(entry.appointment_date), 'do MMM HH:mm');
-        return `Rebooked for ${aptDate}`;
-      }
-      return `Rebooked on ${date}`;
-    case 'rescheduled':
-      if (entry.appointment_date) {
-        const aptDate = format(new Date(entry.appointment_date), 'do MMM HH:mm');
-        return `Rescheduled to ${aptDate}`;
-      }
-      return `Rescheduled on ${date}`;
-    case 'appointment_attended':
-      return `Appointment attended on ${date}`;
-    case 'appointment_no_show':
-      return `No show on ${date}`;
-    default:
-      return `Action on ${date}`;
+  if (entry.callback_date) {
+    details.push({
+      label: 'Callback',
+      value: format(new Date(entry.callback_date), 'do MMM yyyy, HH:mm')
+    });
   }
+  
+  if (entry.appointment_date) {
+    details.push({
+      label: 'Appointment',
+      value: format(new Date(entry.appointment_date), 'do MMM yyyy, HH:mm')
+    });
+  }
+  
+  if (entry.reason) {
+    details.push({
+      label: 'Reason',
+      value: entry.reason.replace(/_/g, ' ')
+    });
+  }
+  
+  return details;
 }
 
-function HistoryCard({ entry, onDelete }: { entry: HistoryEntry; onDelete: (id: string) => void }) {
+function HistoryCard({ 
+  entry, 
+  onClick 
+}: { 
+  entry: HistoryEntry; 
+  onClick: () => void;
+}) {
   const config = ACTION_CONFIG[entry.action_type] || ACTION_CONFIG.note;
   const Icon = config.icon;
-  const description = formatHistoryEntry(entry);
+  const date = format(new Date(entry.action_timestamp), 'do MMM');
+  const time = format(new Date(entry.action_timestamp), 'h:mm a');
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div 
-            className={`flex-shrink-0 p-2 rounded-lg border ${config.bgClass} ${config.borderClass} min-w-[180px] max-w-[220px] group relative`}
-          >
-            <div className="flex items-start gap-2">
-              <Icon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-foreground/70" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-foreground leading-tight">
-                  {description}
-                </p>
-                {entry.note && (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                    {entry.note}
-                  </p>
-                )}
-              </div>
+    <div 
+      className={`flex-shrink-0 p-3 rounded-lg border-2 ${config.bgClass} ${config.borderClass} w-[100px] cursor-pointer hover:scale-105 transition-transform`}
+      onClick={onClick}
+    >
+      <div className="flex flex-col items-center text-center gap-1">
+        <Icon className={`w-6 h-6 ${config.iconColor}`} />
+        <p className="text-xs font-semibold text-foreground leading-tight">
+          {date}
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          {time}
+        </p>
+        {entry.note && (
+          <p className="text-[10px] text-muted-foreground mt-1 truncate w-full">
+            {entry.note}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HistoryDetailDialog({ 
+  entry, 
+  open, 
+  onOpenChange,
+  onDelete 
+}: { 
+  entry: HistoryEntry | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (!entry) return null;
+  
+  const config = ACTION_CONFIG[entry.action_type] || ACTION_CONFIG.note;
+  const Icon = config.icon;
+  const contextDetails = getContextDetails(entry);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${config.bgClass}`}>
+              <Icon className={`w-5 h-5 ${config.iconColor}`} />
             </div>
+            <span>{config.label}</span>
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {/* Timestamp */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Date & Time</p>
+            <p className="text-sm font-medium">
+              {format(new Date(entry.action_timestamp), 'EEEE, do MMMM yyyy')}
+            </p>
+            <p className="text-sm font-medium">
+              {format(new Date(entry.action_timestamp), 'h:mm a')}
+            </p>
+          </div>
+          
+          {/* Context Details */}
+          {contextDetails.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              {contextDetails.map((detail, index) => (
+                <div key={index} className="space-y-1">
+                  <p className="text-sm text-muted-foreground">{detail.label}</p>
+                  <p className="text-sm font-medium capitalize">{detail.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Notes */}
+          {entry.note && (
+            <div className="space-y-1 pt-2 border-t border-border">
+              <p className="text-sm text-muted-foreground">Notes</p>
+              <p className="text-sm whitespace-pre-wrap">{entry.note}</p>
+            </div>
+          )}
+          
+          {/* Delete Button */}
+          <div className="pt-4 border-t border-border">
             <Button
-              variant="ghost"
+              variant="destructive"
               size="sm"
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 bg-background border border-border shadow-sm"
-              onClick={(e) => {
-                e.stopPropagation();
+              className="w-full"
+              onClick={() => {
                 onDelete(entry.id);
+                onOpenChange(false);
               }}
             >
-              <Trash2 className="w-3 h-3 text-destructive" />
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Entry
             </Button>
           </div>
-        </TooltipTrigger>
-        {entry.note && (
-          <TooltipContent side="bottom" className="max-w-[300px]">
-            <p className="text-sm whitespace-pre-wrap">{entry.note}</p>
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function ContactHistoryBar({ contactId, onHistoryChange }: ContactHistoryBarProps) {
   const { history, isLoading, deleteHistoryEntry } = useContactHistory(contactId);
+  const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleCardClick = (entry: HistoryEntry) => {
+    setSelectedEntry(entry);
+    setDialogOpen(true);
+  };
 
   const handleDelete = async (id: string) => {
     await deleteHistoryEntry(id);
@@ -202,20 +270,33 @@ export function ContactHistoryBar({ contactId, onHistoryChange }: ContactHistory
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="px-3 py-1.5 border-b border-border bg-muted/30">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          History ({history.length})
-        </span>
-      </div>
-      <ScrollArea className="w-full">
-        <div className="flex gap-2 p-2">
-          {history.map((entry) => (
-            <HistoryCard key={entry.id} entry={entry} onDelete={handleDelete} />
-          ))}
+    <>
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="px-3 py-1.5 border-b border-border bg-muted/30">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            History ({history.length})
+          </span>
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
-    </div>
+        <ScrollArea className="w-full">
+          <div className="flex gap-2 p-2">
+            {history.map((entry) => (
+              <HistoryCard 
+                key={entry.id} 
+                entry={entry} 
+                onClick={() => handleCardClick(entry)}
+              />
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      </div>
+      
+      <HistoryDetailDialog
+        entry={selectedEntry}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onDelete={handleDelete}
+      />
+    </>
   );
 }
