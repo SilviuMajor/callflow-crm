@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-// Helper to add history entry
+// Helper to add history entry with optimistic dispatch
 async function addContactHistoryEntry(entry: {
+  id: string;
   contact_id: string;
   action_type: string;
   action_timestamp: string;
@@ -14,12 +15,23 @@ async function addContactHistoryEntry(entry: {
   reason?: string | null;
   note?: string | null;
 }) {
+  // Dispatch optimistic event for instant UI update
+  const optimisticEntry = {
+    ...entry,
+    created_at: entry.action_timestamp,
+  };
+  window.dispatchEvent(new CustomEvent('contact-history:optimistic', { detail: optimisticEntry }));
+
   const { error } = await supabase
     .from('contact_history')
     .insert(entry);
   
   if (error) {
     console.error('Error adding history entry:', error);
+    // Rollback on failure
+    window.dispatchEvent(new CustomEvent('contact-history:rollback', { 
+      detail: { id: entry.id, contact_id: entry.contact_id } 
+    }));
   }
 }
 
@@ -248,7 +260,7 @@ export function useContacts(selectedPotId?: string | null) {
     setContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
     setSelectedContactId(null);
 
-    // Persist to database
+    // Persist to database and add history entry concurrently
     const dbUpdates: Record<string, any> = {
       status,
       callback_date: callbackDate?.toISOString() || null,
@@ -263,28 +275,32 @@ export function useContacts(selectedPotId?: string | null) {
       dbUpdates.not_interested_reason = notInterestedReason || null;
       dbUpdates.completed_reason = null;
     }
+
+    const historyId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
     
-    const { error } = await supabase
-      .from('contacts')
-      .update(dbUpdates)
-      .eq('id', contactId);
+    // Run both operations concurrently for faster response
+    const [contactResult] = await Promise.all([
+      supabase
+        .from('contacts')
+        .update(dbUpdates)
+        .eq('id', contactId),
+      addContactHistoryEntry({
+        id: historyId,
+        contact_id: contactId,
+        action_type: status,
+        action_timestamp: timestamp,
+        callback_date: callbackDate?.toISOString() || null,
+        appointment_date: appointmentDate?.toISOString() || null,
+        reason: completedReason || notInterestedReason || null,
+        note: note || null,
+      }),
+    ]);
 
-    if (error) {
-      console.error('Error updating contact status:', error);
+    if (contactResult.error) {
+      console.error('Error updating contact status:', contactResult.error);
       toast.error('Failed to save contact status');
-      return;
     }
-
-    // Add history entry
-    await addContactHistoryEntry({
-      contact_id: contactId,
-      action_type: status,
-      action_timestamp: new Date().toISOString(),
-      callback_date: callbackDate?.toISOString() || null,
-      appointment_date: appointmentDate?.toISOString() || null,
-      reason: completedReason || notInterestedReason || null,
-      note: note || null,
-    });
   }, [contacts]);
 
   const updateContact = useCallback(async (contactId: string, updates: Partial<Contact>) => {
@@ -529,6 +545,7 @@ export function useContacts(selectedPotId?: string | null) {
 
     // Add history entry for attended status
     await addContactHistoryEntry({
+      id: crypto.randomUUID(),
       contact_id: contactId,
       action_type: attended ? 'appointment_attended' : 'appointment_no_show',
       action_timestamp: new Date().toISOString(),
@@ -581,6 +598,7 @@ export function useContacts(selectedPotId?: string | null) {
 
     // Add history entry for return to pot
     await addContactHistoryEntry({
+      id: crypto.randomUUID(),
       contact_id: contactId,
       action_type: 'returned_to_pot',
       action_timestamp: new Date().toISOString(),
@@ -629,6 +647,7 @@ export function useContacts(selectedPotId?: string | null) {
 
     // Add history entry for rebook
     await addContactHistoryEntry({
+      id: crypto.randomUUID(),
       contact_id: contactId,
       action_type: 'rebooked',
       action_timestamp: new Date().toISOString(),
@@ -679,6 +698,7 @@ export function useContacts(selectedPotId?: string | null) {
     const newDateStr = format(newAppointmentDate, 'do MMM HH:mm');
     
     await addContactHistoryEntry({
+      id: crypto.randomUUID(),
       contact_id: contactId,
       action_type: 'rescheduled',
       action_timestamp: new Date().toISOString(),
