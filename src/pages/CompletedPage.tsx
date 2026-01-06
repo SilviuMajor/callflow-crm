@@ -6,12 +6,12 @@ import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { usePots } from '@/hooks/usePots';
-import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
+import { Contact, COMPLETED_REASONS, NOT_INTERESTED_REASONS, NotInterestedReason } from '@/types/contact';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus, CalendarClock, Ban, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 
 type QuickFilter = 'all' | 'completed' | 'not_interested' | 'pending_review' | 'attended' | 'no_show';
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'custom';
+type NoShowAction = 'reschedule' | 'pending' | 'callback' | 'not_interested' | 'leave';
 
 export default function CompletedPage() {
   const { pots } = usePots();
@@ -44,11 +45,20 @@ export default function CompletedPage() {
   
   // No-show dialog state
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
+  const [showNoShowActionsDialog, setShowNoShowActionsDialog] = useState(false);
+  const [noShowAction, setNoShowAction] = useState<NoShowAction>('leave');
+  const [noShowNotInterestedReason, setNoShowNotInterestedReason] = useState<NotInterestedReason | ''>('');
+  const [noShowRescheduleDate, setNoShowRescheduleDate] = useState('');
+  const [noShowRescheduleTime, setNoShowRescheduleTime] = useState('');
+  const [noShowCallbackDate, setNoShowCallbackDate] = useState('');
+  const [noShowCallbackTime, setNoShowCallbackTime] = useState('');
+  const [pendingNoShowContact, setPendingNoShowContact] = useState<Contact | null>(null);
+  
+  // Legacy return to pot dialog state (for non-no-show returns)
   const [showReturnToPotDialog, setShowReturnToPotDialog] = useState(false);
   const [returnType, setReturnType] = useState<'pending' | 'callback'>('pending');
   const [returnCallbackDate, setReturnCallbackDate] = useState('');
   const [returnCallbackTime, setReturnCallbackTime] = useState('');
-  const [pendingNoShowContact, setPendingNoShowContact] = useState<Contact | null>(null);
   
   // Rebook dialog state
   const [showRebookDialog, setShowRebookDialog] = useState(false);
@@ -210,7 +220,75 @@ export default function CompletedPage() {
     await markAppointmentAttended(pendingNoShowContact.id, false);
     setSelectedContact(prev => prev?.id === pendingNoShowContact.id ? { ...prev, appointmentAttended: false } : prev);
     setShowNoShowDialog(false);
-    setShowReturnToPotDialog(true);
+    // Open the new no-show actions dialog
+    setNoShowAction('leave');
+    setNoShowNotInterestedReason('');
+    setNoShowRescheduleDate('');
+    setNoShowRescheduleTime('');
+    setNoShowCallbackDate('');
+    setNoShowCallbackTime('');
+    setShowNoShowActionsDialog(true);
+  };
+
+  const resetNoShowState = () => {
+    setNoShowAction('leave');
+    setNoShowNotInterestedReason('');
+    setNoShowRescheduleDate('');
+    setNoShowRescheduleTime('');
+    setNoShowCallbackDate('');
+    setNoShowCallbackTime('');
+    setPendingNoShowContact(null);
+  };
+
+  const handleNoShowAction = async () => {
+    if (!pendingNoShowContact) return;
+    
+    switch (noShowAction) {
+      case 'reschedule':
+        if (!noShowRescheduleDate || !noShowRescheduleTime) return;
+        const rescheduleDate = new Date(`${noShowRescheduleDate}T${noShowRescheduleTime}`);
+        await rescheduleAppointment(pendingNoShowContact.id, rescheduleDate, 'Rescheduled after no-show');
+        // Update selected contact if viewing in modal
+        if (selectedContact?.id === pendingNoShowContact.id) {
+          setSelectedContact({
+            ...selectedContact,
+            appointmentDate: rescheduleDate,
+            appointmentAttended: null,
+          });
+        }
+        break;
+      case 'pending':
+        await returnToPot(pendingNoShowContact.id, undefined, pendingNoShowContact.completedReason || 'appointment_booked');
+        if (selectedContact?.id === pendingNoShowContact.id) {
+          setSelectedContact(null);
+        }
+        break;
+      case 'callback':
+        if (!noShowCallbackDate || !noShowCallbackTime) return;
+        const callbackDate = new Date(`${noShowCallbackDate}T${noShowCallbackTime}`);
+        await returnToPot(pendingNoShowContact.id, callbackDate, pendingNoShowContact.completedReason || 'appointment_booked');
+        if (selectedContact?.id === pendingNoShowContact.id) {
+          setSelectedContact(null);
+        }
+        break;
+      case 'not_interested':
+        if (!noShowNotInterestedReason) return;
+        await updateContactStatus(pendingNoShowContact.id, 'not_interested', undefined, 'Marked not interested after no-show', undefined, noShowNotInterestedReason as NotInterestedReason);
+        if (selectedContact?.id === pendingNoShowContact.id) {
+          setSelectedContact({
+            ...selectedContact,
+            status: 'not_interested',
+            notInterestedReason: noShowNotInterestedReason as NotInterestedReason,
+          });
+        }
+        break;
+      case 'leave':
+        // Do nothing - already marked as no-show
+        break;
+    }
+    
+    setShowNoShowActionsDialog(false);
+    resetNoShowState();
   };
 
   const handleReturnToPot = async () => {
@@ -871,6 +949,179 @@ export default function CompletedPage() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowNoShowDialog(false)}>Cancel</Button>
             <Button variant="destructive" onClick={confirmNoShow}>Confirm No Show</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* No-Show Actions Dialog (replaces Return to Pot after no-show) */}
+      <Dialog open={showNoShowActionsDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowNoShowActionsDialog(false);
+          resetNoShowState();
+        }
+      }}>
+        <DialogContent className="bg-card border-border sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>What would you like to do?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">
+            {pendingNoShowContact?.firstName} {pendingNoShowContact?.lastName} was marked as a no-show. Choose an action:
+          </p>
+          
+          <RadioGroup value={noShowAction} onValueChange={(v) => setNoShowAction(v as NoShowAction)} className="space-y-3">
+            {/* Reschedule */}
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              noShowAction === 'reschedule' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setNoShowAction('reschedule')}>
+              <RadioGroupItem value="reschedule" id="noshow-reschedule" className="mt-0.5" />
+              <div className="flex-1">
+                <Label htmlFor="noshow-reschedule" className="font-medium cursor-pointer flex items-center gap-2">
+                  <CalendarClock className="w-4 h-4 text-primary" />
+                  Reschedule Appointment
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">Book a new appointment date and time</p>
+                {noShowAction === 'reschedule' && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="noshow-reschedule-date" className="text-xs">Date</Label>
+                      <Input
+                        id="noshow-reschedule-date"
+                        type="date"
+                        value={noShowRescheduleDate}
+                        onChange={(e) => setNoShowRescheduleDate(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="noshow-reschedule-time" className="text-xs">Time</Label>
+                      <Input
+                        id="noshow-reschedule-time"
+                        type="time"
+                        value={noShowRescheduleTime}
+                        onChange={(e) => setNoShowRescheduleTime(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Return to Pending */}
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              noShowAction === 'pending' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setNoShowAction('pending')}>
+              <RadioGroupItem value="pending" id="noshow-pending" className="mt-0.5" />
+              <div>
+                <Label htmlFor="noshow-pending" className="font-medium cursor-pointer flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-[hsl(var(--callback))]" />
+                  Return to Pending Queue
+                </Label>
+                <p className="text-xs text-muted-foreground">Contact will appear at the end of the queue</p>
+              </div>
+            </div>
+            
+            {/* Schedule Callback */}
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              noShowAction === 'callback' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setNoShowAction('callback')}>
+              <RadioGroupItem value="callback" id="noshow-callback" className="mt-0.5" />
+              <div className="flex-1">
+                <Label htmlFor="noshow-callback" className="font-medium cursor-pointer flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[hsl(var(--callback))]" />
+                  Schedule Callback
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">Set a specific date and time to call back</p>
+                {noShowAction === 'callback' && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="noshow-callback-date" className="text-xs">Date</Label>
+                      <Input
+                        id="noshow-callback-date"
+                        type="date"
+                        value={noShowCallbackDate}
+                        onChange={(e) => setNoShowCallbackDate(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="noshow-callback-time" className="text-xs">Time</Label>
+                      <Input
+                        id="noshow-callback-time"
+                        type="time"
+                        value={noShowCallbackTime}
+                        onChange={(e) => setNoShowCallbackTime(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Mark as Not Interested */}
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              noShowAction === 'not_interested' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setNoShowAction('not_interested')}>
+              <RadioGroupItem value="not_interested" id="noshow-not-interested" className="mt-0.5" />
+              <div className="flex-1">
+                <Label htmlFor="noshow-not-interested" className="font-medium cursor-pointer flex items-center gap-2">
+                  <Ban className="w-4 h-4 text-destructive" />
+                  Mark as Not Interested
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">Move to not interested with a reason</p>
+                {noShowAction === 'not_interested' && (
+                  <Select value={noShowNotInterestedReason} onValueChange={(v) => setNoShowNotInterestedReason(v as NotInterestedReason)}>
+                    <SelectTrigger className="h-8 text-sm mt-2">
+                      <SelectValue placeholder="Select reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NOT_INTERESTED_REASONS.map(r => (
+                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+            
+            {/* Leave in Completed */}
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              noShowAction === 'leave' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setNoShowAction('leave')}>
+              <RadioGroupItem value="leave" id="noshow-leave" className="mt-0.5" />
+              <div>
+                <Label htmlFor="noshow-leave" className="font-medium cursor-pointer flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-muted-foreground" />
+                  Leave in Completed
+                </Label>
+                <p className="text-xs text-muted-foreground">Keep as no-show, no further action</p>
+              </div>
+            </div>
+          </RadioGroup>
+          
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => {
+              setShowNoShowActionsDialog(false);
+              resetNoShowState();
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleNoShowAction}
+              disabled={
+                (noShowAction === 'reschedule' && (!noShowRescheduleDate || !noShowRescheduleTime)) ||
+                (noShowAction === 'callback' && (!noShowCallbackDate || !noShowCallbackTime)) ||
+                (noShowAction === 'not_interested' && !noShowNotInterestedReason)
+              }
+            >
+              Confirm
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
