@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useAIPrompts, AI_MODELS, AIPrompt } from '@/hooks/useAIPrompts';
+import { useAIScript } from '@/hooks/useAIScript';
 import { useSellerCompany } from '@/hooks/useSellerCompany';
 import { useSellerCustomFields } from '@/hooks/useSellerCustomFields';
 import { useCustomFields } from '@/hooks/useCustomFields';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical } from 'lucide-react';
+import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
@@ -127,6 +128,7 @@ const AI_RESEARCH_PLACEHOLDERS = [
 
 export default function AISettingsPage() {
   const { prompts, isLoading, updatePrompt } = useAIPrompts();
+  const { script, isLoading: isLoadingScript, updateScript, restoreDefault: restoreScriptDefault } = useAIScript();
   const { sellerCompany, isLoading: isLoadingSeller, updateField } = useSellerCompany();
   const { fields: sellerCustomFields } = useSellerCustomFields();
   const { fields: customContactFields } = useCustomFields();
@@ -134,6 +136,18 @@ export default function AISettingsPage() {
   const [savingStates, setSavingStates] = useState<Record<string, boolean>>({});
   const [improvingStates, setImprovingStates] = useState<Record<string, boolean>>({});
   const [refineDialogOpen, setRefineDialogOpen] = useState<string | null>(null);
+  
+  // Script state
+  const [editedScript, setEditedScript] = useState<string>('');
+  const [scriptEnabled, setScriptEnabled] = useState(true);
+  const [isSavingScript, setIsSavingScript] = useState(false);
+  
+  useEffect(() => {
+    if (script) {
+      setEditedScript(script.template);
+      setScriptEnabled(script.enabled ?? true);
+    }
+  }, [script]);
 
   useEffect(() => {
     if (prompts.length > 0) {
@@ -420,6 +434,97 @@ export default function AISettingsPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Separator className="my-6" />
+
+        {/* AI Script Template Section */}
+        <Card className="mb-6 border-2 border-amber-400/30">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Scroll className="h-5 w-5 text-amber-500" />
+                <CardTitle className="text-lg">AI Call Script</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="script-enabled" className="text-sm text-muted-foreground">
+                  {scriptEnabled ? 'Enabled' : 'Disabled'}
+                </Label>
+                <Switch
+                  id="script-enabled"
+                  checked={scriptEnabled}
+                  onCheckedChange={(checked) => {
+                    setScriptEnabled(checked);
+                    updateScript({ enabled: checked });
+                  }}
+                />
+              </div>
+            </div>
+            <CardDescription>
+              Create a personalized call script template. Use placeholders for dynamic data and AI blocks for generated content.
+              Use <code className="text-xs bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:instruction}}'}</code> for AI-generated sections.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoadingScript ? (
+              <Skeleton className="h-48 w-full" />
+            ) : (
+              <>
+                <PlaceholderToolbar
+                  groups={getPlaceholderGroups('company_custom')}
+                  onInsert={() => {}}
+                  emptyFields={emptySellerFields}
+                />
+                <div className="space-y-2">
+                  <Label>Script Template</Label>
+                  <Textarea
+                    value={editedScript}
+                    onChange={(e) => setEditedScript(e.target.value)}
+                    placeholder="Enter your script template..."
+                    className="min-h-[200px] font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use <code className="bg-muted px-1 rounded">{'{first_name}'}</code> for placeholders and <code className="bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:your instruction here}}'}</code> for AI-generated content.
+                  </p>
+                </div>
+                <div className="flex justify-between pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      restoreScriptDefault();
+                      setEditedScript(script?.template || '');
+                    }}
+                    className="text-muted-foreground"
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Restore Default
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      setIsSavingScript(true);
+                      await updateScript({ template: editedScript });
+                      setIsSavingScript(false);
+                    }}
+                    disabled={editedScript === script?.template || isSavingScript}
+                    size="sm"
+                  >
+                    {isSavingScript ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-1" />
+                        Save Script
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
