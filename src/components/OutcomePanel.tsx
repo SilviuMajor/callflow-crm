@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   Contact, 
@@ -15,6 +15,8 @@ import {
 } from '@/types/contact';
 import { useWebhookSettings } from '@/hooks/useWebhookSettings';
 import { useOutcomeOptions } from '@/hooks/useOutcomeOptions';
+import { useCalendlySettings } from '@/hooks/useCalendlySettings';
+import { CalendlyEmbed } from '@/components/CalendlyEmbed';
 
 interface OutcomePanelProps {
   contact: Contact;
@@ -32,6 +34,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const [showCallbackModal, setShowCallbackModal] = useState(false);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [showNotInterestedModal, setShowNotInterestedModal] = useState(false);
+  const [showCalendlyModal, setShowCalendlyModal] = useState(false);
   
   const [callbackDate, setCallbackDate] = useState('');
   const [callbackTime, setCallbackTime] = useState('');
@@ -42,6 +45,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [waitingForWebhook, setWaitingForWebhook] = useState(false);
   
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
@@ -61,6 +65,10 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
   const { completedOptions, notInterestedOptions } = useOutcomeOptions();
+  const { settings: calendlySettings } = useCalendlySettings();
+
+  // Check if Calendly is enabled and configured
+  const isCalendlyEnabled = calendlySettings.enabled && calendlySettings.calendly_url;
 
   // Set default values based on first option from database
   useEffect(() => {
@@ -138,6 +146,36 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     setNotInterestedNotes('');
   };
 
+  // Handle Calendly booking completion
+  const handleCalendlyEventScheduled = (eventUri: string, startTime: string) => {
+    setShowCalendlyModal(false);
+    setWaitingForWebhook(true);
+    
+    // Wait a few seconds for webhook to update the contact, then show manual fallback
+    toast.success('Appointment scheduled!', {
+      description: 'Waiting for confirmation...',
+    });
+    
+    // After 3 seconds, show the manual confirmation modal as fallback
+    setTimeout(() => {
+      setWaitingForWebhook(false);
+      // Pre-fill today's date as a starting point for manual entry
+      const today = new Date();
+      setAppointmentDate(today.toISOString().split('T')[0]);
+      setAppointmentTime('09:00');
+      setCompletedReason('appointment_booked');
+      setShowCompletedModal(true);
+      toast.info('Please confirm appointment details', {
+        description: 'Enter the appointment date and time from Calendly.',
+      });
+    }, 3000);
+  };
+
+  // When Calendly is enabled and user selects appointment_booked, show Calendly button
+  const handleCompletedReasonChange = (value: string) => {
+    setCompletedReason(value as CompletedReason);
+  };
+
   return (
     <>
       <div className="space-y-2">
@@ -167,9 +205,19 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
           variant="outline"
           onClick={() => setShowCompletedModal(true)}
           className="w-full justify-start gap-2 h-9 border-success text-success hover:bg-success/10"
+          disabled={waitingForWebhook}
         >
-          <CheckCircle2 className="w-4 h-4" />
-          Completed
+          {waitingForWebhook ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Confirming...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              Completed
+            </>
+          )}
         </Button>
 
         <Button
@@ -248,7 +296,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-3">
-            <RadioGroup value={completedReason} onValueChange={(v) => setCompletedReason(v as CompletedReason)}>
+            <RadioGroup value={completedReason} onValueChange={handleCompletedReasonChange}>
               {completedOptions.map(reason => (
                 <div key={reason.value} className="flex items-center space-x-2">
                   <RadioGroupItem value={reason.value} id={`completed-${reason.value}`} />
@@ -259,28 +307,50 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
               ))}
             </RadioGroup>
             
-            {/* Appointment date/time picker when Appointment Booked is selected */}
+            {/* Appointment booking section - show Calendly or manual picker */}
             {completedReason === 'appointment_booked' && (
-              <div className="grid grid-cols-2 gap-2 p-2 bg-muted/50 rounded border border-border">
-                <div className="space-y-1">
-                  <Label htmlFor="apt-date" className="text-xs">Appointment Date</Label>
-                  <Input
-                    id="apt-date"
-                    type="date"
-                    value={appointmentDate}
-                    onChange={(e) => setAppointmentDate(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="apt-time" className="text-xs">Time</Label>
-                  <Input
-                    id="apt-time"
-                    type="time"
-                    value={appointmentTime}
-                    onChange={(e) => setAppointmentTime(e.target.value)}
-                    className="h-8 text-sm"
-                  />
+              <div className="space-y-3 p-2 bg-muted/50 rounded border border-border">
+                {isCalendlyEnabled ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-center gap-2"
+                      onClick={() => {
+                        setShowCompletedModal(false);
+                        setShowCalendlyModal(true);
+                      }}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Book via Calendly
+                    </Button>
+                    <div className="text-center">
+                      <span className="text-xs text-muted-foreground">or enter manually</span>
+                    </div>
+                  </>
+                ) : null}
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="apt-date" className="text-xs">Appointment Date</Label>
+                    <Input
+                      id="apt-date"
+                      type="date"
+                      value={appointmentDate}
+                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="apt-time" className="text-xs">Time</Label>
+                    <Input
+                      id="apt-time"
+                      type="time"
+                      value={appointmentTime}
+                      onChange={(e) => setAppointmentTime(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -325,6 +395,17 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Calendly Embed Modal */}
+      {isCalendlyEnabled && (
+        <CalendlyEmbed
+          contact={contact}
+          calendlyUrl={calendlySettings.calendly_url}
+          open={showCalendlyModal}
+          onOpenChange={setShowCalendlyModal}
+          onEventScheduled={handleCalendlyEventScheduled}
+        />
+      )}
 
       {/* Not Interested Modal */}
       <Dialog open={showNotInterestedModal} onOpenChange={setShowNotInterestedModal}>

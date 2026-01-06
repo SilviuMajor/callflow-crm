@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Target, BarChart3, CheckCircle, Settings, Search, Download, Sparkles, Upload } from 'lucide-react';
+import { Target, BarChart3, CheckCircle, Settings, Search, Download, Sparkles, Upload, Plug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -22,6 +22,7 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportC
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/completed', label: 'Completed', icon: CheckCircle },
     { path: '/ai-settings', label: 'AI', icon: Sparkles },
+    { path: '/integrations', label: 'Integrations', icon: Plug },
   ];
 
   return (
