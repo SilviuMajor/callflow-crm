@@ -32,7 +32,7 @@ export default function CallingPage() {
   const isMobile = useIsMobile();
   
   // POTs management
-  const { potsWithStats, selectedPotId, selectPot, createPot, refreshStats, totalStats } = usePots();
+  const { potsWithStats, selectedPotId, selectPot, createPot, renamePot, deletePot, mergePots, refreshStats, totalStats } = usePots();
   
   const {
     contacts,
@@ -209,6 +209,9 @@ export default function CallingPage() {
               onSelectPot={selectPot}
               totalStats={totalStats}
               contactPotMap={contactPotMap}
+              onRenamePot={renamePot}
+              onDeletePot={deletePot}
+              onMergePots={mergePots}
             />
           </div>
           
@@ -319,6 +322,9 @@ export default function CallingPage() {
           onSelectPot={selectPot}
           totalStats={totalStats}
           contactPotMap={contactPotMap}
+          onRenamePot={renamePot}
+          onDeletePot={deletePot}
+          onMergePots={mergePots}
         />
         
         <ResizablePanelGroup direction="horizontal" className="flex-1">

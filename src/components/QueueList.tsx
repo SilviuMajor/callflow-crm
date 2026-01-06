@@ -1,10 +1,13 @@
+import { useState, useMemo } from 'react';
 import { Contact } from '@/types/contact';
 import { QueueCard } from './QueueCard';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shuffle, ArrowDownAZ } from 'lucide-react';
+import { Shuffle, ArrowDownAZ, Search, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PotWithStats } from '@/hooks/usePots';
+import { POTManagementDialog } from './POTManagementDialog';
 
 interface QueueListProps {
   contacts: Contact[];
@@ -18,6 +21,9 @@ interface QueueListProps {
   onSelectPot?: (potId: string | null) => void;
   totalStats?: { total: number; callbacks: number; notInterested: number; completed: number };
   contactPotMap?: Record<string, string>; // contactId -> potName
+  onRenamePot?: (potId: string, newName: string) => Promise<boolean>;
+  onDeletePot?: (potId: string, moveContactsToPotId?: string) => Promise<boolean>;
+  onMergePots?: (sourcePotId: string, targetPotId: string) => Promise<boolean>;
 }
 
 export function QueueList({ 
@@ -32,8 +38,28 @@ export function QueueList({
   onSelectPot,
   totalStats,
   contactPotMap = {},
+  onRenamePot,
+  onDeletePot,
+  onMergePots,
 }: QueueListProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showPotManagement, setShowPotManagement] = useState(false);
+  
   const showPotOnCard = selectedPotId === null && pots.length > 0;
+
+  // Filter contacts based on search query
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return contacts;
+    
+    const query = searchQuery.toLowerCase();
+    return contacts.filter(c => 
+      c.firstName.toLowerCase().includes(query) ||
+      c.lastName.toLowerCase().includes(query) ||
+      c.company.toLowerCase().includes(query) ||
+      c.phone.includes(query) ||
+      c.email?.toLowerCase().includes(query)
+    );
+  }, [contacts, searchQuery]);
 
   return (
     <div className={cn(
@@ -43,40 +69,67 @@ export function QueueList({
       {/* POT Selector */}
       {pots.length > 0 && onSelectPot && (
         <div className="p-3 border-b border-border">
-          <Select 
-            value={selectedPotId || 'all'} 
-            onValueChange={(v) => onSelectPot(v === 'all' ? null : v)}
-          >
-            <SelectTrigger className="h-auto min-h-[48px] text-sm py-2">
-              <SelectValue placeholder="Select POT" />
-            </SelectTrigger>
-            <SelectContent className="min-w-[300px]">
-              <SelectItem value="all">
-                <span className="flex flex-col py-1">
-                  <span className="font-medium">All POTs</span>
-                  <span className="text-muted-foreground text-xs">
-                    {totalStats?.total || 0} Contacts | {totalStats?.callbacks || 0} Callbacks | {totalStats?.notInterested || 0} Not Interested | {totalStats?.completed || 0} Completed
-                  </span>
-                </span>
-              </SelectItem>
-              {pots.map(pot => (
-                <SelectItem key={pot.id} value={pot.id}>
+          <div className="flex gap-1">
+            <Select 
+              value={selectedPotId || 'all'} 
+              onValueChange={(v) => onSelectPot(v === 'all' ? null : v)}
+            >
+              <SelectTrigger className="h-auto min-h-[48px] text-sm py-2 flex-1">
+                <SelectValue placeholder="Select POT" />
+              </SelectTrigger>
+              <SelectContent className="min-w-[300px]">
+                <SelectItem value="all">
                   <span className="flex flex-col py-1">
-                    <span className="font-medium">{pot.name}</span>
+                    <span className="font-medium">All POTs</span>
                     <span className="text-muted-foreground text-xs">
-                      {pot.totalRecords} Contacts | {pot.callbackCount} Callbacks | {pot.notInterestedCount} Not Interested | {pot.completedCount} Completed
+                      {totalStats?.total || 0} Contacts | {totalStats?.callbacks || 0} Callbacks | {totalStats?.notInterested || 0} Not Interested | {totalStats?.completed || 0} Completed
                     </span>
                   </span>
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {pots.map(pot => (
+                  <SelectItem key={pot.id} value={pot.id}>
+                    <span className="flex flex-col py-1">
+                      <span className="font-medium">{pot.name}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {pot.totalRecords} Contacts | {pot.callbackCount} Callbacks | {pot.notInterestedCount} Not Interested | {pot.completedCount} Completed
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {onRenamePot && onDeletePot && onMergePots && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto min-h-[48px] w-10 p-0"
+                onClick={() => setShowPotManagement(true)}
+                title="Manage POTs"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
+      {/* Search Bar */}
+      <div className="p-2 border-b border-border">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search queue..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-7 pl-7 text-xs"
+          />
+        </div>
+      </div>
+
       <div className="p-2 border-b border-border flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Queue ({contacts.length})
+          Queue ({filteredContacts.length}{searchQuery && ` of ${contacts.length}`})
         </span>
         <div className="flex gap-1">
           <Button 
@@ -101,12 +154,12 @@ export function QueueList({
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin">
-        {contacts.length === 0 ? (
+        {filteredContacts.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
-            No contacts in queue
+            {searchQuery ? 'No matching contacts' : 'No contacts in queue'}
           </p>
         ) : (
-          contacts.map(contact => (
+          filteredContacts.map(contact => (
             <QueueCard
               key={contact.id}
               contact={contact}
@@ -117,6 +170,18 @@ export function QueueList({
           ))
         )}
       </div>
+
+      {/* POT Management Dialog */}
+      {onRenamePot && onDeletePot && onMergePots && (
+        <POTManagementDialog
+          open={showPotManagement}
+          onOpenChange={setShowPotManagement}
+          pots={pots}
+          onRenamePot={onRenamePot}
+          onDeletePot={onDeletePot}
+          onMergePots={onMergePots}
+        />
+      )}
     </div>
   );
 }
