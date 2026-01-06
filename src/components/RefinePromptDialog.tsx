@@ -38,6 +38,7 @@ import { usePromptRefinements, PromptRefinement } from '@/hooks/usePromptRefinem
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { format } from 'date-fns';
 import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
 
@@ -273,7 +274,23 @@ export function RefinePromptDialog({
               {exampleOutput ? (
                 <ScrollArea className="h-48 border rounded-md p-3 bg-muted/30">
                   <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{exampleOutput}</ReactMarkdown>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ href, children }) => (
+                          <a 
+                            href={href} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-primary hover:underline"
+                          >
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {exampleOutput}
+                    </ReactMarkdown>
                   </div>
                 </ScrollArea>
               ) : (
