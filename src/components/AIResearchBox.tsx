@@ -15,7 +15,7 @@ interface AIResearchBoxProps {
   onRefresh: () => void;
   lastUpdated?: string | null;
   citations?: string[];
-  variant?: 'company' | 'custom' | 'persona';
+  variant?: 'company' | 'custom' | 'persona' | 'script';
   buttonLabel?: string;
   provider?: 'perplexity' | 'openai' | 'anthropic' | null;
   maxCollapsedLines?: number;
@@ -63,12 +63,14 @@ export const AIResearchBox = forwardRef<HTMLDivElement, AIResearchBoxProps>(
     company: 'border-blue-500/30 bg-blue-500/5',
     custom: 'border-purple-500/30 bg-purple-500/5',
     persona: 'border-emerald-500/30 bg-emerald-500/5',
+    script: 'border-amber-500/30 bg-amber-500/5',
   };
 
   const iconStyles = {
     company: 'text-blue-500',
     custom: 'text-purple-500',
     persona: 'text-emerald-500',
+    script: 'text-amber-500',
   };
 
   return (

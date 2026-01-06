@@ -50,6 +50,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_scripts: {
+        Row: {
+          created_at: string
+          enabled: boolean | null
+          id: string
+          model: string | null
+          name: string
+          template: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          model?: string | null
+          name?: string
+          template?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          model?: string | null
+          name?: string
+          template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       calendly_settings: {
         Row: {
           calendly_url: string
@@ -200,6 +230,8 @@ export type Database = {
         Row: {
           ai_persona: string | null
           ai_persona_updated_at: string | null
+          ai_script: string | null
+          ai_script_updated_at: string | null
           appointment_attended: boolean | null
           appointment_date: string | null
           callback_date: string | null
@@ -223,6 +255,8 @@ export type Database = {
         Insert: {
           ai_persona?: string | null
           ai_persona_updated_at?: string | null
+          ai_script?: string | null
+          ai_script_updated_at?: string | null
           appointment_attended?: boolean | null
           appointment_date?: string | null
           callback_date?: string | null
@@ -246,6 +280,8 @@ export type Database = {
         Update: {
           ai_persona?: string | null
           ai_persona_updated_at?: string | null
+          ai_script?: string | null
+          ai_script_updated_at?: string | null
           appointment_attended?: boolean | null
           appointment_date?: string | null
           callback_date?: string | null
