@@ -47,6 +47,7 @@ export default function CallingPage() {
     sortByCompany,
     addContact,
     importContacts,
+    deleteContact,
   } = useContacts(selectedPotId);
   
   const { questions, setQuestions } = useQualifyingQuestions();
@@ -126,6 +127,11 @@ export default function CallingPage() {
       title: messages[status],
       duration: 2000,
     });
+
+    // Auto-swipe back to contact panel on mobile after coding an outcome
+    if (isMobile) {
+      scrollToPanel(1); // Contact panel is index 1
+    }
   };
 
   const handleAnswerChange = (questionId: string, value: any) => {
@@ -221,6 +227,7 @@ export default function CallingPage() {
                 contact={currentContact} 
                 onUpdate={handleUpdateContact}
                 onSelectContact={handleSelectContact}
+                onDelete={deleteContact}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
@@ -335,6 +342,7 @@ export default function CallingPage() {
                   contact={currentContact} 
                   onUpdate={handleUpdateContact}
                   onSelectContact={handleSelectContact}
+                  onDelete={deleteContact}
                 />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground">

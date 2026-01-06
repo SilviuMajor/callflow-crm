@@ -77,39 +77,44 @@ export function QueueList({
               <SelectTrigger className="h-auto min-h-[48px] text-sm py-2 flex-1">
                 <SelectValue placeholder="Select POT" />
               </SelectTrigger>
-              <SelectContent className="min-w-[300px]">
-                <SelectItem value="all">
-                  <span className="flex flex-col py-1">
-                    <span className="font-medium">All POTs</span>
-                    <span className="text-muted-foreground text-xs">
-                      {totalStats?.total || 0} Contacts | {totalStats?.callbacks || 0} Callbacks | {totalStats?.notInterested || 0} Not Interested | {totalStats?.completed || 0} Completed
-                    </span>
+          <SelectContent className="min-w-[300px]">
+            <SelectItem value="all">
+              <span className="flex flex-col py-1">
+                <span className="font-medium">All POTs</span>
+                <span className="text-muted-foreground text-xs">
+                  {totalStats?.total || 0} Contacts | {totalStats?.callbacks || 0} Callbacks | {totalStats?.notInterested || 0} Not Interested | {totalStats?.completed || 0} Completed
+                </span>
+              </span>
+            </SelectItem>
+            {pots.map(pot => (
+              <SelectItem key={pot.id} value={pot.id}>
+                <span className="flex flex-col py-1">
+                  <span className="font-medium">{pot.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {pot.totalRecords} Contacts | {pot.callbackCount} Callbacks | {pot.notInterestedCount} Not Interested | {pot.completedCount} Completed
                   </span>
-                </SelectItem>
-                {pots.map(pot => (
-                  <SelectItem key={pot.id} value={pot.id}>
-                    <span className="flex flex-col py-1">
-                      <span className="font-medium">{pot.name}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {pot.totalRecords} Contacts | {pot.callbackCount} Callbacks | {pot.notInterestedCount} Not Interested | {pot.completedCount} Completed
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                </span>
+              </SelectItem>
+            ))}
+            {/* Manage POTs option - only visible inside dropdown */}
             {onRenamePot && onDeletePot && onMergePots && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto min-h-[48px] w-10 p-0"
-                onClick={() => setShowPotManagement(true)}
-                title="Manage POTs"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
+              <div className="border-t border-border mt-2 pt-2">
+                <button
+                  className="w-full flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground hover:bg-muted rounded cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowPotManagement(true);
+                  }}
+                >
+                  <Settings className="w-4 h-4" />
+                  Manage POTs
+                </button>
+              </div>
             )}
-          </div>
+          </SelectContent>
+        </Select>
+      </div>
         </div>
       )}
 

@@ -198,16 +198,26 @@ export function POTManagementDialog({
       <AlertDialog open={!!deleteConfirmPot} onOpenChange={(open) => !open && setDeleteConfirmPot(null)}>
         <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteConfirmPot?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteConfirmPot && deleteConfirmPot.totalRecords > 0 ? (
-                <span>
-                  This POT contains <strong>{deleteConfirmPot.totalRecords} contacts</strong>. 
-                  What would you like to do with them?
-                </span>
-              ) : (
-                <span>This POT is empty and will be deleted permanently.</span>
-              )}
+            <AlertDialogTitle className="text-destructive">⚠️ Delete "{deleteConfirmPot?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {deleteConfirmPot && deleteConfirmPot.totalRecords > 0 ? (
+                  <>
+                    <p className="text-destructive font-medium">
+                      Warning: This POT contains {deleteConfirmPot.totalRecords} contact{deleteConfirmPot.totalRecords > 1 ? 's' : ''}.
+                    </p>
+                    <p>
+                      What would you like to do with them? If you choose to delete contacts, 
+                      all their data, history, and notes will be permanently lost.
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    This POT is empty and will be deleted permanently. 
+                    <span className="text-destructive font-medium"> This action cannot be undone.</span>
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           

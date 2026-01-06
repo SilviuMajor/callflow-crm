@@ -844,6 +844,12 @@ export default function CompletedPage() {
                     <ContactHistoryBar contactId={selectedContact.id} />
                   </div>
 
+                  {/* Notes - moved above AI Research */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</p>
+                    <NotesSection contactId={selectedContact.id} />
+                  </div>
+
                   {/* AI Research */}
                   {(() => {
                     const contactCompanyData = getCompanyData(selectedContact);
@@ -912,12 +918,6 @@ export default function CompletedPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Notes */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</p>
-                    <NotesSection contactId={selectedContact.id} />
-                  </div>
 
                   {/* Danger Zone - Hidden by default */}
                   <Collapsible className="mt-4 pt-4 border-t border-destructive/20">
