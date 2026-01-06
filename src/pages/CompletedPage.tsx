@@ -77,6 +77,9 @@ export default function CompletedPage() {
 
   // Delete contact state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Editing attended status state
+  const [editingAttendedId, setEditingAttendedId] = useState<string | null>(null);
 
   const getDateRangeStart = (range: DateRange): Date | null => {
     const now = new Date();
@@ -214,6 +217,7 @@ export default function CompletedPage() {
   const handleAttendedYes = async (contact: Contact) => {
     await markAppointmentAttended(contact.id, true);
     setSelectedContact(prev => prev?.id === contact.id ? { ...prev, appointmentAttended: true } : prev);
+    setEditingAttendedId(null);
   };
 
   const handleAttendedNo = (contact: Contact) => {
@@ -614,14 +618,68 @@ export default function CompletedPage() {
                               </Button>
                             </div>
                           ) : aptStatus.status === 'attended' ? (
-                            <span className="flex items-center gap-1 text-success text-sm font-medium">
-                              <Check className="w-4 h-4" /> Yes
-                            </span>
+                            editingAttendedId === contact.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs border-success text-success hover:bg-success hover:text-success-foreground"
+                                  onClick={() => handleAttendedYes(contact)}
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Yes
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                  onClick={() => handleAttendedNo(contact)}
+                                >
+                                  <X className="w-3 h-3 mr-1" />
+                                  No
+                                </Button>
+                              </div>
+                            ) : (
+                              <span 
+                                className="flex items-center gap-1 text-success text-sm font-medium cursor-pointer hover:underline"
+                                onClick={() => setEditingAttendedId(contact.id)}
+                                title="Click to change"
+                              >
+                                <Check className="w-4 h-4" /> Yes
+                              </span>
+                            )
                           ) : (
                             <div className="flex items-center gap-2">
-                              <span className="flex items-center gap-1 text-destructive text-sm font-medium">
-                                <X className="w-4 h-4" /> No
-                              </span>
+                              {editingAttendedId === contact.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 px-2 text-xs border-success text-success hover:bg-success hover:text-success-foreground"
+                                    onClick={() => handleAttendedYes(contact)}
+                                  >
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Yes
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                    onClick={() => handleAttendedNo(contact)}
+                                  >
+                                    <X className="w-3 h-3 mr-1" />
+                                    No
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span 
+                                  className="flex items-center gap-1 text-destructive text-sm font-medium cursor-pointer hover:underline"
+                                  onClick={() => setEditingAttendedId(contact.id)}
+                                  title="Click to change"
+                                >
+                                  <X className="w-4 h-4" /> No
+                                </span>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -752,16 +810,72 @@ export default function CompletedPage() {
                         )}
                         
                         {aptStatus.status === 'attended' && (
-                          <p className="text-sm text-success font-medium flex items-center gap-1">
-                            <Check className="w-4 h-4" /> Attended
-                          </p>
+                          editingAttendedId === selectedContact.id ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Did they attend?</span>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="h-7 border-success text-success hover:bg-success hover:text-success-foreground"
+                                onClick={() => handleAttendedYes(selectedContact)}
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                Yes
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                className="h-7"
+                                onClick={() => handleAttendedNo(selectedContact)}
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                No
+                              </Button>
+                            </div>
+                          ) : (
+                            <p 
+                              className="text-sm text-success font-medium flex items-center gap-1 cursor-pointer hover:underline"
+                              onClick={() => setEditingAttendedId(selectedContact.id)}
+                              title="Click to change"
+                            >
+                              <Check className="w-4 h-4" /> Attended
+                            </p>
+                          )
                         )}
                         
                         {aptStatus.status === 'no_show' && (
                           <div className="flex items-center gap-2">
-                            <p className="text-sm text-destructive font-medium flex items-center gap-1">
-                              <X className="w-4 h-4" /> No Show
-                            </p>
+                            {editingAttendedId === selectedContact.id ? (
+                              <>
+                                <span className="text-sm text-muted-foreground">Did they attend?</span>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-7 border-success text-success hover:bg-success hover:text-success-foreground"
+                                  onClick={() => handleAttendedYes(selectedContact)}
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Yes
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  className="h-7"
+                                  onClick={() => handleAttendedNo(selectedContact)}
+                                >
+                                  <X className="w-3 h-3 mr-1" />
+                                  No
+                                </Button>
+                              </>
+                            ) : (
+                              <p 
+                                className="text-sm text-destructive font-medium flex items-center gap-1 cursor-pointer hover:underline"
+                                onClick={() => setEditingAttendedId(selectedContact.id)}
+                                title="Click to change"
+                              >
+                                <X className="w-4 h-4" /> No Show
+                              </p>
+                            )}
                             <Button 
                               size="sm" 
                               variant="outline"
