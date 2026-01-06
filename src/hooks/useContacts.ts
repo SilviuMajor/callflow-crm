@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Contact, CallStatus, CompletedReason, NotInterestedReason } from '@/types/contact';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 // Helper to add history entry
 async function addContactHistoryEntry(entry: {
@@ -538,6 +539,56 @@ export function useContacts(selectedPotId?: string | null) {
     toast.success('Appointment rebooked');
   }, [contacts]);
 
+  // Reschedule appointment (for any appointment, not just no-shows)
+  const rescheduleAppointment = useCallback(async (
+    contactId: string,
+    newAppointmentDate: Date,
+    notes?: string
+  ) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    const oldAppointmentDate = contact.appointmentDate;
+
+    // Update locally
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { 
+        ...c, 
+        appointmentDate: newAppointmentDate,
+        appointmentAttended: null, // Reset since it's a new appointment
+      } : c
+    ));
+
+    // Persist to database
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        appointment_date: newAppointmentDate.toISOString(),
+        appointment_attended: null,
+      })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error rescheduling appointment:', error);
+      toast.error('Failed to reschedule appointment');
+      return;
+    }
+
+    // Add history entry for reschedule
+    const oldDateStr = oldAppointmentDate ? format(oldAppointmentDate, 'do MMM HH:mm') : 'N/A';
+    const newDateStr = format(newAppointmentDate, 'do MMM HH:mm');
+    
+    await addContactHistoryEntry({
+      contact_id: contactId,
+      action_type: 'rescheduled',
+      action_timestamp: new Date().toISOString(),
+      appointment_date: newAppointmentDate.toISOString(),
+      note: notes || `Rescheduled from ${oldDateStr} to ${newDateStr}`,
+    });
+
+    toast.success('Appointment rescheduled');
+  }, [contacts]);
+
   const stats = useMemo(() => ({
     total: contacts.length,
     pending: contacts.filter(c => c.status === 'pending').length,
@@ -566,6 +617,7 @@ export function useContacts(selectedPotId?: string | null) {
     markAppointmentAttended,
     returnToPot,
     rebookAppointment,
+    rescheduleAppointment,
     searchQuery,
     setSearchQuery,
     stats,

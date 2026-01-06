@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus } from 'lucide-react';
+import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus, CalendarClock } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
@@ -29,7 +29,7 @@ type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'custom';
 export default function CompletedPage() {
   const { pots } = usePots();
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
-  const { completedContacts, clearContactAnswers, markAppointmentAttended, returnToPot, rebookAppointment, updateContactStatus } = useContacts(selectedPotId);
+  const { completedContacts, clearContactAnswers, markAppointmentAttended, returnToPot, rebookAppointment, rescheduleAppointment, updateContactStatus } = useContacts(selectedPotId);
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
@@ -55,6 +55,12 @@ export default function CompletedPage() {
   const [rebookDate, setRebookDate] = useState('');
   const [rebookTime, setRebookTime] = useState('');
   const [rebookContact, setRebookContact] = useState<Contact | null>(null);
+
+  // Reschedule dialog state
+  const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleContact, setRescheduleContact] = useState<Contact | null>(null);
 
   const getDateRangeStart = (range: DateRange): Date | null => {
     const now = new Date();
@@ -254,6 +260,40 @@ export default function CompletedPage() {
   const handleSendBackToPot = (contact: Contact) => {
     setPendingNoShowContact(contact);
     setShowReturnToPotDialog(true);
+  };
+
+  const handleOpenRescheduleDialog = (contact: Contact) => {
+    setRescheduleContact(contact);
+    // Pre-fill with current appointment date
+    if (contact.appointmentDate) {
+      setRescheduleDate(format(contact.appointmentDate, 'yyyy-MM-dd'));
+      setRescheduleTime(format(contact.appointmentDate, 'HH:mm'));
+    } else {
+      setRescheduleDate('');
+      setRescheduleTime('');
+    }
+    setShowRescheduleDialog(true);
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleContact || !rescheduleDate || !rescheduleTime) return;
+    
+    const newAppointmentDate = new Date(`${rescheduleDate}T${rescheduleTime}`);
+    await rescheduleAppointment(rescheduleContact.id, newAppointmentDate);
+    
+    // Update selected contact if viewing in modal
+    if (selectedContact?.id === rescheduleContact.id) {
+      setSelectedContact({
+        ...selectedContact,
+        appointmentDate: newAppointmentDate,
+        appointmentAttended: null,
+      });
+    }
+    
+    setShowRescheduleDialog(false);
+    setRescheduleContact(null);
+    setRescheduleDate('');
+    setRescheduleTime('');
   };
 
   const normalizeCompanyName = (name: string) => name.toLowerCase().trim();
@@ -469,7 +509,29 @@ export default function CompletedPage() {
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         {aptStatus ? (
                           aptStatus.status === 'upcoming' ? (
-                            <Badge variant="outline" className="border-blue-500 text-blue-600">Upcoming</Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="border-blue-500 text-blue-600 text-xs mr-1">
+                                Upcoming
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs border-success text-success hover:bg-success hover:text-success-foreground"
+                                onClick={() => handleAttendedYes(contact)}
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                Yes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => handleAttendedNo(contact)}
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                No
+                              </Button>
+                            </div>
                           ) : aptStatus.status === 'pending_review' ? (
                             <div className="flex items-center gap-1">
                               <Button
@@ -526,17 +588,17 @@ export default function CompletedPage() {
 
       {/* Enhanced Detail Modal */}
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)} modal={true}>
-        <DialogContent className="bg-card border-border w-[90vw] max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="bg-card border-border w-[90vw] max-w-[90vw] h-[90vh] max-h-[90vh] flex flex-col">
           {selectedContact && (
             <>
-              <DialogHeader>
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle className="flex items-center gap-2">
                   {selectedContact.firstName} {selectedContact.lastName}
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground">{selectedContact.jobTitle}</p>
               </DialogHeader>
               
-              <ScrollArea className="flex-1 pr-4">
+              <div className="flex-1 overflow-y-auto pr-4 min-h-0">
                 <div className="space-y-4">
                   {/* Appointment Status Section */}
                   {(() => {
@@ -553,17 +615,58 @@ export default function CompletedPage() {
                           ? 'border-destructive bg-destructive/10'
                           : 'border-blue-500 bg-blue-500/10'
                       }`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          {aptStatus.status === 'pending_review' && (
-                            <Badge variant="outline" className="border-warning text-warning">
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              PAST
-                            </Badge>
-                          )}
-                          <span className="text-sm font-medium">
-                            Appointment: {format(new Date(aptStatus.date), 'do MMM yyyy')} at {format(new Date(aptStatus.date), 'HH:mm')}
-                          </span>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            {aptStatus.status === 'pending_review' && (
+                              <Badge variant="outline" className="border-warning text-warning">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                PAST
+                              </Badge>
+                            )}
+                            {aptStatus.status === 'upcoming' && (
+                              <Badge variant="outline" className="border-blue-500 text-blue-600">
+                                Upcoming
+                              </Badge>
+                            )}
+                            <span className="text-sm font-medium">
+                              Appointment: {format(new Date(aptStatus.date), 'do MMM yyyy')} at {format(new Date(aptStatus.date), 'HH:mm')}
+                            </span>
+                          </div>
+                          {/* Reschedule button for all appointment statuses */}
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="h-7"
+                            onClick={() => handleOpenRescheduleDialog(selectedContact)}
+                          >
+                            <CalendarClock className="w-3 h-3 mr-1" />
+                            Reschedule
+                          </Button>
                         </div>
+                        
+                        {/* Upcoming appointment with override option */}
+                        {aptStatus.status === 'upcoming' && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Override attendance:</span>
+                            <Button 
+                              size="sm" 
+                              className="bg-success hover:bg-success/90 h-7"
+                              onClick={() => handleAttendedYes(selectedContact)}
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Yes
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive"
+                              className="h-7"
+                              onClick={() => handleAttendedNo(selectedContact)}
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              No
+                            </Button>
+                          </div>
+                        )}
                         
                         {aptStatus.status === 'pending_review' && (
                           <div className="flex items-center gap-2">
@@ -750,7 +853,7 @@ export default function CompletedPage() {
                     </div>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </>
           )}
         </DialogContent>
@@ -909,6 +1012,67 @@ export default function CompletedPage() {
             >
               <CalendarPlus className="w-4 h-4 mr-2" />
               Book Appointment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Appointment Dialog */}
+      <Dialog open={showRescheduleDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowRescheduleDialog(false);
+          setRescheduleContact(null);
+          setRescheduleDate('');
+          setRescheduleTime('');
+        }
+      }}>
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reschedule Appointment</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-2">
+            Reschedule appointment for {rescheduleContact?.firstName} {rescheduleContact?.lastName}
+          </p>
+          {rescheduleContact?.appointmentDate && (
+            <p className="text-sm text-muted-foreground mb-4">
+              Current: {format(rescheduleContact.appointmentDate, 'do MMM yyyy')} at {format(rescheduleContact.appointmentDate, 'HH:mm')}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="reschedule-date" className="text-xs">New Date</Label>
+              <Input
+                id="reschedule-date"
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="reschedule-time" className="text-xs">New Time</Label>
+              <Input
+                id="reschedule-time"
+                type="time"
+                value={rescheduleTime}
+                onChange={(e) => setRescheduleTime(e.target.value)}
+                className="h-8 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => {
+              setShowRescheduleDialog(false);
+              setRescheduleContact(null);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleReschedule}
+              disabled={!rescheduleDate || !rescheduleTime}
+            >
+              <CalendarClock className="w-4 h-4 mr-2" />
+              Reschedule
             </Button>
           </DialogFooter>
         </DialogContent>
