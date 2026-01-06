@@ -532,7 +532,7 @@ export default function CompletedPage() {
                 <th className="text-left p-2 font-medium">Company</th>
                 <th className="text-left p-2 font-medium">Status</th>
                 <th className="text-left p-2 font-medium">Reason</th>
-                <th className="text-left p-2 font-medium">Date</th>
+                <th className="text-left p-2 font-medium">Completed Date</th>
                 <th className="text-left p-2 font-medium">Appointment</th>
                 <th className="text-left p-2 font-medium">Attended</th>
               </tr>
@@ -586,31 +586,7 @@ export default function CompletedPage() {
                       </td>
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         {aptStatus ? (
-                          aptStatus.status === 'upcoming' ? (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="border-blue-500 text-blue-600 text-xs mr-1">
-                                Upcoming
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 px-2 text-xs border-success text-success hover:bg-success hover:text-success-foreground"
-                                onClick={() => handleAttendedYes(contact)}
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Yes
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                onClick={() => handleAttendedNo(contact)}
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                No
-                              </Button>
-                            </div>
-                          ) : aptStatus.status === 'pending_review' ? (
+                          aptStatus.status === 'upcoming' || aptStatus.status === 'pending_review' ? (
                             <div className="flex items-center gap-1">
                               <Button
                                 size="sm"
