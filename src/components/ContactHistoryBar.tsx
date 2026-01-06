@@ -47,9 +47,9 @@ const ACTION_CONFIG: Record<string, {
   not_interested: { 
     icon: XCircle, 
     label: 'Not Interested', 
-    bgClass: 'bg-muted/50',
-    borderClass: 'border-muted-foreground/30',
-    iconColor: 'text-muted-foreground'
+    bgClass: 'bg-destructive/10',
+    borderClass: 'border-destructive/50',
+    iconColor: 'text-destructive'
   },
   note: { 
     icon: StickyNote, 
