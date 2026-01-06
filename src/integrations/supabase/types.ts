@@ -50,6 +50,36 @@ export type Database = {
         }
         Relationships: []
       }
+      calendly_settings: {
+        Row: {
+          calendly_url: string
+          created_at: string
+          enabled: boolean
+          id: string
+          personal_access_token: string | null
+          updated_at: string
+          webhook_signing_key: string | null
+        }
+        Insert: {
+          calendly_url?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          personal_access_token?: string | null
+          updated_at?: string
+          webhook_signing_key?: string | null
+        }
+        Update: {
+          calendly_url?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          personal_access_token?: string | null
+          updated_at?: string
+          webhook_signing_key?: string | null
+        }
+        Relationships: []
+      }
       company_data: {
         Row: {
           ai_custom_research: string | null
