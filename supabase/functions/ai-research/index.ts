@@ -28,12 +28,15 @@ interface AIResponse {
 }
 
 // Parse model string to extract provider and model name
-function parseModel(modelString: string): { provider: 'perplexity' | 'openai'; model: string } {
+function parseModel(modelString: string): { provider: 'perplexity' | 'openai' | 'anthropic'; model: string } {
   if (modelString.startsWith('openai:')) {
     return { provider: 'openai', model: modelString.replace('openai:', '') };
   }
   if (modelString.startsWith('perplexity:')) {
     return { provider: 'perplexity', model: modelString.replace('perplexity:', '') };
+  }
+  if (modelString.startsWith('anthropic:')) {
+    return { provider: 'anthropic', model: modelString.replace('anthropic:', '') };
   }
   // Default to perplexity for legacy models without prefix
   return { provider: 'perplexity', model: modelString };
@@ -119,6 +122,40 @@ async function callOpenAI(prompt: string, model: string, apiKey: string): Promis
   return {
     content: data.choices?.[0]?.message?.content || 'No research results available.',
     // OpenAI doesn't provide citations
+  };
+}
+
+// Call Anthropic API
+async function callAnthropic(prompt: string, model: string, apiKey: string): Promise<AIResponse> {
+  console.log(`Calling Anthropic API with model: ${model}`);
+  
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: 1500,
+      system: 'You are a professional business research assistant. Provide accurate, concise, and actionable information. Format your responses clearly with bullet points where appropriate. Since you do not have real-time web access, focus on providing relevant insights based on your knowledge.',
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Anthropic API error:', response.status, errorText);
+    throw new Error(`Anthropic API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.content?.[0]?.text || 'No research results available.',
+    // Anthropic doesn't provide citations
   };
 }
 
@@ -226,6 +263,7 @@ serve(async (req) => {
   try {
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -267,6 +305,9 @@ serve(async (req) => {
     if (provider === 'openai' && !OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not configured');
     }
+    if (provider === 'anthropic' && !ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not configured');
+    }
 
     // Get seller company data
     const { data: sellerData, customFields: sellerCustomFields } = await getSellerData(supabase);
@@ -285,6 +326,8 @@ serve(async (req) => {
     let result: AIResponse;
     if (provider === 'openai') {
       result = await callOpenAI(prompt, model, OPENAI_API_KEY!);
+    } else if (provider === 'anthropic') {
+      result = await callAnthropic(prompt, model, ANTHROPIC_API_KEY!);
     } else {
       result = await callPerplexity(prompt, model, PERPLEXITY_API_KEY!);
     }
