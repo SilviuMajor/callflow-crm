@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useContactHistory, HistoryEntry } from '@/hooks/useContactHistory';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw } from 'lucide-react';
+import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,6 +53,24 @@ const ACTION_CONFIG: Record<string, { icon: typeof Phone; label: string; bgClass
     bgClass: 'bg-orange-500/10',
     borderClass: 'border-orange-500/30'
   },
+  rebooked: { 
+    icon: CalendarPlus, 
+    label: 'Rebooked', 
+    bgClass: 'bg-blue-500/10',
+    borderClass: 'border-blue-500/30'
+  },
+  appointment_attended: { 
+    icon: UserCheck, 
+    label: 'Attended', 
+    bgClass: 'bg-success/10',
+    borderClass: 'border-success'
+  },
+  appointment_no_show: { 
+    icon: UserX, 
+    label: 'No Show', 
+    bgClass: 'bg-destructive/10',
+    borderClass: 'border-destructive'
+  },
 };
 
 function formatHistoryEntry(entry: HistoryEntry): string {
@@ -70,13 +88,31 @@ function formatHistoryEntry(entry: HistoryEntry): string {
       }
       return `Callback scheduled on ${date}`;
     case 'completed':
+      if (entry.appointment_date) {
+        const aptDate = format(new Date(entry.appointment_date), 'do MMM HH:mm');
+        return `Completed - Appt: ${aptDate}`;
+      }
       return `Completed${entry.reason ? ` (${entry.reason.replace(/_/g, ' ')})` : ''} on ${date}`;
     case 'not_interested':
       return `Not Interested${entry.reason ? ` - ${entry.reason.replace(/_/g, ' ')}` : ''} on ${date}`;
     case 'note':
       return `Note added on ${date}`;
     case 'returned_to_pot':
-      return `Returned to pot${entry.reason ? ` (${entry.reason.replace(/_/g, ' ')})` : ''} on ${date}`;
+      if (entry.callback_date) {
+        const cbDate = format(new Date(entry.callback_date), 'do MMM HH:mm');
+        return `Returned to pot - Callback: ${cbDate}`;
+      }
+      return `Returned to pending queue on ${date}`;
+    case 'rebooked':
+      if (entry.appointment_date) {
+        const aptDate = format(new Date(entry.appointment_date), 'do MMM HH:mm');
+        return `Rebooked for ${aptDate}`;
+      }
+      return `Rebooked on ${date}`;
+    case 'appointment_attended':
+      return `Appointment attended on ${date}`;
+    case 'appointment_no_show':
+      return `No show on ${date}`;
     default:
       return `Action on ${date}`;
   }

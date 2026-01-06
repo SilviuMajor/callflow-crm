@@ -5,9 +5,10 @@ import { toast } from 'sonner';
 export interface HistoryEntry {
   id: string;
   contact_id: string;
-  action_type: 'no_answer' | 'callback' | 'completed' | 'not_interested' | 'note' | 'returned_to_pot';
+  action_type: 'no_answer' | 'callback' | 'completed' | 'not_interested' | 'note' | 'returned_to_pot' | 'rebooked' | 'appointment_attended' | 'appointment_no_show';
   action_timestamp: string;
   callback_date?: string | null;
+  appointment_date?: string | null;
   reason?: string | null;
   note?: string | null;
   created_at: string;
@@ -54,6 +55,7 @@ export function useContactHistory(contactId?: string) {
           action_type: entry.action_type,
           action_timestamp: entry.action_timestamp,
           callback_date: entry.callback_date || null,
+          appointment_date: entry.appointment_date || null,
           reason: entry.reason || null,
           note: entry.note || null,
         })
