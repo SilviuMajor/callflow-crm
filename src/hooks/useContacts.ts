@@ -59,6 +59,8 @@ export function useContacts(selectedPotId?: string | null) {
           createdAt: new Date(row.created_at),
           aiPersona: row.ai_persona || '',
           potId: row.pot_id || undefined,
+          completedReason: row.completed_reason as CompletedReason | undefined,
+          notInterestedReason: row.not_interested_reason as NotInterestedReason | undefined,
         }));
         setContacts(mappedContacts);
       }
@@ -152,13 +154,24 @@ export function useContacts(selectedPotId?: string | null) {
     setSelectedContactId(null);
 
     // Persist to database
+    const dbUpdates: Record<string, any> = {
+      status,
+      callback_date: callbackDate?.toISOString() || null,
+      appointment_date: appointmentDate?.toISOString() || null,
+    };
+    
+    // Save reason columns when status is completed or not_interested
+    if (status === 'completed') {
+      dbUpdates.completed_reason = completedReason || null;
+      dbUpdates.not_interested_reason = null;
+    } else if (status === 'not_interested') {
+      dbUpdates.not_interested_reason = notInterestedReason || null;
+      dbUpdates.completed_reason = null;
+    }
+    
     const { error } = await supabase
       .from('contacts')
-      .update({
-        status,
-        callback_date: callbackDate?.toISOString() || null,
-        appointment_date: appointmentDate?.toISOString() || null,
-      })
+      .update(dbUpdates)
       .eq('id', contactId);
 
     if (error) {

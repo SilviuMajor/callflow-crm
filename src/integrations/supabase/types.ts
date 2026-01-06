@@ -174,6 +174,7 @@ export type Database = {
           appointment_date: string | null
           callback_date: string | null
           company: string
+          completed_reason: string | null
           created_at: string
           custom_fields: Json | null
           email: string | null
@@ -181,6 +182,7 @@ export type Database = {
           id: string
           job_title: string | null
           last_name: string
+          not_interested_reason: string | null
           phone: string
           pot_id: string | null
           qualifying_answers: Json | null
@@ -195,6 +197,7 @@ export type Database = {
           appointment_date?: string | null
           callback_date?: string | null
           company: string
+          completed_reason?: string | null
           created_at?: string
           custom_fields?: Json | null
           email?: string | null
@@ -202,6 +205,7 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name: string
+          not_interested_reason?: string | null
           phone: string
           pot_id?: string | null
           qualifying_answers?: Json | null
@@ -216,6 +220,7 @@ export type Database = {
           appointment_date?: string | null
           callback_date?: string | null
           company?: string
+          completed_reason?: string | null
           created_at?: string
           custom_fields?: Json | null
           email?: string | null
@@ -223,6 +228,7 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name?: string
+          not_interested_reason?: string | null
           phone?: string
           pot_id?: string | null
           qualifying_answers?: Json | null
