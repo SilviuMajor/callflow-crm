@@ -63,6 +63,36 @@ export function useContacts(selectedPotId?: string | null) {
           completedReason: row.completed_reason as CompletedReason | undefined,
           notInterestedReason: row.not_interested_reason as NotInterestedReason | undefined,
         }));
+
+        // Fetch the most recent completed/not_interested date for each completed contact
+        const completedContactIds = mappedContacts
+          .filter(c => c.status === 'completed' || c.status === 'not_interested')
+          .map(c => c.id);
+
+        if (completedContactIds.length > 0) {
+          const { data: historyData } = await supabase
+            .from('contact_history')
+            .select('contact_id, action_timestamp, action_type')
+            .in('contact_id', completedContactIds)
+            .in('action_type', ['completed', 'not_interested'])
+            .order('action_timestamp', { ascending: false });
+
+          // Group by contact_id, take the most recent
+          const latestDates: Record<string, Date> = {};
+          historyData?.forEach(h => {
+            if (!latestDates[h.contact_id]) {
+              latestDates[h.contact_id] = new Date(h.action_timestamp);
+            }
+          });
+
+          // Update contacts with their completion dates
+          mappedContacts.forEach(c => {
+            if (latestDates[c.id]) {
+              c.lastCalledAt = latestDates[c.id];
+            }
+          });
+        }
+
         setContacts(mappedContacts);
       }
       setIsLoading(false);
@@ -437,6 +467,8 @@ export function useContacts(selectedPotId?: string | null) {
       appointment_date: contact.appointmentDate?.toISOString() || null,
       note: attended ? 'Appointment attended' : 'Appointment was a no-show',
     });
+
+    toast.success(attended ? 'Marked as attended' : 'Marked as no-show');
   }, [contacts]);
 
   // Return contact to pot after no-show (callback date is optional)
