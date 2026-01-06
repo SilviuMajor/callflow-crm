@@ -179,11 +179,7 @@ function HistoryCard({ entry, onDelete }: { entry: HistoryEntry; onDelete: (id: 
 }
 
 export function ContactHistoryBar({ contactId, onHistoryChange }: ContactHistoryBarProps) {
-  const { history, isLoading, fetchHistory, deleteHistoryEntry } = useContactHistory(contactId);
-
-  useEffect(() => {
-    fetchHistory(contactId);
-  }, [contactId, fetchHistory]);
+  const { history, isLoading, deleteHistoryEntry } = useContactHistory(contactId);
 
   const handleDelete = async (id: string) => {
     await deleteHistoryEntry(id);

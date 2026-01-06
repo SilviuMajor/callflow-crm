@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -17,6 +17,8 @@ export interface HistoryEntry {
 export function useContactHistory(contactId?: string) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Unique ID per hook instance to prevent channel collisions when multiple components use this hook
+  const instanceId = useRef(crypto.randomUUID()).current;
 
   const fetchHistory = useCallback(async (cId?: string) => {
     const targetId = cId || contactId;
@@ -50,8 +52,9 @@ export function useContactHistory(contactId?: string) {
   useEffect(() => {
     if (!contactId) return;
 
+    // Use unique channel name per instance to prevent collisions
     const channel = supabase
-      .channel(`contact-history-${contactId}`)
+      .channel(`contact-history-${contactId}-${instanceId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -76,6 +79,33 @@ export function useContactHistory(contactId?: string) {
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [contactId, instanceId]);
+
+  // Listen for optimistic history events (instant UI update)
+  useEffect(() => {
+    const handleOptimistic = (e: CustomEvent<HistoryEntry>) => {
+      if (e.detail.contact_id === contactId) {
+        setHistory(prev => {
+          const exists = prev.some(h => h.id === e.detail.id);
+          if (exists) return prev;
+          return [e.detail, ...prev];
+        });
+      }
+    };
+
+    const handleRollback = (e: CustomEvent<{ id: string; contact_id: string }>) => {
+      if (e.detail.contact_id === contactId) {
+        setHistory(prev => prev.filter(h => h.id !== e.detail.id));
+      }
+    };
+
+    window.addEventListener('contact-history:optimistic', handleOptimistic as EventListener);
+    window.addEventListener('contact-history:rollback', handleRollback as EventListener);
+
+    return () => {
+      window.removeEventListener('contact-history:optimistic', handleOptimistic as EventListener);
+      window.removeEventListener('contact-history:rollback', handleRollback as EventListener);
     };
   }, [contactId]);
 
