@@ -126,6 +126,7 @@ export type Database = {
         Row: {
           action_timestamp: string
           action_type: string
+          appointment_date: string | null
           callback_date: string | null
           contact_id: string
           created_at: string
@@ -136,6 +137,7 @@ export type Database = {
         Insert: {
           action_timestamp?: string
           action_type: string
+          appointment_date?: string | null
           callback_date?: string | null
           contact_id: string
           created_at?: string
@@ -146,6 +148,7 @@ export type Database = {
         Update: {
           action_timestamp?: string
           action_type?: string
+          appointment_date?: string | null
           callback_date?: string | null
           contact_id?: string
           created_at?: string

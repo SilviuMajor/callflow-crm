@@ -9,6 +9,7 @@ async function addContactHistoryEntry(entry: {
   action_type: string;
   action_timestamp: string;
   callback_date?: string | null;
+  appointment_date?: string | null;
   reason?: string | null;
   note?: string | null;
 }) {
@@ -172,6 +173,7 @@ export function useContacts(selectedPotId?: string | null) {
       action_type: status,
       action_timestamp: new Date().toISOString(),
       callback_date: callbackDate?.toISOString() || null,
+      appointment_date: appointmentDate?.toISOString() || null,
       reason: completedReason || notInterestedReason || null,
       note: note || null,
     });
@@ -410,25 +412,38 @@ export function useContacts(selectedPotId?: string | null) {
     if (error) {
       console.error('Error marking appointment attended:', error);
       toast.error('Failed to update appointment status');
+      return;
     }
+
+    // Add history entry for attended status
+    await addContactHistoryEntry({
+      contact_id: contactId,
+      action_type: attended ? 'appointment_attended' : 'appointment_no_show',
+      action_timestamp: new Date().toISOString(),
+      appointment_date: contact.appointmentDate?.toISOString() || null,
+      note: attended ? 'Appointment attended' : 'Appointment was a no-show',
+    });
   }, [contacts]);
 
-  // Return contact to pot after no-show
+  // Return contact to pot after no-show (callback date is optional)
   const returnToPot = useCallback(async (
     contactId: string, 
-    callbackDate: Date, 
-    originalReason: string
+    callbackDate?: Date, 
+    originalReason?: string
   ) => {
     const contact = contacts.find(c => c.id === contactId);
     if (!contact) return;
+
+    const newStatus = callbackDate ? 'callback' : 'pending';
 
     // Update locally
     setContacts(prev => prev.map(c => 
       c.id === contactId ? { 
         ...c, 
-        status: 'callback' as CallStatus, 
+        status: newStatus as CallStatus, 
         callbackDate, 
         appointmentAttended: false,
+        appointmentDate: undefined,
         completedReason: undefined,
       } : c
     ));
@@ -437,9 +452,10 @@ export function useContacts(selectedPotId?: string | null) {
     const { error } = await supabase
       .from('contacts')
       .update({
-        status: 'callback',
-        callback_date: callbackDate.toISOString(),
+        status: newStatus,
+        callback_date: callbackDate?.toISOString() || null,
         appointment_attended: false,
+        appointment_date: null,
       })
       .eq('id', contactId);
 
@@ -454,12 +470,59 @@ export function useContacts(selectedPotId?: string | null) {
       contact_id: contactId,
       action_type: 'returned_to_pot',
       action_timestamp: new Date().toISOString(),
-      callback_date: callbackDate.toISOString(),
+      callback_date: callbackDate?.toISOString() || null,
       reason: 'appointment_no_show',
-      note: `Returned to pot after appointment no-show. Originally completed as ${originalReason}.`,
+      note: callbackDate 
+        ? `Returned to pot with callback. Originally completed as ${originalReason || 'appointment_booked'}.`
+        : `Returned to pending queue. Originally completed as ${originalReason || 'appointment_booked'}.`,
     });
 
-    toast.success('Contact returned to pot');
+    toast.success(callbackDate ? 'Contact returned to pot with callback' : 'Contact returned to pending queue');
+  }, [contacts]);
+
+  // Rebook appointment for a no-show
+  const rebookAppointment = useCallback(async (
+    contactId: string,
+    newAppointmentDate: Date,
+    notes?: string
+  ) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    // Update locally - keep as completed but reset appointment_attended
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { 
+        ...c, 
+        appointmentDate: newAppointmentDate,
+        appointmentAttended: null,
+      } : c
+    ));
+
+    // Persist to database
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        appointment_date: newAppointmentDate.toISOString(),
+        appointment_attended: null,
+      })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error rebooking appointment:', error);
+      toast.error('Failed to rebook appointment');
+      return;
+    }
+
+    // Add history entry for rebook
+    await addContactHistoryEntry({
+      contact_id: contactId,
+      action_type: 'rebooked',
+      action_timestamp: new Date().toISOString(),
+      appointment_date: newAppointmentDate.toISOString(),
+      note: notes || 'Appointment rebooked after no-show',
+    });
+
+    toast.success('Appointment rebooked');
   }, [contacts]);
 
   const stats = useMemo(() => ({
@@ -489,6 +552,7 @@ export function useContacts(selectedPotId?: string | null) {
     sortByCompany,
     markAppointmentAttended,
     returnToPot,
+    rebookAppointment,
     searchQuery,
     setSearchQuery,
     stats,

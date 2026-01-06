@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw } from 'lucide-react';
+import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
@@ -20,6 +20,8 @@ import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { format, isAfter, isBefore, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
 
 type QuickFilter = 'all' | 'completed' | 'not_interested' | 'pending_review' | 'attended' | 'no_show';
 type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'custom';
@@ -27,7 +29,7 @@ type DateRange = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'custom';
 export default function CompletedPage() {
   const { pots } = usePots();
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
-  const { completedContacts, clearContactAnswers, markAppointmentAttended, returnToPot, updateContactStatus } = useContacts(selectedPotId);
+  const { completedContacts, clearContactAnswers, markAppointmentAttended, returnToPot, rebookAppointment, updateContactStatus } = useContacts(selectedPotId);
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
@@ -43,9 +45,16 @@ export default function CompletedPage() {
   // No-show dialog state
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [showReturnToPotDialog, setShowReturnToPotDialog] = useState(false);
+  const [returnType, setReturnType] = useState<'pending' | 'callback'>('pending');
   const [returnCallbackDate, setReturnCallbackDate] = useState('');
   const [returnCallbackTime, setReturnCallbackTime] = useState('');
   const [pendingNoShowContact, setPendingNoShowContact] = useState<Contact | null>(null);
+  
+  // Rebook dialog state
+  const [showRebookDialog, setShowRebookDialog] = useState(false);
+  const [rebookDate, setRebookDate] = useState('');
+  const [rebookTime, setRebookTime] = useState('');
+  const [rebookContact, setRebookContact] = useState<Contact | null>(null);
 
   const getDateRangeStart = (range: DateRange): Date | null => {
     const now = new Date();
@@ -199,16 +208,47 @@ export default function CompletedPage() {
   };
 
   const handleReturnToPot = async () => {
-    if (!pendingNoShowContact || !returnCallbackDate || !returnCallbackTime) return;
+    if (!pendingNoShowContact) return;
     
-    const callbackDate = new Date(`${returnCallbackDate}T${returnCallbackTime}`);
+    let callbackDate: Date | undefined;
+    if (returnType === 'callback' && returnCallbackDate && returnCallbackTime) {
+      callbackDate = new Date(`${returnCallbackDate}T${returnCallbackTime}`);
+    }
+    
     await returnToPot(pendingNoShowContact.id, callbackDate, pendingNoShowContact.completedReason || 'appointment_booked');
     
     setShowReturnToPotDialog(false);
     setPendingNoShowContact(null);
     setReturnCallbackDate('');
     setReturnCallbackTime('');
+    setReturnType('pending');
     setSelectedContact(null);
+  };
+
+  const handleOpenRebookDialog = (contact: Contact) => {
+    setRebookContact(contact);
+    setRebookDate('');
+    setRebookTime('');
+    setShowRebookDialog(true);
+  };
+
+  const handleRebook = async () => {
+    if (!rebookContact || !rebookDate || !rebookTime) return;
+    
+    const newAppointmentDate = new Date(`${rebookDate}T${rebookTime}`);
+    await rebookAppointment(rebookContact.id, newAppointmentDate, 'Rebooked after no-show');
+    
+    // Update local selected contact if viewing in modal
+    setSelectedContact(prev => prev?.id === rebookContact.id ? { 
+      ...prev, 
+      appointmentDate: newAppointmentDate,
+      appointmentAttended: null 
+    } : prev);
+    
+    setShowRebookDialog(false);
+    setRebookContact(null);
+    setRebookDate('');
+    setRebookTime('');
   };
 
   const handleSendBackToPot = (contact: Contact) => {
@@ -412,8 +452,19 @@ export default function CompletedPage() {
                       <td className="p-2 text-muted-foreground">
                         {contact.lastCalledAt ? format(new Date(contact.lastCalledAt), 'do MMM yyyy') : '-'}
                       </td>
-                      <td className="p-2 text-muted-foreground">
-                        {aptStatus ? format(new Date(aptStatus.date), 'do MMM HH:mm') : '-'}
+                      <td className="p-2">
+                        {aptStatus ? (
+                          <span className={cn(
+                            "px-2 py-1 rounded text-sm font-medium inline-block",
+                            new Date(aptStatus.date) < new Date() 
+                              ? "bg-yellow-500/20 text-yellow-600 border border-yellow-500/30"
+                              : "bg-green-500/20 text-green-600 border border-green-500/30"
+                          )}>
+                            {format(new Date(aptStatus.date), 'do MMM HH:mm')}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </td>
                       <td className="p-2" onClick={(e) => e.stopPropagation()}>
                         {aptStatus ? (
@@ -445,9 +496,20 @@ export default function CompletedPage() {
                               <Check className="w-4 h-4" /> Yes
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 text-destructive text-sm font-medium">
-                              <X className="w-4 h-4" /> No
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="flex items-center gap-1 text-destructive text-sm font-medium">
+                                <X className="w-4 h-4" /> No
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
+                                onClick={() => handleOpenRebookDialog(contact)}
+                              >
+                                <CalendarPlus className="w-3 h-3 mr-1" />
+                                Rebook
+                              </Button>
+                            </div>
                           )
                         ) : (
                           <span className="text-muted-foreground">-</span>
@@ -533,9 +595,20 @@ export default function CompletedPage() {
                         )}
                         
                         {aptStatus.status === 'no_show' && (
-                          <p className="text-sm text-destructive font-medium flex items-center gap-1">
-                            <X className="w-4 h-4" /> No Show
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-destructive font-medium flex items-center gap-1">
+                              <X className="w-4 h-4" /> No Show
+                            </p>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="h-7 border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
+                              onClick={() => handleOpenRebookDialog(selectedContact)}
+                            >
+                              <CalendarPlus className="w-3 h-3 mr-1" />
+                              Rebook
+                            </Button>
+                          </div>
                         )}
                       </div>
                     );
@@ -706,51 +779,136 @@ export default function CompletedPage() {
           setPendingNoShowContact(null);
           setReturnCallbackDate('');
           setReturnCallbackTime('');
+          setReturnType('pending');
         }
       }}>
         <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Send Back to Data Pot?</DialogTitle>
+            <DialogTitle>Return to Data Pot</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mb-4">
-            Do you want to send this contact back to the data pot for a callback?
+            Choose how to return this contact to the pot:
+          </p>
+          
+          <RadioGroup value={returnType} onValueChange={(v) => setReturnType(v as 'pending' | 'callback')} className="space-y-3">
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              returnType === 'pending' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setReturnType('pending')}>
+              <RadioGroupItem value="pending" id="return-pending" className="mt-0.5" />
+              <div>
+                <Label htmlFor="return-pending" className="font-medium cursor-pointer">Return to Pending Queue</Label>
+                <p className="text-xs text-muted-foreground">Contact will appear at the end of the queue</p>
+              </div>
+            </div>
+            
+            <div className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              returnType === 'callback' ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+            )} onClick={() => setReturnType('callback')}>
+              <RadioGroupItem value="callback" id="return-callback" className="mt-0.5" />
+              <div className="flex-1">
+                <Label htmlFor="return-callback" className="font-medium cursor-pointer">Schedule Callback</Label>
+                <p className="text-xs text-muted-foreground mb-2">Set a specific date and time to call back</p>
+                {returnType === 'callback' && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="return-date" className="text-xs">Date</Label>
+                      <Input
+                        id="return-date"
+                        type="date"
+                        value={returnCallbackDate}
+                        onChange={(e) => setReturnCallbackDate(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="return-time" className="text-xs">Time</Label>
+                      <Input
+                        id="return-time"
+                        type="time"
+                        value={returnCallbackTime}
+                        onChange={(e) => setReturnCallbackTime(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </RadioGroup>
+          
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => {
+              setShowReturnToPotDialog(false);
+              setPendingNoShowContact(null);
+              setReturnType('pending');
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleReturnToPot}
+              disabled={returnType === 'callback' && (!returnCallbackDate || !returnCallbackTime)}
+              className="bg-[hsl(var(--callback))] hover:bg-[hsl(var(--callback))]/90"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Return to Pot
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rebook Appointment Dialog */}
+      <Dialog open={showRebookDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowRebookDialog(false);
+          setRebookContact(null);
+          setRebookDate('');
+          setRebookTime('');
+        }
+      }}>
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rebook Appointment</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-4">
+            Schedule a new appointment for {rebookContact?.firstName} {rebookContact?.lastName}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label htmlFor="return-date" className="text-xs">Callback Date</Label>
+              <Label htmlFor="rebook-date" className="text-xs">Date</Label>
               <Input
-                id="return-date"
+                id="rebook-date"
                 type="date"
-                value={returnCallbackDate}
-                onChange={(e) => setReturnCallbackDate(e.target.value)}
+                value={rebookDate}
+                onChange={(e) => setRebookDate(e.target.value)}
                 className="h-8 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="return-time" className="text-xs">Time</Label>
+              <Label htmlFor="rebook-time" className="text-xs">Time</Label>
               <Input
-                id="return-time"
+                id="rebook-time"
                 type="time"
-                value={returnCallbackTime}
-                onChange={(e) => setReturnCallbackTime(e.target.value)}
+                value={rebookTime}
+                onChange={(e) => setRebookTime(e.target.value)}
                 className="h-8 text-sm"
               />
             </div>
           </div>
           <DialogFooter className="gap-2 mt-4">
             <Button variant="outline" onClick={() => {
-              setShowReturnToPotDialog(false);
-              setPendingNoShowContact(null);
+              setShowRebookDialog(false);
+              setRebookContact(null);
             }}>
-              No, Keep as Completed
+              Cancel
             </Button>
             <Button 
-              onClick={handleReturnToPot}
-              disabled={!returnCallbackDate || !returnCallbackTime}
-              className="bg-[hsl(var(--callback))] hover:bg-[hsl(var(--callback))]/90"
+              onClick={handleRebook}
+              disabled={!rebookDate || !rebookTime}
             >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Yes, Send Back
+              <CalendarPlus className="w-4 h-4 mr-2" />
+              Book Appointment
             </Button>
           </DialogFooter>
         </DialogContent>
