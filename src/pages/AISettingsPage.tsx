@@ -570,10 +570,18 @@ export default function AISettingsPage() {
                               {model.label}
                             </SelectItem>
                           ))}
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
+                            Anthropic / Claude
+                          </div>
+                          {AI_MODELS.filter(m => m.provider === 'anthropic').map(model => (
+                            <SelectItem key={model.value} value={model.value}>
+                              {model.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        Perplexity models include real-time web search and citations. OpenAI models use training knowledge.
+                        Perplexity models include real-time web search. OpenAI and Anthropic models use training knowledge.
                       </p>
                     </div>
 
