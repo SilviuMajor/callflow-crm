@@ -11,11 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus, CalendarClock, Ban, XCircle } from 'lucide-react';
+import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, Check, X, RotateCcw, CalendarPlus, CalendarClock, Ban, XCircle, ChevronDown, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
 import { AIResearchBox } from '@/components/AIResearchBox';
+import { NotesSection } from '@/components/NotesSection';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { format, isAfter, isBefore, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 import { Label } from '@/components/ui/label';
@@ -30,7 +33,7 @@ type NoShowAction = 'reschedule' | 'pending' | 'callback' | 'not_interested' | '
 export default function CompletedPage() {
   const { pots } = usePots();
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
-  const { completedContacts, clearContactAnswers, markAppointmentAttended, returnToPot, rebookAppointment, rescheduleAppointment, updateContactStatus } = useContacts(selectedPotId);
+  const { completedContacts, clearContactAnswers, markAppointmentAttended, returnToPot, rebookAppointment, rescheduleAppointment, updateContactStatus, deleteContact } = useContacts(selectedPotId);
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
@@ -71,6 +74,9 @@ export default function CompletedPage() {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
   const [rescheduleContact, setRescheduleContact] = useState<Contact | null>(null);
+
+  // Delete contact state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const getDateRangeStart = (range: DateRange): Date | null => {
     const now = new Date();
@@ -906,12 +912,71 @@ export default function CompletedPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Notes */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</p>
+                    <NotesSection contactId={selectedContact.id} />
+                  </div>
+
+                  {/* Danger Zone - Hidden by default */}
+                  <Collapsible className="mt-4 pt-4 border-t border-destructive/20">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full text-muted-foreground hover:text-destructive text-xs">
+                        <ChevronDown className="w-3 h-3 mr-1" />
+                        Danger Zone
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 p-3 rounded border border-destructive/20 bg-destructive/5">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Permanently delete this contact and all associated history. This cannot be undone.
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Delete Contact Permanently
+                      </Button>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Contact Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{selectedContact?.firstName} {selectedContact?.lastName}</strong> and all their history, notes, and data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (selectedContact) {
+                  const success = await deleteContact(selectedContact.id);
+                  if (success) {
+                    setSelectedContact(null);
+                  }
+                }
+                setShowDeleteConfirm(false);
+              }}
+            >
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* No Show Confirmation Dialog */}
       <Dialog open={showNoShowDialog} onOpenChange={setShowNoShowDialog}>

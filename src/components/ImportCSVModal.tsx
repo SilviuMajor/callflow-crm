@@ -82,32 +82,97 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
   
   const { fields: customFields, addField } = useCustomFields();
 
-  const parseCSV = (text: string) => {
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) return { headers: [], rows: [] };
-
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const parseCSV = (text: string): { headers: string[]; rows: string[][]; errors: string[] } => {
+    const errors: string[] = [];
+    
+    // Normalize line endings (Windows CRLF -> LF, old Mac CR -> LF)
+    const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    
+    // Parse a single row handling quoted fields properly
+    const parseRow = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+        
+        if (char === '"' && inQuotes && nextChar === '"') {
+          // Escaped quote inside quoted field
+          current += '"';
+          i++; // Skip the next quote
+        } else if (char === '"') {
+          // Toggle quote mode
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          // Field separator (only if not inside quotes)
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      // Don't forget the last field
+      result.push(current.trim());
+      return result;
+    };
+    
+    const lines = normalizedText.split('\n').filter(l => l.trim());
+    
+    if (lines.length < 2) {
+      errors.push('CSV must have at least a header row and one data row');
+      return { headers: [], rows: [], errors };
+    }
+    
+    const headers = parseRow(lines[0]);
     const rows: string[][] = [];
-
+    
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-      if (values.some(v => v)) {
-        rows.push(values);
+      const row = parseRow(lines[i]);
+      
+      // Check column count mismatch
+      if (row.length !== headers.length) {
+        errors.push(`Row ${i + 1}: Expected ${headers.length} columns, found ${row.length}`);
+        // Still try to use the row, padding or truncating as needed
+        if (row.length < headers.length) {
+          while (row.length < headers.length) row.push('');
+        } else {
+          row.length = headers.length;
+        }
+      }
+      
+      // Only add rows that have at least some data
+      if (row.some(v => v)) {
+        rows.push(row);
       }
     }
-
-    return { headers, rows };
+    
+    return { headers, rows, errors };
   };
+
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const { headers, rows } = parseCSV(text);
+      const { headers, rows, errors } = parseCSV(text);
+      
+      setParseErrors(errors);
       
       if (headers.length === 0) {
-        toast.error('Invalid CSV file');
+        toast.error('Invalid CSV file - could not parse headers');
         return;
+      }
+      
+      if (rows.length === 0) {
+        toast.error('CSV file has no data rows');
+        return;
+      }
+
+      if (errors.length > 0) {
+        toast.warning(`CSV parsed with ${errors.length} warning(s)`);
       }
 
       setCsvHeaders(headers);
@@ -124,6 +189,9 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
       
       setMappings(autoMappings);
       setStep('mapping');
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read file');
     };
     reader.readAsText(file);
   };
@@ -411,6 +479,24 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
                   </tbody>
                 </table>
               </div>
+
+              {/* Parse Errors/Warnings */}
+              {parseErrors.length > 0 && (
+                <div className="p-3 rounded border border-warning/50 bg-warning/10">
+                  <div className="flex items-center gap-2 text-warning font-medium text-sm mb-1">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{parseErrors.length} warning(s) found</span>
+                  </div>
+                  <ul className="text-xs text-muted-foreground space-y-0.5 max-h-24 overflow-y-auto">
+                    {parseErrors.slice(0, 10).map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                    {parseErrors.length > 10 && (
+                      <li className="text-muted-foreground/70">...and {parseErrors.length - 10} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <FileText className="w-4 h-4" />

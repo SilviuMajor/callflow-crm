@@ -101,6 +101,57 @@ export function useContacts(selectedPotId?: string | null) {
     loadContacts();
   }, []);
 
+  // Subscribe to realtime updates for contacts
+  useEffect(() => {
+    const mapDbRowToContact = (row: any): Contact => ({
+      id: row.id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      company: row.company,
+      jobTitle: row.job_title || '',
+      phone: row.phone,
+      email: row.email || '',
+      website: row.website || '',
+      status: row.status as CallStatus,
+      callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
+      appointmentDate: row.appointment_date ? new Date(row.appointment_date) : undefined,
+      appointmentAttended: row.appointment_attended,
+      qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
+      customFields: (row.custom_fields as Record<string, any>) || {},
+      createdAt: new Date(row.created_at),
+      aiPersona: row.ai_persona || '',
+      potId: row.pot_id || undefined,
+      completedReason: row.completed_reason as CompletedReason | undefined,
+      notInterestedReason: row.not_interested_reason as NotInterestedReason | undefined,
+    });
+
+    const channel = supabase
+      .channel('contacts-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'contacts'
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newContact = mapDbRowToContact(payload.new);
+          setContacts(prev => {
+            if (prev.some(c => c.id === newContact.id)) return prev;
+            return [...prev, newContact];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          const updated = mapDbRowToContact(payload.new);
+          setContacts(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+        } else if (payload.eventType === 'DELETE') {
+          setContacts(prev => prev.filter(c => c.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Queue contacts: overdue callbacks -> pending -> future callbacks
   // Filter by selected POT if provided
   const queueContacts = useMemo(() => {
@@ -621,6 +672,53 @@ export function useContacts(selectedPotId?: string | null) {
     toast.success('Appointment rescheduled');
   }, [contacts]);
 
+  // Delete a contact permanently
+  const deleteContact = useCallback(async (contactId: string): Promise<boolean> => {
+    // First delete related history entries
+    const { error: historyError } = await supabase
+      .from('contact_history')
+      .delete()
+      .eq('contact_id', contactId);
+
+    if (historyError) {
+      console.error('Error deleting contact history:', historyError);
+      // Continue anyway - history is secondary
+    }
+
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error deleting contact:', error);
+      toast.error('Failed to delete contact');
+      return false;
+    }
+
+    // Realtime will handle removing from state
+    toast.success('Contact deleted permanently');
+    return true;
+  }, []);
+
+  // Move contact to a different POT
+  const moveContactToPot = useCallback(async (contactId: string, newPotId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('contacts')
+      .update({ pot_id: newPotId })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('Error moving contact:', error);
+      toast.error('Failed to move contact');
+      return false;
+    }
+    
+    // Realtime will handle updating state
+    toast.success('Contact moved to new POT');
+    return true;
+  }, []);
+
   const stats = useMemo(() => ({
     total: contacts.length,
     pending: contacts.filter(c => c.status === 'pending').length,
@@ -650,6 +748,8 @@ export function useContacts(selectedPotId?: string | null) {
     returnToPot,
     rebookAppointment,
     rescheduleAppointment,
+    deleteContact,
+    moveContactToPot,
     searchQuery,
     setSearchQuery,
     stats,

@@ -94,8 +94,18 @@ Please refine the prompt template based on this feedback. Remember to preserve a
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Anthropic API error:', response.status, errorText);
-      throw new Error(`Anthropic API error: ${response.status}`);
+      console.error('Anthropic API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+        model: 'claude-sonnet-4-5-20250514'
+      });
+      return new Response(JSON.stringify({ 
+        error: `API Error: ${response.status} - ${errorText.substring(0, 200)}` 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const data = await response.json();

@@ -45,6 +45,42 @@ export function usePots() {
     loadPots();
   }, []);
 
+  // Subscribe to realtime updates for pots
+  useEffect(() => {
+    const channel = supabase
+      .channel('pots-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'pots'
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newPot: Pot = {
+            id: payload.new.id,
+            name: payload.new.name,
+            createdAt: new Date(payload.new.created_at),
+          };
+          setPots(prev => {
+            if (prev.some(p => p.id === newPot.id)) return prev;
+            return [...prev, newPot];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setPots(prev => prev.map(p => 
+            p.id === payload.new.id 
+              ? { ...p, name: payload.new.name }
+              : p
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setPots(prev => prev.filter(p => p.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Load contact stats for each pot
   useEffect(() => {
     const loadStats = async () => {
@@ -124,15 +160,107 @@ export function usePots() {
       return null;
     }
 
-    const newPot: Pot = {
-      id: data.id,
-      name: data.name,
-      createdAt: new Date(data.created_at),
-    };
-    
-    setPots(prev => [...prev, newPot]);
+    // Realtime will handle adding the pot to state
     return data.id;
   }, []);
+
+  const renamePot = useCallback(async (potId: string, newName: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('pots')
+      .update({ name: newName })
+      .eq('id', potId);
+
+    if (error) {
+      console.error('Error renaming pot:', error);
+      toast.error('Failed to rename POT');
+      return false;
+    }
+    
+    toast.success('POT renamed');
+    return true;
+  }, []);
+
+  const deletePot = useCallback(async (potId: string, moveContactsToPotId?: string): Promise<boolean> => {
+    // First, move or delete contacts
+    if (moveContactsToPotId) {
+      const { error: moveError } = await supabase
+        .from('contacts')
+        .update({ pot_id: moveContactsToPotId })
+        .eq('pot_id', potId);
+
+      if (moveError) {
+        console.error('Error moving contacts:', moveError);
+        toast.error('Failed to move contacts');
+        return false;
+      }
+    } else {
+      // Delete all contacts in this pot
+      const { error: deleteContactsError } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('pot_id', potId);
+
+      if (deleteContactsError) {
+        console.error('Error deleting contacts:', deleteContactsError);
+        toast.error('Failed to delete contacts');
+        return false;
+      }
+    }
+    
+    // Now delete the pot
+    const { error } = await supabase
+      .from('pots')
+      .delete()
+      .eq('id', potId);
+
+    if (error) {
+      console.error('Error deleting pot:', error);
+      toast.error('Failed to delete POT');
+      return false;
+    }
+    
+    // Clear selection if this pot was selected
+    if (selectedPotId === potId) {
+      setSelectedPotId(null);
+    }
+    
+    toast.success('POT deleted');
+    return true;
+  }, [selectedPotId]);
+
+  const mergePots = useCallback(async (sourcePotId: string, targetPotId: string): Promise<boolean> => {
+    // Move all contacts from source to target
+    const { error: moveError } = await supabase
+      .from('contacts')
+      .update({ pot_id: targetPotId })
+      .eq('pot_id', sourcePotId);
+
+    if (moveError) {
+      console.error('Error moving contacts:', moveError);
+      toast.error('Failed to merge POTs');
+      return false;
+    }
+
+    // Delete the source pot
+    const { error: deleteError } = await supabase
+      .from('pots')
+      .delete()
+      .eq('id', sourcePotId);
+
+    if (deleteError) {
+      console.error('Error deleting source pot:', deleteError);
+      toast.error('Failed to delete merged POT');
+      return false;
+    }
+
+    // Clear selection if source pot was selected
+    if (selectedPotId === sourcePotId) {
+      setSelectedPotId(targetPotId);
+    }
+    
+    toast.success('POTs merged successfully');
+    return true;
+  }, [selectedPotId]);
 
   const selectPot = useCallback((potId: string | null) => {
     setSelectedPotId(potId);
@@ -179,6 +307,9 @@ export function usePots() {
     selectedPotId,
     selectPot,
     createPot,
+    renamePot,
+    deletePot,
+    mergePots,
     refreshStats,
     totalStats,
     isLoading,

@@ -46,6 +46,39 @@ export function useContactHistory(contactId?: string) {
     fetchHistory();
   }, [fetchHistory]);
 
+  // Subscribe to realtime updates for contact history
+  useEffect(() => {
+    if (!contactId) return;
+
+    const channel = supabase
+      .channel(`contact-history-${contactId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'contact_history',
+        filter: `contact_id=eq.${contactId}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setHistory(prev => {
+            const exists = prev.some(h => h.id === payload.new.id);
+            if (exists) return prev;
+            return [payload.new as HistoryEntry, ...prev];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          setHistory(prev => prev.map(h => 
+            h.id === payload.new.id ? payload.new as HistoryEntry : h
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setHistory(prev => prev.filter(h => h.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [contactId]);
+
   const addHistoryEntry = useCallback(async (entry: Omit<HistoryEntry, 'id' | 'created_at'>) => {
     try {
       const { data, error } = await supabase
