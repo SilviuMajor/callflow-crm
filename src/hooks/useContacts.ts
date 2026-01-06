@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Contact, CallStatus, CompletedReason, NotInterestedReason } from '@/types/contact';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -101,6 +101,9 @@ export function useContacts(selectedPotId?: string | null) {
     loadContacts();
   }, []);
 
+  // Track local updates to skip realtime echoes and prevent React queue errors
+  const pendingLocalUpdates = useRef<Set<string>>(new Set());
+
   // Subscribe to realtime updates for contacts
   useEffect(() => {
     const mapDbRowToContact = (row: any): Contact => ({
@@ -134,14 +137,20 @@ export function useContacts(selectedPotId?: string | null) {
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const newContact = mapDbRowToContact(payload.new);
+          // Skip if this was a local update we just made
+          if (pendingLocalUpdates.current.has(newContact.id)) return;
           setContacts(prev => {
             if (prev.some(c => c.id === newContact.id)) return prev;
             return [...prev, newContact];
           });
         } else if (payload.eventType === 'UPDATE') {
           const updated = mapDbRowToContact(payload.new);
+          // Skip if this was a local update we just made
+          if (pendingLocalUpdates.current.has(updated.id)) return;
           setContacts(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
         } else if (payload.eventType === 'DELETE') {
+          // Skip if this was a local delete we just made
+          if (pendingLocalUpdates.current.has(payload.old.id)) return;
           setContacts(prev => prev.filter(c => c.id !== payload.old.id));
         }
       })
@@ -231,6 +240,10 @@ export function useContacts(selectedPotId?: string | null) {
       notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
     };
 
+    // Mark as pending local update to skip realtime echo
+    pendingLocalUpdates.current.add(contactId);
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+
     // Update locally first for responsiveness
     setContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
     setSelectedContactId(null);
@@ -275,6 +288,10 @@ export function useContacts(selectedPotId?: string | null) {
   }, [contacts]);
 
   const updateContact = useCallback(async (contactId: string, updates: Partial<Contact>) => {
+    // Mark as pending local update to skip realtime echo
+    pendingLocalUpdates.current.add(contactId);
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+
     // Update locally first
     setContacts(prev => prev.map(contact => 
       contact.id === contactId ? { ...contact, ...updates } : contact

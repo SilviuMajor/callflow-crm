@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Contact, CustomContactField, CompanyField } from '@/types/contact';
-import { Phone, Mail, Globe, ExternalLink, Copy, Check, Building2, User } from 'lucide-react';
+import { Phone, Mail, Globe, ExternalLink, Copy, Check, Building2, User, ChevronDown, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,11 +16,14 @@ import { LinkedContacts } from '@/components/LinkedContacts';
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
 import { supabase } from '@/integrations/supabase/client';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface ContactCardProps {
   contact: Contact;
   onUpdate?: (updates: Partial<Contact>) => void;
   onSelectContact?: (contactId: string) => void;
+  onDelete?: (contactId: string) => Promise<boolean>;
 }
 
 interface AICache {
@@ -30,10 +33,11 @@ interface AICache {
   ai_custom_updated_at?: string | null;
 }
 
-export function ContactCard({ contact, onUpdate, onSelectContact }: ContactCardProps) {
+export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: ContactCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
   const { getCompanyFieldValues, updateCompanyData } = useCompanyData();
@@ -954,6 +958,58 @@ export function ContactCard({ contact, onUpdate, onSelectContact }: ContactCardP
           })}
         </div>
       )}
+
+      {/* Danger Zone - Hidden by default */}
+      {onDelete && (
+        <Collapsible className="mt-4 pt-4 border-t border-destructive/20">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full text-muted-foreground hover:text-destructive text-xs">
+              <ChevronDown className="w-3 h-3 mr-1" />
+              Danger Zone
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 p-3 rounded border border-destructive/20 bg-destructive/5">
+            <p className="text-xs text-muted-foreground mb-2">
+              Permanently delete this contact and all associated history. This cannot be undone.
+            </p>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              className="w-full"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Delete Contact Permanently
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Contact Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{contact.firstName} {contact.lastName}</strong> and all their history, notes, and data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (onDelete) {
+                  await onDelete(contact.id);
+                }
+                setShowDeleteConfirm(false);
+              }}
+            >
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
