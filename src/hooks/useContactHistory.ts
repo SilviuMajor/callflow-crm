@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 export interface HistoryEntry {
   id: string;
   contact_id: string;
-  action_type: 'no_answer' | 'callback' | 'completed' | 'not_interested' | 'note' | 'returned_to_pot' | 'rebooked' | 'appointment_attended' | 'appointment_no_show';
+  action_type: 'no_answer' | 'callback' | 'completed' | 'not_interested' | 'note' | 'returned_to_pot' | 'rebooked' | 'rescheduled' | 'appointment_attended' | 'appointment_no_show';
   action_timestamp: string;
   callback_date?: string | null;
   appointment_date?: string | null;

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useContactHistory, HistoryEntry } from '@/hooks/useContactHistory';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX } from 'lucide-react';
+import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX, CalendarClock } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,6 +59,12 @@ const ACTION_CONFIG: Record<string, { icon: typeof Phone; label: string; bgClass
     bgClass: 'bg-blue-500/10',
     borderClass: 'border-blue-500/30'
   },
+  rescheduled: { 
+    icon: CalendarClock, 
+    label: 'Rescheduled', 
+    bgClass: 'bg-orange-500/10',
+    borderClass: 'border-orange-500/30'
+  },
   appointment_attended: { 
     icon: UserCheck, 
     label: 'Attended', 
@@ -109,6 +115,12 @@ function formatHistoryEntry(entry: HistoryEntry): string {
         return `Rebooked for ${aptDate}`;
       }
       return `Rebooked on ${date}`;
+    case 'rescheduled':
+      if (entry.appointment_date) {
+        const aptDate = format(new Date(entry.appointment_date), 'do MMM HH:mm');
+        return `Rescheduled to ${aptDate}`;
+      }
+      return `Rescheduled on ${date}`;
     case 'appointment_attended':
       return `Appointment attended on ${date}`;
     case 'appointment_no_show':
