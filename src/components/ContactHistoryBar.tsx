@@ -132,27 +132,26 @@ function HistoryCard({
   const config = ACTION_CONFIG[entry.action_type] || ACTION_CONFIG.note;
   const Icon = config.icon;
   const date = format(new Date(entry.action_timestamp), 'do MMM');
-  const time = format(new Date(entry.action_timestamp), 'h:mm a');
+  const time = format(new Date(entry.action_timestamp), 'h:mma').toLowerCase();
+  const contextDetails = getContextDetails(entry);
+  const contextText = entry.note || contextDetails[0]?.value || '';
 
   return (
     <div 
-      className={`flex-shrink-0 p-3 rounded-lg border-2 ${config.bgClass} ${config.borderClass} w-[100px] cursor-pointer hover:scale-105 transition-transform`}
+      className={`flex-shrink-0 px-2 py-1.5 rounded-md border ${config.bgClass} ${config.borderClass} w-[110px] cursor-pointer hover:scale-105 transition-transform`}
       onClick={onClick}
     >
-      <div className="flex flex-col items-center text-center gap-1">
-        <Icon className={`w-6 h-6 ${config.iconColor}`} />
-        <p className="text-xs font-semibold text-foreground leading-tight">
-          {date}
+      <div className="flex items-center gap-1.5">
+        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${config.iconColor}`} />
+        <p className="text-[11px] font-medium text-foreground truncate">
+          {date} {time}
         </p>
-        <p className="text-[10px] text-muted-foreground">
-          {time}
-        </p>
-        {entry.note && (
-          <p className="text-[10px] text-muted-foreground mt-1 truncate w-full">
-            {entry.note}
-          </p>
-        )}
       </div>
+      {contextText && (
+        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+          {contextText}
+        </p>
+      )}
     </div>
   );
 }
