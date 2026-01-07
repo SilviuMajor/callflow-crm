@@ -404,6 +404,8 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
           />
         );
     }
+  };
+
   // Section render functions
   const renderContactInfo = () => (
     <>
