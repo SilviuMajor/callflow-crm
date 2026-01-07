@@ -14,23 +14,28 @@ export interface AIPrompt {
 }
 
 export const AI_MODELS = [
+  // Lovable AI Models (Built-in gateway - no API key needed, recommended)
+  { value: 'lovable:gemini-2.5-flash', label: 'Lovable AI - Gemini Flash (Fast)', provider: 'lovable' },
+  { value: 'lovable:gemini-2.5-pro', label: 'Lovable AI - Gemini Pro (Medium)', provider: 'lovable' },
+  { value: 'lovable:gpt-5-mini', label: 'Lovable AI - GPT-5 Mini (Fast)', provider: 'lovable' },
+  { value: 'lovable:gpt-5', label: 'Lovable AI - GPT-5 (Medium)', provider: 'lovable' },
   // Perplexity Models (Web-grounded search with citations)
   { value: 'perplexity:sonar', label: 'Perplexity Sonar (Fast)', provider: 'perplexity' },
-  { value: 'perplexity:sonar-pro', label: 'Perplexity Sonar Pro (Multi-step)', provider: 'perplexity' },
-  { value: 'perplexity:sonar-reasoning', label: 'Perplexity Sonar Reasoning', provider: 'perplexity' },
-  { value: 'perplexity:sonar-reasoning-pro', label: 'Perplexity Sonar Reasoning Pro', provider: 'perplexity' },
-  { value: 'perplexity:sonar-deep-research', label: 'Perplexity Deep Research (Expert)', provider: 'perplexity' },
+  { value: 'perplexity:sonar-pro', label: 'Perplexity Sonar Pro (Medium)', provider: 'perplexity' },
+  { value: 'perplexity:sonar-reasoning', label: 'Perplexity Sonar Reasoning (Medium)', provider: 'perplexity' },
+  { value: 'perplexity:sonar-reasoning-pro', label: 'Perplexity Sonar Reasoning Pro (Slow)', provider: 'perplexity' },
+  { value: 'perplexity:sonar-deep-research', label: 'Perplexity Deep Research (Slow)', provider: 'perplexity' },
   // OpenAI Models (ChatGPT)
   { value: 'openai:gpt-4o-mini', label: 'ChatGPT-4o Mini (Fast)', provider: 'openai' },
-  { value: 'openai:gpt-4o', label: 'ChatGPT-4o (Vision capable)', provider: 'openai' },
-  { value: 'openai:gpt-5-nano-2025-08-07', label: 'ChatGPT-5 Nano (Fastest)', provider: 'openai' },
-  { value: 'openai:gpt-5-mini-2025-08-07', label: 'ChatGPT-5 Mini (Balanced)', provider: 'openai' },
-  { value: 'openai:gpt-5-2025-08-07', label: 'ChatGPT-5 (Flagship)', provider: 'openai' },
+  { value: 'openai:gpt-4o', label: 'ChatGPT-4o (Medium)', provider: 'openai' },
+  { value: 'openai:gpt-5-nano-2025-08-07', label: 'ChatGPT-5 Nano (Fast)', provider: 'openai' },
+  { value: 'openai:gpt-5-mini-2025-08-07', label: 'ChatGPT-5 Mini (Medium)', provider: 'openai' },
+  { value: 'openai:gpt-5-2025-08-07', label: 'ChatGPT-5 (Slow)', provider: 'openai' },
   // Anthropic Models (Claude)
-  { value: 'anthropic:claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Recommended)', provider: 'anthropic' },
-  { value: 'anthropic:claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Premium)', provider: 'anthropic' },
-  { value: 'anthropic:claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'anthropic' },
-  { value: 'anthropic:claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet', provider: 'anthropic' },
+  { value: 'anthropic:claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Medium)', provider: 'anthropic' },
+  { value: 'anthropic:claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (Slow)', provider: 'anthropic' },
+  { value: 'anthropic:claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Medium)', provider: 'anthropic' },
+  { value: 'anthropic:claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (Medium)', provider: 'anthropic' },
   { value: 'anthropic:claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fast)', provider: 'anthropic' },
 ];
 

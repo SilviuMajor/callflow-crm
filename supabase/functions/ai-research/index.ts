@@ -28,7 +28,18 @@ interface AIResponse {
 }
 
 // Parse model string to extract provider and model name
-function parseModel(modelString: string): { provider: 'perplexity' | 'openai' | 'anthropic'; model: string } {
+function parseModel(modelString: string): { provider: 'perplexity' | 'openai' | 'anthropic' | 'lovable'; model: string } {
+  if (modelString.startsWith('lovable:')) {
+    // Map lovable models to their actual gateway model names
+    const lovableModel = modelString.replace('lovable:', '');
+    const modelMap: Record<string, string> = {
+      'gemini-2.5-flash': 'google/gemini-2.5-flash',
+      'gemini-2.5-pro': 'google/gemini-2.5-pro',
+      'gpt-5-mini': 'openai/gpt-5-mini',
+      'gpt-5': 'openai/gpt-5',
+    };
+    return { provider: 'lovable', model: modelMap[lovableModel] || 'google/gemini-2.5-flash' };
+  }
   if (modelString.startsWith('openai:')) {
     return { provider: 'openai', model: modelString.replace('openai:', '') };
   }
@@ -40,6 +51,47 @@ function parseModel(modelString: string): { provider: 'perplexity' | 'openai' | 
   }
   // Default to perplexity for legacy models without prefix
   return { provider: 'perplexity', model: modelString };
+}
+
+// Call Lovable AI Gateway (fastest option)
+async function callLovableAI(prompt: string, model: string, apiKey: string): Promise<AIResponse> {
+  console.log(`Calling Lovable AI Gateway with model: ${model}`);
+  
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are a professional business research assistant. Provide accurate, concise, and actionable information. Format your responses clearly with bullet points where appropriate.' 
+        },
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Lovable AI Gateway error:', response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+    if (response.status === 402) {
+      throw new Error('AI credits exhausted. Please add credits to continue.');
+    }
+    throw new Error(`Lovable AI Gateway error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices?.[0]?.message?.content || 'No research results available.',
+  };
 }
 
 // Call Perplexity API
@@ -264,6 +316,7 @@ serve(async (req) => {
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -295,10 +348,13 @@ serve(async (req) => {
     }
 
     // Parse the model to determine provider
-    const { provider, model } = parseModel(promptConfig.model || 'perplexity:sonar');
+    const { provider, model } = parseModel(promptConfig.model || 'lovable:gemini-2.5-flash');
     console.log(`Using provider: ${provider}, model: ${model}`);
 
     // Check for required API key
+    if (provider === 'lovable' && !LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
     if (provider === 'perplexity' && !PERPLEXITY_API_KEY) {
       throw new Error('PERPLEXITY_API_KEY is not configured');
     }
@@ -324,7 +380,9 @@ serve(async (req) => {
 
     // Call the appropriate AI provider
     let result: AIResponse;
-    if (provider === 'openai') {
+    if (provider === 'lovable') {
+      result = await callLovableAI(prompt, model, LOVABLE_API_KEY!);
+    } else if (provider === 'openai') {
       result = await callOpenAI(prompt, model, OPENAI_API_KEY!);
     } else if (provider === 'anthropic') {
       result = await callAnthropic(prompt, model, ANTHROPIC_API_KEY!);

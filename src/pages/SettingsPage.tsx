@@ -331,6 +331,8 @@ export default function SettingsPage() {
   
   // Section order state
   const { sectionOrder, isLoading: sectionOrderLoading, updateOrder: updateSectionOrder, resetToDefault: resetSectionOrder } = useContactCardSectionOrder();
+  const [pendingSectionOrder, setPendingSectionOrder] = useState<SectionKey[] | null>(null);
+  const [isSavingSectionOrder, setIsSavingSectionOrder] = useState(false);
   
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -532,16 +534,34 @@ export default function SettingsPage() {
     }
   };
 
-  // Section order drag
+  // Section order drag - uses pending state, requires explicit save
   const handleDragEndSectionOrder = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = sectionOrder.findIndex(s => s === active.id);
-      const newIndex = sectionOrder.findIndex(s => s === over.id);
-      const newOrder = arrayMove(sectionOrder, oldIndex, newIndex) as SectionKey[];
-      updateSectionOrder(newOrder);
+      const currentOrder = pendingSectionOrder || sectionOrder;
+      const oldIndex = currentOrder.findIndex(s => s === active.id);
+      const newIndex = currentOrder.findIndex(s => s === over.id);
+      const newOrder = arrayMove(currentOrder, oldIndex, newIndex) as SectionKey[];
+      setPendingSectionOrder(newOrder);
     }
   };
+
+  const handleSaveSectionOrder = async () => {
+    if (!pendingSectionOrder) return;
+    setIsSavingSectionOrder(true);
+    await updateSectionOrder(pendingSectionOrder);
+    setPendingSectionOrder(null);
+    setIsSavingSectionOrder(false);
+    toast.success('Section order saved');
+  };
+
+  const handleResetSectionOrder = () => {
+    resetSectionOrder();
+    setPendingSectionOrder(null);
+  };
+
+  const displaySectionOrder = pendingSectionOrder || sectionOrder;
+  const hasPendingSectionChanges = pendingSectionOrder !== null;
 
   // Delete confirmation
   const confirmDeleteItem = (id: string, type: 'question' | 'field' | 'company' | 'script') => {
@@ -1271,18 +1291,31 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndSectionOrder}>
-                    <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={displaySectionOrder} strategy={verticalListSortingStrategy}>
                       <div className="space-y-2">
-                        {sectionOrder.map((key) => (
+                        {displaySectionOrder.map((key) => (
                           <SortableSectionItem key={key} sectionKey={key} />
                         ))}
                       </div>
                     </SortableContext>
                   </DndContext>
                 )}
-                <Button variant="outline" className="w-full" onClick={resetSectionOrder}>
-                  <RotateCcw className="w-4 h-4 mr-2" /> Reset to Default
-                </Button>
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={handleResetSectionOrder}>
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reset to Default
+                  </Button>
+                  <Button 
+                    className="flex-1" 
+                    onClick={handleSaveSectionOrder} 
+                    disabled={!hasPendingSectionChanges || isSavingSectionOrder}
+                  >
+                    {isSavingSectionOrder ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+                    ) : (
+                      <><Check className="w-4 h-4 mr-2" /> Save Changes</>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

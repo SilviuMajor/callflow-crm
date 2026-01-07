@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export const DEFAULT_SECTION_ORDER = [
-  'contact_info',
   'history',
+  'contact_info',
   'targeted_research',
   'persona',
   'ai_script',
