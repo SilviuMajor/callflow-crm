@@ -21,6 +21,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast as sonnerToast } from 'sonner';
 import { useAutoGenerateSettings } from '@/hooks/useAutoGenerateSettings';
+import { StaticScriptCard } from '@/components/StaticScriptCard';
 
 interface ContactCardProps {
   contact: Contact;
@@ -1058,6 +1059,9 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
           />
         </div>
       </div>
+
+      {/* Static Script Card */}
+      <StaticScriptCard contact={contact} />
 
       {/* Auto-generate progress indicator */}
       {isAutoGenerating && autoGenProgress && (
