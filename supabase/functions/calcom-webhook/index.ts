@@ -105,11 +105,12 @@ serve(async (req) => {
 
     console.log(`Updating contact ${contact.id} with appointment at ${appointmentDate}`);
 
-    // Update the contact with appointment details
+    // Update the contact with appointment details - mark as completed
     const { error: updateError } = await supabase
       .from('contacts')
       .update({
-        status: 'appointment',
+        status: 'completed',
+        completed_reason: 'appointment_booked',
         appointment_date: appointmentDate.toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -125,7 +126,8 @@ serve(async (req) => {
       .from('contact_history')
       .insert({
         contact_id: contact.id,
-        action_type: 'appointment',
+        action_type: 'completed',
+        reason: 'appointment_booked',
         appointment_date: appointmentDate.toISOString(),
         note: `Booked via Cal.com: ${payload.title}`,
       });
