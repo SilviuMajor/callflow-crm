@@ -705,6 +705,63 @@ export type Database = {
         }
         Relationships: []
       }
+      static_script_settings: {
+        Row: {
+          created_at: string
+          default_expanded: boolean
+          enabled: boolean
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_expanded?: boolean
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_expanded?: boolean
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      static_scripts: {
+        Row: {
+          content: string
+          created_at: string
+          enabled: boolean
+          field_order: number
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          field_order?: number
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          field_order?: number
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       webhook_settings: {
         Row: {
           created_at: string

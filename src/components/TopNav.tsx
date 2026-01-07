@@ -1,20 +1,18 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Target, BarChart3, CheckCircle, Settings, Search, Download, Sparkles, Upload, Plug } from 'lucide-react';
+import { Target, BarChart3, CheckCircle, Settings, Search, Download, Sparkles, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
 
 interface TopNavProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
-  onSettingsClick?: () => void;
   onExportCSV?: () => void;
   onExportJSON?: () => void;
   onImportClick?: () => void;
 }
 
-export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportCSV, onExportJSON, onImportClick }: TopNavProps) {
+export function TopNav({ searchQuery, onSearchChange, onExportCSV, onExportJSON, onImportClick }: TopNavProps) {
   const location = useLocation();
   
   const navItems = [
@@ -22,7 +20,7 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportC
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/completed', label: 'Completed', icon: CheckCircle },
     { path: '/ai-settings', label: 'AI', icon: Sparkles },
-    { path: '/integrations', label: 'Integrations', icon: Plug },
+    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -93,17 +91,6 @@ export function TopNav({ searchQuery, onSearchChange, onSettingsClick, onExportC
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-        
-        {onSettingsClick && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 w-8 p-0"
-            onClick={onSettingsClick}
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </Button>
         )}
       </nav>
     </header>
