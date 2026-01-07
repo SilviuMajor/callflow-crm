@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useAIPrompts, AI_MODELS, AIPrompt } from '@/hooks/useAIPrompts';
-import { useAIScript } from '@/hooks/useAIScript';
+import { useAIScripts } from '@/hooks/useAIScripts';
 import { useSellerCompany } from '@/hooks/useSellerCompany';
 import { useSellerCustomFields } from '@/hooks/useSellerCustomFields';
 import { useCustomFields } from '@/hooks/useCustomFields';
@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll, Plus, Trash2, Star, Eye } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
@@ -20,6 +21,9 @@ import { PlaceholderToolbar } from '@/components/PlaceholderToolbar';
 import { SellerCustomFieldsDialog } from '@/components/SellerCustomFieldsDialog';
 import { PromptEditor } from '@/components/PromptEditor';
 import { RefinePromptDialog } from '@/components/RefinePromptDialog';
+import { CreditUsageCard } from '@/components/CreditUsageCard';
+import { AutoGenerateSettings } from '@/components/AutoGenerateSettings';
+import { ScriptPreviewDialog } from '@/components/ScriptPreviewDialog';
 import { type PlaceholderCategory } from '@/components/PlaceholderBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { getSellerFieldColorClasses } from '@/lib/utils';
@@ -128,7 +132,7 @@ const AI_RESEARCH_PLACEHOLDERS = [
 
 export default function AISettingsPage() {
   const { prompts, isLoading, updatePrompt } = useAIPrompts();
-  const { script, isLoading: isLoadingScript, updateScript, restoreDefault: restoreScriptDefault } = useAIScript();
+  const { scripts, isLoading: isLoadingScripts, createScript, updateScript, setDefault, deleteScript, restoreDefault: restoreScriptDefault } = useAIScripts();
   const { sellerCompany, isLoading: isLoadingSeller, updateField } = useSellerCompany();
   const { fields: sellerCustomFields } = useSellerCustomFields();
   const { fields: customContactFields } = useCustomFields();
@@ -138,16 +142,32 @@ export default function AISettingsPage() {
   const [refineDialogOpen, setRefineDialogOpen] = useState<string | null>(null);
   
   // Script state
-  const [editedScript, setEditedScript] = useState<string>('');
-  const [scriptEnabled, setScriptEnabled] = useState(true);
-  const [isSavingScript, setIsSavingScript] = useState(false);
+  const [activeScriptId, setActiveScriptId] = useState<string>('');
+  const [editedScripts, setEditedScripts] = useState<Record<string, string>>({});
+  const [savingScripts, setSavingScripts] = useState<Record<string, boolean>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState('');
   
+  // Initialize active script when scripts load
   useEffect(() => {
-    if (script) {
-      setEditedScript(script.template);
-      setScriptEnabled(script.enabled ?? true);
+    if (scripts.length > 0 && !activeScriptId) {
+      const defaultScript = scripts.find(s => s.is_default) || scripts[0];
+      setActiveScriptId(defaultScript.id);
     }
-  }, [script]);
+  }, [scripts, activeScriptId]);
+
+  // Initialize edited scripts
+  useEffect(() => {
+    const edited: Record<string, string> = {};
+    scripts.forEach(s => {
+      if (!editedScripts[s.id]) {
+        edited[s.id] = s.template;
+      }
+    });
+    if (Object.keys(edited).length > 0) {
+      setEditedScripts(prev => ({ ...prev, ...edited }));
+    }
+  }, [scripts]);
 
   useEffect(() => {
     if (prompts.length > 0) {
@@ -440,94 +460,180 @@ export default function AISettingsPage() {
 
         <Separator className="my-6" />
 
-        {/* AI Script Template Section */}
+        {/* Auto-Generate Settings */}
+        <AutoGenerateSettings />
+
+        <Separator className="my-6" />
+
+        {/* Credit Usage */}
+        <CreditUsageCard />
+
+        <Separator className="my-6" />
+
+        {/* AI Script Template Section - Multiple Scripts */}
         <Card className="mb-6 border-2 border-amber-400/30">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Scroll className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-lg">AI Call Script</CardTitle>
+                <CardTitle className="text-lg">AI Call Scripts</CardTitle>
               </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="script-enabled" className="text-sm text-muted-foreground">
-                  {scriptEnabled ? 'Enabled' : 'Disabled'}
-                </Label>
-                <Switch
-                  id="script-enabled"
-                  checked={scriptEnabled}
-                  onCheckedChange={(checked) => {
-                    setScriptEnabled(checked);
-                    updateScript({ enabled: checked });
-                  }}
-                />
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const name = `Script ${scripts.length + 1}`;
+                  const newScript = await createScript(name);
+                  if (newScript) {
+                    setActiveScriptId(newScript.id);
+                    setEditedScripts(prev => ({ ...prev, [newScript.id]: newScript.template }));
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                New Script
+              </Button>
             </div>
             <CardDescription>
-              Create a personalized call script template. Use placeholders for dynamic data and AI blocks for generated content.
-              Use <code className="text-xs bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:instruction}}'}</code> for AI-generated sections.
+              Create personalized call script templates. Use placeholders for dynamic data and AI blocks for generated content.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isLoadingScript ? (
+            {isLoadingScripts ? (
               <Skeleton className="h-48 w-full" />
+            ) : scripts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No scripts yet. Create one to get started.</p>
             ) : (
               <>
-                <PlaceholderToolbar
-                  groups={getPlaceholderGroups('company_custom')}
-                  onInsert={() => {}}
-                  emptyFields={emptySellerFields}
-                />
-                <div className="space-y-2">
-                  <Label>Script Template</Label>
-                  <Textarea
-                    value={editedScript}
-                    onChange={(e) => setEditedScript(e.target.value)}
-                    placeholder="Enter your script template..."
-                    className="min-h-[200px] font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Use <code className="bg-muted px-1 rounded">{'{first_name}'}</code> for placeholders and <code className="bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:your instruction here}}'}</code> for AI-generated content.
-                  </p>
-                </div>
-                <div className="flex justify-between pt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      restoreScriptDefault();
-                      setEditedScript(script?.template || '');
-                    }}
-                    className="text-muted-foreground"
-                  >
-                    <RotateCcw className="h-3 w-3 mr-1" />
-                    Restore Default
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      setIsSavingScript(true);
-                      await updateScript({ template: editedScript });
-                      setIsSavingScript(false);
-                    }}
-                    disabled={editedScript === script?.template || isSavingScript}
-                    size="sm"
-                  >
-                    {isSavingScript ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-1" />
-                        Save Script
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Tabs value={activeScriptId} onValueChange={setActiveScriptId}>
+                  <TabsList className="w-full flex-wrap h-auto gap-1">
+                    {scripts.map(script => (
+                      <TabsTrigger key={script.id} value={script.id} className="flex items-center gap-1">
+                        {script.is_default && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
+                        {script.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {scripts.map(script => (
+                    <TabsContent key={script.id} value={script.id} className="space-y-4 mt-4">
+                      {/* Script name and controls */}
+                      <div className="flex items-center gap-4">
+                        <Input
+                          value={script.name}
+                          onChange={(e) => updateScript(script.id, { name: e.target.value })}
+                          className="max-w-[200px] h-8 text-sm font-medium"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={script.enabled ?? true}
+                            onCheckedChange={(checked) => updateScript(script.id, { enabled: checked })}
+                          />
+                          <span className="text-xs text-muted-foreground">{script.enabled ? 'Enabled' : 'Disabled'}</span>
+                        </div>
+                        {!script.is_default && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDefault(script.id)}
+                            className="text-xs"
+                          >
+                            <Star className="h-3 w-3 mr-1" />
+                            Set as Default
+                          </Button>
+                        )}
+                        {scripts.length > 1 && !script.is_default && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteScript(script.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <PlaceholderToolbar
+                        groups={getPlaceholderGroups('company_custom')}
+                        onInsert={() => {}}
+                        emptyFields={emptySellerFields}
+                      />
+
+                      <div className="space-y-2">
+                        <Label>Script Template</Label>
+                        <PromptEditor
+                          value={editedScripts[script.id] || script.template}
+                          onChange={(value) => setEditedScripts(prev => ({ ...prev, [script.id]: value }))}
+                          placeholderGroups={getPlaceholderGroups('company_custom')}
+                          emptyFields={emptySellerFields}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Use <code className="bg-muted px-1 rounded">{'{first_name}'}</code> for placeholders and <code className="bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:your instruction here}}'}</code> for AI-generated content.
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between pt-2">
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              restoreScriptDefault(script.id);
+                              setEditedScripts(prev => ({ ...prev, [script.id]: scripts.find(s => s.id === script.id)?.template || '' }));
+                            }}
+                            className="text-muted-foreground"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Restore Default
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setPreviewTemplate(editedScripts[script.id] || script.template);
+                              setPreviewOpen(true);
+                            }}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Preview
+                          </Button>
+                        </div>
+                        <Button
+                          onClick={async () => {
+                            setSavingScripts(prev => ({ ...prev, [script.id]: true }));
+                            await updateScript(script.id, { template: editedScripts[script.id] });
+                            setSavingScripts(prev => ({ ...prev, [script.id]: false }));
+                          }}
+                          disabled={editedScripts[script.id] === script.template || savingScripts[script.id]}
+                          size="sm"
+                        >
+                          {savingScripts[script.id] ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-1" />
+                              Save Script
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
               </>
             )}
           </CardContent>
         </Card>
+
+        <ScriptPreviewDialog 
+          open={previewOpen} 
+          onOpenChange={setPreviewOpen} 
+          template={previewTemplate} 
+        />
 
         <Separator className="my-6" />
 

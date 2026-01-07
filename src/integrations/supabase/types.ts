@@ -14,6 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_auto_generate_settings: {
+        Row: {
+          company_research: boolean
+          contact_persona: boolean
+          created_at: string
+          enabled: boolean
+          id: string
+          script_generation: boolean
+          targeted_research: boolean
+          updated_at: string
+        }
+        Insert: {
+          company_research?: boolean
+          contact_persona?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          script_generation?: boolean
+          targeted_research?: boolean
+          updated_at?: string
+        }
+        Update: {
+          company_research?: boolean
+          contact_persona?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          script_generation?: boolean
+          targeted_research?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_credits_settings: {
+        Row: {
+          created_at: string
+          id: string
+          monthly_limit: number | null
+          reset_day: number
+          tier_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          monthly_limit?: number | null
+          reset_day?: number
+          tier_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          monthly_limit?: number | null
+          reset_day?: number
+          tier_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_credits_usage: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          credits_used: number
+          feature_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          credits_used?: number
+          feature_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          credits_used?: number
+          feature_type?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credits_usage_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credits_usage_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_prompts: {
         Row: {
           created_at: string | null
@@ -55,6 +160,7 @@ export type Database = {
           created_at: string
           enabled: boolean | null
           id: string
+          is_default: boolean
           model: string | null
           name: string
           template: string
@@ -64,6 +170,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean | null
           id?: string
+          is_default?: boolean
           model?: string | null
           name?: string
           template?: string
@@ -73,10 +180,41 @@ export type Database = {
           created_at?: string
           enabled?: boolean | null
           id?: string
+          is_default?: boolean
           model?: string | null
           name?: string
           template?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      calcom_settings: {
+        Row: {
+          api_key: string | null
+          created_at: string
+          enabled: boolean
+          event_type_slug: string | null
+          id: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string
+          enabled?: boolean
+          event_type_slug?: string | null
+          id?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string
+          enabled?: boolean
+          event_type_slug?: string | null
+          id?: string
+          updated_at?: string
+          webhook_secret?: string | null
         }
         Relationships: []
       }
@@ -231,6 +369,7 @@ export type Database = {
           ai_persona: string | null
           ai_persona_updated_at: string | null
           ai_script: string | null
+          ai_script_id: string | null
           ai_script_updated_at: string | null
           appointment_attended: boolean | null
           appointment_date: string | null
@@ -256,6 +395,7 @@ export type Database = {
           ai_persona?: string | null
           ai_persona_updated_at?: string | null
           ai_script?: string | null
+          ai_script_id?: string | null
           ai_script_updated_at?: string | null
           appointment_attended?: boolean | null
           appointment_date?: string | null
@@ -281,6 +421,7 @@ export type Database = {
           ai_persona?: string | null
           ai_persona_updated_at?: string | null
           ai_script?: string | null
+          ai_script_id?: string | null
           ai_script_updated_at?: string | null
           appointment_attended?: boolean | null
           appointment_date?: string | null
@@ -303,6 +444,13 @@ export type Database = {
           website?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contacts_ai_script_id_fkey"
+            columns: ["ai_script_id"]
+            isOneToOne: false
+            referencedRelation: "ai_scripts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contacts_pot_id_fkey"
             columns: ["pot_id"]
