@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 export const DEFAULT_SECTION_ORDER = [
   'contact_info',
   'history',
-  'ai_research',
+  'targeted_research',
+  'persona',
+  'ai_script',
   'static_script',
   'company_fields'
 ] as const;
@@ -15,7 +17,9 @@ export type SectionKey = typeof DEFAULT_SECTION_ORDER[number];
 export const SECTION_LABELS: Record<SectionKey, string> = {
   contact_info: 'Contact & Company Info',
   history: 'History',
-  ai_research: 'AI Research',
+  targeted_research: 'Targeted Research',
+  persona: 'Persona',
+  ai_script: 'AI Script',
   static_script: 'Static Script',
   company_fields: 'Company Fields',
 };

@@ -13,9 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll, Plus, Trash2, Star, Eye } from 'lucide-react';
+import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll, Plus, Trash2, Star, Eye, Settings, BarChart3 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { PlaceholderToolbar } from '@/components/PlaceholderToolbar';
 import { SellerCustomFieldsDialog } from '@/components/SellerCustomFieldsDialog';
@@ -87,9 +86,6 @@ Keep the response focused and actionable.`,
   },
 } as const;
 
-// Define explicit order for prompt types
-const PROMPT_ORDER = ['company_search', 'company_custom', 'persona'];
-
 const SELLER_FIELDS = [
   { key: 'company_name', label: 'Company Name', placeholder: 'Your company name' },
   { key: 'website', label: 'Website', placeholder: 'https://yourcompany.com' },
@@ -124,13 +120,8 @@ const SELLER_PLACEHOLDERS = [
   { name: 'seller_context', description: 'All seller info combined' },
 ];
 
-// AI Research Results placeholders (require prior research to be run)
-const AI_RESEARCH_PLACEHOLDERS = [
-  { name: 'company_research', description: 'AI-generated company summary (requires Company Research)' },
-  { name: 'contact_persona', description: 'AI-generated contact persona (requires Persona research)' },
-];
-
 export default function AISettingsPage() {
+  const [activeTab, setActiveTab] = useState('profile');
   const { prompts, isLoading, updatePrompt } = useAIPrompts();
   const { scripts, isLoading: isLoadingScripts, createScript, updateScript, setDefault, deleteScript, restoreDefault: restoreScriptDefault } = useAIScripts();
   const { sellerCompany, isLoading: isLoadingSeller, updateField } = useSellerCompany();
@@ -239,7 +230,7 @@ export default function AISettingsPage() {
     }
   };
 
-  // Build placeholder groups for each prompt type - conditionally include seller fields
+  // Build placeholder groups for each prompt type
   const getPlaceholderGroups = useCallback((promptType: string) => {
     const groups: Array<{
       label: string;
@@ -285,8 +276,7 @@ export default function AISettingsPage() {
         placeholders: sellerPlaceholders,
       });
 
-      // Add AI Research Results placeholders for company_custom and persona prompts
-      // company_research only for company_custom, contact_persona only for company_custom
+      // Add AI Research Results placeholders
       if (promptType === 'company_custom' || promptType === 'custom_company_research') {
         groups.push({
           label: 'AI Research Results',
@@ -309,14 +299,11 @@ export default function AISettingsPage() {
     const emptySet = new Set<string>();
     
     if (!sellerCompany) {
-      // All seller fields are empty
       ['seller_company_name', 'seller_website', 'seller_product_offering', 
        'seller_usps', 'seller_industry', 'seller_target_audience', 
        'seller_tone_style', 'seller_pain_points_solved', 'seller_context'].forEach(f => emptySet.add(f));
-      // Add custom seller fields as empty too
       sellerCustomFields.forEach(f => emptySet.add(`seller_${f.key}`));
     } else {
-      // Check each built-in field
       if (!sellerCompany.company_name?.trim()) emptySet.add('seller_company_name');
       if (!sellerCompany.website?.trim()) emptySet.add('seller_website');
       if (!sellerCompany.product_offering?.trim()) emptySet.add('seller_product_offering');
@@ -326,14 +313,12 @@ export default function AISettingsPage() {
       if (!sellerCompany.tone_style?.trim()) emptySet.add('seller_tone_style');
       if (!sellerCompany.pain_points_solved?.trim()) emptySet.add('seller_pain_points_solved');
       
-      // seller_context is empty if ALL fields are empty
       const hasAnyContent = sellerCompany.company_name?.trim() || sellerCompany.website?.trim() || 
         sellerCompany.product_offering?.trim() || sellerCompany.usps?.trim() || 
         sellerCompany.industry?.trim() || sellerCompany.target_audience?.trim() ||
         sellerCompany.tone_style?.trim() || sellerCompany.pain_points_solved?.trim();
       if (!hasAnyContent) emptySet.add('seller_context');
       
-      // Check custom seller fields
       sellerCustomFields.forEach(field => {
         const value = sellerCompany.custom_fields?.[field.key];
         if (!value || (typeof value === 'string' && !value.trim())) {
@@ -377,7 +362,6 @@ export default function AISettingsPage() {
 
   // Map database prompt types to our config
   const getConfigForPromptType = (dbType: string) => {
-    // Handle company_custom -> custom_company_research mapping
     if (dbType === 'company_custom') {
       return { type: dbType, config: PROMPT_CONFIG.custom_company_research };
     }
@@ -395,456 +379,471 @@ export default function AISettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            AI Research Settings
+            AI Settings
           </h1>
           <p className="text-muted-foreground mt-1">
-            Configure how AI researches companies and contacts. Use placeholders to inject dynamic data.
+            Configure your company profile, AI prompts, and generation settings.
           </p>
         </div>
 
-        {/* Seller Company Section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">My Company Profile</CardTitle>
-              </div>
-              <SellerCustomFieldsDialog />
-            </div>
-            <CardDescription>
-              Your company details are available as placeholders in AI prompts. 
-              Use {'{seller_context}'} for all fields combined, or individual placeholders like {'{seller_company_name}'}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingSeller ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {SELLER_FIELDS.map(field => (
-                  <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
-                    <Label htmlFor={field.key} className="text-sm font-medium mb-1.5 block">
-                      {field.label}
-                      <code className={`ml-2 text-xs px-1 py-0.5 rounded ${getSellerFieldColorClasses(`seller_${field.key}`)}`}>
-                        {`{seller_${field.key}}`}
-                      </code>
-                    </Label>
-                    {field.multiline ? (
-                      <Textarea
-                        id={field.key}
-                        defaultValue={(sellerCompany as any)?.[field.key] || ''}
-                        onBlur={(e) => handleSellerFieldSave(field.key, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="min-h-[80px] text-sm"
-                      />
-                    ) : (
-                      <Input
-                        id={field.key}
-                        defaultValue={(sellerCompany as any)?.[field.key] || ''}
-                        onBlur={(e) => handleSellerFieldSave(field.key, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="text-sm"
-                      />
-                    )}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="profile" className="flex items-center gap-1.5">
+              <Briefcase className="h-4 w-4" />
+              <span className="hidden sm:inline">My Company Profile</span>
+              <span className="sm:hidden">Profile</span>
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex items-center gap-1.5">
+              <Scroll className="h-4 w-4" />
+              <span>Templates</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-1.5">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Settings & Usage</span>
+              <span className="sm:hidden">Settings</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: My Company Profile */}
+          <TabsContent value="profile" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">My Company Profile</CardTitle>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Separator className="my-6" />
-
-        {/* Auto-Generate Settings */}
-        <AutoGenerateSettings />
-
-        <Separator className="my-6" />
-
-        {/* Credit Usage */}
-        <CreditUsageCard />
-
-        <Separator className="my-6" />
-
-        {/* AI Script Template Section - Multiple Scripts */}
-        <Card className="mb-6 border-2 border-amber-400/30">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Scroll className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-lg">AI Call Scripts</CardTitle>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const name = `Script ${scripts.length + 1}`;
-                  const newScript = await createScript(name);
-                  if (newScript) {
-                    setActiveScriptId(newScript.id);
-                    setEditedScripts(prev => ({ ...prev, [newScript.id]: newScript.template }));
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                New Script
-              </Button>
-            </div>
-            <CardDescription>
-              Create personalized call script templates. Use placeholders for dynamic data and AI blocks for generated content.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoadingScripts ? (
-              <Skeleton className="h-48 w-full" />
-            ) : scripts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No scripts yet. Create one to get started.</p>
-            ) : (
-              <>
-                <Tabs value={activeScriptId} onValueChange={setActiveScriptId}>
-                  <TabsList className="w-full flex-wrap h-auto gap-1">
-                    {scripts.map(script => (
-                      <TabsTrigger key={script.id} value={script.id} className="flex items-center gap-1">
-                        {script.is_default && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
-                        {script.name}
-                      </TabsTrigger>
+                  <SellerCustomFieldsDialog />
+                </div>
+                <CardDescription>
+                  Your company details are available as placeholders in AI prompts. 
+                  Use {'{seller_context}'} for all fields combined, or individual placeholders like {'{seller_company_name}'}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingSeller ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <Skeleton key={i} className="h-10 w-full" />
                     ))}
-                  </TabsList>
-
-                  {scripts.map(script => (
-                    <TabsContent key={script.id} value={script.id} className="space-y-4 mt-4">
-                      {/* Script name and controls */}
-                      <div className="flex items-center gap-4">
-                        <Input
-                          value={script.name}
-                          onChange={(e) => updateScript(script.id, { name: e.target.value })}
-                          className="max-w-[200px] h-8 text-sm font-medium"
-                        />
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={script.enabled ?? true}
-                            onCheckedChange={(checked) => updateScript(script.id, { enabled: checked })}
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {SELLER_FIELDS.map(field => (
+                      <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
+                        <Label htmlFor={field.key} className="text-sm font-medium mb-1.5 block">
+                          {field.label}
+                          <code className={`ml-2 text-xs px-1 py-0.5 rounded ${getSellerFieldColorClasses(`seller_${field.key}`)}`}>
+                            {`{seller_${field.key}}`}
+                          </code>
+                        </Label>
+                        {field.multiline ? (
+                          <Textarea
+                            id={field.key}
+                            defaultValue={(sellerCompany as any)?.[field.key] || ''}
+                            onBlur={(e) => handleSellerFieldSave(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            className="min-h-[80px] text-sm"
                           />
-                          <span className="text-xs text-muted-foreground">{script.enabled ? 'Enabled' : 'Disabled'}</span>
-                        </div>
-                        {!script.is_default && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDefault(script.id)}
-                            className="text-xs"
-                          >
-                            <Star className="h-3 w-3 mr-1" />
-                            Set as Default
-                          </Button>
-                        )}
-                        {scripts.length > 1 && !script.is_default && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteScript(script.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        ) : (
+                          <Input
+                            id={field.key}
+                            defaultValue={(sellerCompany as any)?.[field.key] || ''}
+                            onBlur={(e) => handleSellerFieldSave(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            className="text-sm"
+                          />
                         )}
                       </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                      <PlaceholderToolbar
-                        groups={getPlaceholderGroups('company_custom')}
-                        onInsert={() => {}}
-                        emptyFields={emptySellerFields}
-                      />
+          {/* Tab 2: Templates */}
+          <TabsContent value="templates" className="space-y-6">
+            {/* AI Script Templates */}
+            <Card className="border-2 border-amber-400/30">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Scroll className="h-5 w-5 text-amber-500" />
+                    <CardTitle className="text-lg">AI Call Scripts</CardTitle>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const name = `Script ${scripts.length + 1}`;
+                      const newScript = await createScript(name);
+                      if (newScript) {
+                        setActiveScriptId(newScript.id);
+                        setEditedScripts(prev => ({ ...prev, [newScript.id]: newScript.template }));
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    New Script
+                  </Button>
+                </div>
+                <CardDescription>
+                  Create personalized call script templates. Use placeholders for dynamic data and AI blocks for generated content.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingScripts ? (
+                  <Skeleton className="h-48 w-full" />
+                ) : scripts.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No scripts yet. Create one to get started.</p>
+                ) : (
+                  <Tabs value={activeScriptId} onValueChange={setActiveScriptId}>
+                    <TabsList className="w-full flex-wrap h-auto gap-1">
+                      {scripts.map(script => (
+                        <TabsTrigger key={script.id} value={script.id} className="flex items-center gap-1">
+                          {script.is_default && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
+                          {script.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
 
-                      <div className="space-y-2">
-                        <Label>Script Template</Label>
-                        <PromptEditor
-                          value={editedScripts[script.id] || script.template}
-                          onChange={(value) => setEditedScripts(prev => ({ ...prev, [script.id]: value }))}
-                          placeholderGroups={getPlaceholderGroups('company_custom')}
+                    {scripts.map(script => (
+                      <TabsContent key={script.id} value={script.id} className="space-y-4 mt-4">
+                        <div className="flex items-center gap-4">
+                          <Input
+                            value={script.name}
+                            onChange={(e) => updateScript(script.id, { name: e.target.value })}
+                            className="max-w-[200px] h-8 text-sm font-medium"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={script.enabled ?? true}
+                              onCheckedChange={(checked) => updateScript(script.id, { enabled: checked })}
+                            />
+                            <span className="text-xs text-muted-foreground">{script.enabled ? 'Enabled' : 'Disabled'}</span>
+                          </div>
+                          {!script.is_default && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDefault(script.id)}
+                              className="text-xs"
+                            >
+                              <Star className="h-3 w-3 mr-1" />
+                              Set as Default
+                            </Button>
+                          )}
+                          {scripts.length > 1 && !script.is_default && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteScript(script.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+
+                        <PlaceholderToolbar
+                          groups={getPlaceholderGroups('company_custom')}
+                          onInsert={() => {}}
                           emptyFields={emptySellerFields}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Use <code className="bg-muted px-1 rounded">{'{first_name}'}</code> for placeholders and <code className="bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:your instruction here}}'}</code> for AI-generated content.
-                        </p>
-                      </div>
 
-                      <div className="flex justify-between pt-2">
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              restoreScriptDefault(script.id);
-                              setEditedScripts(prev => ({ ...prev, [script.id]: scripts.find(s => s.id === script.id)?.template || '' }));
-                            }}
-                            className="text-muted-foreground"
-                          >
-                            <RotateCcw className="h-3 w-3 mr-1" />
-                            Restore Default
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setPreviewTemplate(editedScripts[script.id] || script.template);
-                              setPreviewOpen(true);
-                            }}
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Preview
-                          </Button>
+                        <div className="space-y-2">
+                          <Label>Script Template</Label>
+                          <PromptEditor
+                            value={editedScripts[script.id] || script.template}
+                            onChange={(value) => setEditedScripts(prev => ({ ...prev, [script.id]: value }))}
+                            placeholderGroups={getPlaceholderGroups('company_custom')}
+                            emptyFields={emptySellerFields}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Use <code className="bg-muted px-1 rounded">{'{first_name}'}</code> for placeholders and <code className="bg-amber-100 text-amber-700 px-1 rounded">{'{{AI_BLOCK:your instruction here}}'}</code> for AI-generated content.
+                          </p>
                         </div>
-                        <Button
-                          onClick={async () => {
-                            setSavingScripts(prev => ({ ...prev, [script.id]: true }));
-                            await updateScript(script.id, { template: editedScripts[script.id] });
-                            setSavingScripts(prev => ({ ...prev, [script.id]: false }));
-                          }}
-                          disabled={editedScripts[script.id] === script.template || savingScripts[script.id]}
-                          size="sm"
-                        >
-                          {savingScripts[script.id] ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-4 w-4 mr-1" />
-                              Save Script
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </>
-            )}
-          </CardContent>
-        </Card>
 
-        <ScriptPreviewDialog 
-          open={previewOpen} 
-          onOpenChange={setPreviewOpen} 
-          template={previewTemplate} 
-        />
-
-        <Separator className="my-6" />
-
-        <h2 className="text-lg font-semibold mb-4">AI Prompt Templates</h2>
-
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-48" />
-                  <Skeleton className="h-4 w-72" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-10 w-48" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Sort prompts: company_search first, then company_custom, then persona */}
-            {[...prompts]
-              .sort((a, b) => {
-                const order = ['company_search', 'company_custom', 'persona'];
-                const orderA = order.indexOf(a.prompt_type);
-                const orderB = order.indexOf(b.prompt_type);
-                return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
-              })
-              .map((prompt) => {
-              const { config } = getConfigForPromptType(prompt.prompt_type);
-              if (!config) return null;
-              
-              const edited = editedPrompts[prompt.prompt_type] || {};
-              const Icon = config.icon;
-              const isSaving = savingStates[prompt.prompt_type];
-              const isImproving = improvingStates[prompt.prompt_type];
-              const changed = hasChanges(prompt.prompt_type);
-              const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
-
-              return (
-                <Card key={prompt.prompt_type} className="relative">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`h-5 w-5 ${config.color}`} />
-                        <CardTitle className="text-lg">{config.title}</CardTitle>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`${prompt.prompt_type}-enabled`} className="text-sm text-muted-foreground">
-                          {edited.enabled ? 'Enabled' : 'Disabled'}
-                        </Label>
-                        <Switch
-                          id={`${prompt.prompt_type}-enabled`}
-                          checked={edited.enabled ?? prompt.enabled ?? true}
-                          onCheckedChange={(checked) => handleChange(prompt.prompt_type, 'enabled', checked)}
-                        />
-                      </div>
-                    </div>
-                    <CardDescription>{config.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Placeholder Toolbar */}
-                    <PlaceholderToolbar
-                      groups={placeholderGroups}
-                      onInsert={() => {}} // Now handled by PromptEditor
-                      emptyFields={emptySellerFields}
-                    />
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor={`${prompt.prompt_type}-prompt`}>Prompt Template</Label>
-                        <div className="flex items-center gap-2">
+                        <div className="flex justify-between pt-2">
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                restoreScriptDefault(script.id);
+                                setEditedScripts(prev => ({ ...prev, [script.id]: scripts.find(s => s.id === script.id)?.template || '' }));
+                              }}
+                              className="text-muted-foreground"
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" />
+                              Restore Default
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setPreviewTemplate(editedScripts[script.id] || script.template);
+                                setPreviewOpen(true);
+                              }}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Preview
+                            </Button>
+                          </div>
                           <Button
-                            variant="ghost"
+                            onClick={async () => {
+                              setSavingScripts(prev => ({ ...prev, [script.id]: true }));
+                              await updateScript(script.id, { template: editedScripts[script.id] });
+                              setSavingScripts(prev => ({ ...prev, [script.id]: false }));
+                            }}
+                            disabled={editedScripts[script.id] === script.template || savingScripts[script.id]}
                             size="sm"
-                            onClick={() => setRefineDialogOpen(prompt.prompt_type)}
-                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
                           >
-                            <FlaskConical className="h-3 w-3 mr-1" />
-                            Refine
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleImprovePrompt(prompt.prompt_type)}
-                            disabled={isImproving}
-                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            {isImproving ? (
+                            {savingScripts[script.id] ? (
                               <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Improving...
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                Saving...
                               </>
                             ) : (
                               <>
-                                <Wand2 className="h-3 w-3 mr-1" />
-                                Improve
+                                <Save className="h-4 w-4 mr-1" />
+                                Save Script
                               </>
                             )}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRestoreDefault(prompt.prompt_type)}
-                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                )}
+              </CardContent>
+            </Card>
+
+            <ScriptPreviewDialog 
+              open={previewOpen} 
+              onOpenChange={setPreviewOpen} 
+              template={previewTemplate} 
+            />
+
+            {/* AI Prompt Templates */}
+            <h2 className="text-lg font-semibold">AI Research Prompts</h2>
+
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-48" />
+                      <Skeleton className="h-4 w-72" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Skeleton className="h-32 w-full" />
+                      <Skeleton className="h-10 w-48" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {[...prompts]
+                  .sort((a, b) => {
+                    const order = ['company_search', 'company_custom', 'persona'];
+                    const orderA = order.indexOf(a.prompt_type);
+                    const orderB = order.indexOf(b.prompt_type);
+                    return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+                  })
+                  .map((prompt) => {
+                  const { config } = getConfigForPromptType(prompt.prompt_type);
+                  if (!config) return null;
+                  
+                  const edited = editedPrompts[prompt.prompt_type] || {};
+                  const Icon = config.icon;
+                  const isSaving = savingStates[prompt.prompt_type];
+                  const isImproving = improvingStates[prompt.prompt_type];
+                  const changed = hasChanges(prompt.prompt_type);
+                  const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
+
+                  return (
+                    <Card key={prompt.prompt_type} className="relative">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon className={`h-5 w-5 ${config.color}`} />
+                            <CardTitle className="text-lg">{config.title}</CardTitle>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`${prompt.prompt_type}-enabled`} className="text-sm text-muted-foreground">
+                              {edited.enabled ? 'Enabled' : 'Disabled'}
+                            </Label>
+                            <Switch
+                              id={`${prompt.prompt_type}-enabled`}
+                              checked={edited.enabled ?? prompt.enabled ?? true}
+                              onCheckedChange={(checked) => handleChange(prompt.prompt_type, 'enabled', checked)}
+                            />
+                          </div>
+                        </div>
+                        <CardDescription>{config.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <PlaceholderToolbar
+                          groups={placeholderGroups}
+                          onInsert={() => {}}
+                          emptyFields={emptySellerFields}
+                        />
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor={`${prompt.prompt_type}-prompt`}>Prompt Template</Label>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRefineDialogOpen(prompt.prompt_type)}
+                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <FlaskConical className="h-3 w-3 mr-1" />
+                                Refine
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleImprovePrompt(prompt.prompt_type)}
+                                disabled={isImproving}
+                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                {isImproving ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    Improving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Wand2 className="h-3 w-3 mr-1" />
+                                    Improve
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRestoreDefault(prompt.prompt_type)}
+                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Restore Default
+                              </Button>
+                            </div>
+                          </div>
+                          <PromptEditor
+                            value={edited.prompt ?? prompt.prompt ?? ''}
+                            onChange={(value) => handleChange(prompt.prompt_type, 'prompt', value)}
+                            placeholderGroups={placeholderGroups}
+                            emptyFields={emptySellerFields}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`${prompt.prompt_type}-model`}>AI Model</Label>
+                          <Select
+                            value={edited.model ?? prompt.model ?? 'perplexity:sonar'}
+                            onValueChange={(value) => handleChange(prompt.prompt_type, 'model', value)}
                           >
-                            <RotateCcw className="h-3 w-3 mr-1" />
-                            Restore Default
+                            <SelectTrigger id={`${prompt.prompt_type}-model`} className="w-full max-w-md">
+                              <SelectValue placeholder="Select model" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                Perplexity (Web Search + Citations)
+                              </div>
+                              {AI_MODELS.filter(m => m.provider === 'perplexity').map(model => (
+                                <SelectItem key={model.value} value={model.value}>
+                                  {model.label}
+                                </SelectItem>
+                              ))}
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
+                                OpenAI / ChatGPT
+                              </div>
+                              {AI_MODELS.filter(m => m.provider === 'openai').map(model => (
+                                <SelectItem key={model.value} value={model.value}>
+                                  {model.label}
+                                </SelectItem>
+                              ))}
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
+                                Anthropic / Claude
+                              </div>
+                              {AI_MODELS.filter(m => m.provider === 'anthropic').map(model => (
+                                <SelectItem key={model.value} value={model.value}>
+                                  {model.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Perplexity models include real-time web search. OpenAI and Anthropic models use training knowledge.
+                          </p>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <Button
+                            onClick={() => handleSave(prompt.prompt_type)}
+                            disabled={!changed || isSaving}
+                            size="sm"
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4 mr-1" />
+                                Save Changes
+                              </>
+                            )}
                           </Button>
                         </div>
-                      </div>
-                      <PromptEditor
-                        value={edited.prompt ?? prompt.prompt ?? ''}
-                        onChange={(value) => handleChange(prompt.prompt_type, 'prompt', value)}
-                        placeholderGroups={placeholderGroups}
-                        emptyFields={emptySellerFields}
-                      />
-                    </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor={`${prompt.prompt_type}-model`}>AI Model</Label>
-                      <Select
-                        value={edited.model ?? prompt.model ?? 'perplexity:sonar'}
-                        onValueChange={(value) => handleChange(prompt.prompt_type, 'model', value)}
-                      >
-                        <SelectTrigger id={`${prompt.prompt_type}-model`} className="w-full max-w-md">
-                          <SelectValue placeholder="Select model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                            Perplexity (Web Search + Citations)
-                          </div>
-                          {AI_MODELS.filter(m => m.provider === 'perplexity').map(model => (
-                            <SelectItem key={model.value} value={model.value}>
-                              {model.label}
-                            </SelectItem>
-                          ))}
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
-                            OpenAI / ChatGPT
-                          </div>
-                          {AI_MODELS.filter(m => m.provider === 'openai').map(model => (
-                            <SelectItem key={model.value} value={model.value}>
-                              {model.label}
-                            </SelectItem>
-                          ))}
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
-                            Anthropic / Claude
-                          </div>
-                          {AI_MODELS.filter(m => m.provider === 'anthropic').map(model => (
-                            <SelectItem key={model.value} value={model.value}>
-                              {model.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Perplexity models include real-time web search. OpenAI and Anthropic models use training knowledge.
-                      </p>
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                      <Button
-                        onClick={() => handleSave(prompt.prompt_type)}
-                        disabled={!changed || isSaving}
-                        size="sm"
-                      >
-                        {isSaving ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-1" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Refine Prompt Dialogs */}
+            {prompts.map((prompt) => {
+              const { config } = getConfigForPromptType(prompt.prompt_type);
+              if (!config) return null;
+              const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
+              const currentPromptValue = editedPrompts[prompt.prompt_type]?.prompt ?? prompt.prompt ?? '';
+              
+              return (
+                <RefinePromptDialog
+                  key={`refine-${prompt.prompt_type}`}
+                  open={refineDialogOpen === prompt.prompt_type}
+                  onOpenChange={(open) => setRefineDialogOpen(open ? prompt.prompt_type : null)}
+                  promptType={prompt.prompt_type}
+                  promptTitle={config.title}
+                  currentPrompt={currentPromptValue}
+                  placeholderGroups={placeholderGroups}
+                  onApply={(refinedPrompt) => {
+                    handleChange(prompt.prompt_type, 'prompt', refinedPrompt);
+                    setRefineDialogOpen(null);
+                  }}
+                />
               );
             })}
-          </div>
-        )}
+          </TabsContent>
 
-        {/* Refine Prompt Dialogs */}
-        {prompts.map((prompt) => {
-          const { config } = getConfigForPromptType(prompt.prompt_type);
-          if (!config) return null;
-          const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
-          const currentPromptValue = editedPrompts[prompt.prompt_type]?.prompt ?? prompt.prompt ?? '';
-          
-          return (
-            <RefinePromptDialog
-              key={`refine-${prompt.prompt_type}`}
-              open={refineDialogOpen === prompt.prompt_type}
-              onOpenChange={(open) => setRefineDialogOpen(open ? prompt.prompt_type : null)}
-              promptType={prompt.prompt_type}
-              promptTitle={config.title}
-              currentPrompt={currentPromptValue}
-              placeholderGroups={placeholderGroups}
-              onApply={(refinedPrompt) => {
-                handleChange(prompt.prompt_type, 'prompt', refinedPrompt);
-                setRefineDialogOpen(null);
-              }}
-            />
-          );
-        })}
+          {/* Tab 3: Settings & Usage */}
+          <TabsContent value="settings" className="space-y-6">
+            {/* Credit Usage - at top */}
+            <CreditUsageCard />
+
+            {/* Auto-Generate Settings */}
+            <AutoGenerateSettings />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
