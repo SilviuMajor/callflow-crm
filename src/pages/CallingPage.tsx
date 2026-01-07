@@ -11,7 +11,7 @@ import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
 import { OutcomePanel } from '@/components/OutcomePanel';
 import { QualifyingFields } from '@/components/QualifyingFields';
-import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
+
 import { AddContactModal } from '@/components/AddContactModal';
 import { ImportCSVModal } from '@/components/ImportCSVModal';
 import { MobilePanelIndicator } from '@/components/MobilePanelIndicator';
@@ -24,7 +24,7 @@ import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 export default function CallingPage() {
-  const [showSettings, setShowSettings] = useState(false);
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activePanel, setActivePanel] = useState(1);
@@ -190,12 +190,11 @@ export default function CallingPage() {
   if (isMobile) {
     return (
       <div className="h-screen flex flex-col bg-background">
-        <TopNav 
-          onSettingsClick={() => setShowSettings(true)} 
-          onExportCSV={handleExportCSV}
-          onExportJSON={handleExportJSON}
-          onImportClick={() => setShowImportModal(true)}
-        />
+          <TopNav
+            onExportCSV={handleExportCSV}
+            onExportJSON={handleExportJSON}
+            onImportClick={() => setShowImportModal(true)}
+          />
         
         <div 
           ref={scrollContainerRef}
@@ -282,12 +281,6 @@ export default function CallingPage() {
           onSelect={scrollToPanel}
         />
 
-        <QualifyingQuestionsSettings
-          open={showSettings}
-          onOpenChange={setShowSettings}
-          questions={questions}
-          onSave={handleSaveQuestions}
-        />
         
         <AddContactModal
           open={showAddModal}
@@ -310,12 +303,11 @@ export default function CallingPage() {
   // Desktop layout
   return (
     <div className="h-screen flex flex-col bg-background">
-      <TopNav 
-        onSettingsClick={() => setShowSettings(true)} 
-        onExportCSV={handleExportCSV}
-        onExportJSON={handleExportJSON}
-        onImportClick={() => setShowImportModal(true)}
-      />
+        <TopNav
+          onExportCSV={handleExportCSV}
+          onExportJSON={handleExportJSON}
+          onImportClick={() => setShowImportModal(true)}
+        />
       
       <div className="flex-1 flex overflow-hidden">
         <QueueList
@@ -396,12 +388,6 @@ export default function CallingPage() {
         </ResizablePanelGroup>
       </div>
 
-      <QualifyingQuestionsSettings
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        questions={questions}
-        onSave={handleSaveQuestions}
-      />
       
       <AddContactModal
         open={showAddModal}

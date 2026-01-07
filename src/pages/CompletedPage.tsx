@@ -15,7 +15,7 @@ import { Search, Phone, Mail, Building2, Globe, Calendar, Clock, AlertTriangle, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { QualifyingQuestionsSettings } from '@/components/QualifyingQuestionsSettings';
+
 import { ContactHistoryBar } from '@/components/ContactHistoryBar';
 import { AIResearchBox } from '@/components/AIResearchBox';
 import { NotesSection } from '@/components/NotesSection';
@@ -44,7 +44,7 @@ export default function CompletedPage() {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
+  
   
   // No-show dialog state
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
@@ -404,11 +404,10 @@ export default function CompletedPage() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <TopNav 
-        onExportCSV={handleExportCSV}
-        onExportJSON={handleExportJSON}
-        onSettingsClick={() => setShowSettings(true)}
-      />
+        <TopNav
+          onExportCSV={handleExportCSV}
+          onExportJSON={handleExportJSON}
+        />
       
       <div className="flex-1 overflow-hidden flex flex-col p-4">
         {/* Top Filters Row: POT + Date Range */}
@@ -1484,13 +1483,6 @@ export default function CompletedPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Settings Modal */}
-      <QualifyingQuestionsSettings
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        questions={questions}
-        onSave={handleSaveQuestions}
-      />
     </div>
   );
 }
