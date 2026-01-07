@@ -13,7 +13,7 @@ import {
   Database, Scroll, CheckCircle2, Webhook, Plug, Settings, 
   Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw,
   Send, AlertCircle, Building2, HelpCircle, Calendar, ExternalLink, 
-  Loader2, Check, Copy, Star
+  Loader2, Check, Copy, Star, LayoutGrid
 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -31,6 +31,7 @@ import { useCalendlySettings } from '@/hooks/useCalendlySettings';
 import { useCalcomSettings } from '@/hooks/useCalcomSettings';
 import { useStaticScripts } from '@/hooks/useStaticScripts';
 import { useStaticScriptSettings } from '@/hooks/useStaticScriptSettings';
+import { useContactCardSectionOrder, DEFAULT_SECTION_ORDER, SECTION_LABELS, SectionKey } from '@/hooks/useContactCardSectionOrder';
 
 // Types
 import { QualifyingQuestion, QuestionType, QUESTION_TYPES, CustomContactField, CompanyField } from '@/types/contact';
@@ -277,6 +278,21 @@ function SortableScriptItem({
   );
 }
 
+// Sortable Section Order Item
+function SortableSectionItem({ sectionKey }: { sectionKey: SectionKey }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sectionKey });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-3 bg-background border rounded-md">
+      <button {...attributes} {...listeners} className="cursor-grab hover:bg-muted p-1 rounded">
+        <GripVertical className="w-4 h-4 text-muted-foreground" />
+      </button>
+      <span className="flex-1 text-sm font-medium">{SECTION_LABELS[sectionKey]}</span>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('custom-fields');
   
@@ -312,6 +328,9 @@ export default function SettingsPage() {
   // Static scripts state
   const { scripts, addScript, updateScript, deleteScript, setDefaultScript, reorderScripts, isLoading: scriptsLoading } = useStaticScripts();
   const { settings: scriptSettings, updateSettings: updateScriptSettings, isLoading: scriptSettingsLoading } = useStaticScriptSettings();
+  
+  // Section order state
+  const { sectionOrder, isLoading: sectionOrderLoading, updateOrder: updateSectionOrder, resetToDefault: resetSectionOrder } = useContactCardSectionOrder();
   
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -513,6 +532,17 @@ export default function SettingsPage() {
     }
   };
 
+  // Section order drag
+  const handleDragEndSectionOrder = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = sectionOrder.findIndex(s => s === active.id);
+      const newIndex = sectionOrder.findIndex(s => s === over.id);
+      const newOrder = arrayMove(sectionOrder, oldIndex, newIndex) as SectionKey[];
+      updateSectionOrder(newOrder);
+    }
+  };
+
   // Delete confirmation
   const confirmDeleteItem = (id: string, type: 'question' | 'field' | 'company' | 'script') => {
     setPendingDeleteId(id);
@@ -680,6 +710,10 @@ export default function SettingsPage() {
             <TabsTrigger value="integrations" className="flex items-center gap-1 text-xs">
               <Plug className="w-3 h-3" />
               <span className="hidden sm:inline">Integrations</span>
+            </TabsTrigger>
+            <TabsTrigger value="layout" className="flex items-center gap-1 text-xs">
+              <LayoutGrid className="w-3 h-3" />
+              <span className="hidden sm:inline">Layout</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1218,6 +1252,39 @@ export default function SettingsPage() {
                 </Card>
               </>
             )}
+          </TabsContent>
+
+          {/* Layout Tab */}
+          <TabsContent value="layout" className="space-y-6 py-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                  <CardTitle className="text-base">Contact Card Section Order</CardTitle>
+                </div>
+                <CardDescription>Drag to reorder how sections appear on the contact card.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {sectionOrderLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndSectionOrder}>
+                    <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {sectionOrder.map((key) => (
+                          <SortableSectionItem key={key} sectionKey={key} />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                )}
+                <Button variant="outline" className="w-full" onClick={resetSectionOrder}>
+                  <RotateCcw className="w-4 h-4 mr-2" /> Reset to Default
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

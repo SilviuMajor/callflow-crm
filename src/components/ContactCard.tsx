@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Contact, CustomContactField, CompanyField } from '@/types/contact';
 import { Phone, Mail, Globe, ExternalLink, Copy, Check, Building2, User, ChevronDown, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast as sonnerToast } from 'sonner';
 import { useAutoGenerateSettings } from '@/hooks/useAutoGenerateSettings';
 import { StaticScriptCard } from '@/components/StaticScriptCard';
+import { useContactCardSectionOrder, SectionKey } from '@/hooks/useContactCardSectionOrder';
 
 interface ContactCardProps {
   contact: Contact;
@@ -47,6 +48,7 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   const { getCompanyFieldValues, updateCompanyData } = useCompanyData();
   const { isResearching, researchCompany, researchCompanyCustom, researchPersona } = useAIResearch();
   const { settings: autoGenSettings } = useAutoGenerateSettings();
+  const { sectionOrder } = useContactCardSectionOrder();
 
   // AI Research state
   const [companyAI, setCompanyAI] = useState<AICache>({});
@@ -402,22 +404,9 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
           />
         );
     }
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Callback indicator - at top */}
-      {contact.status === 'callback' && contact.callbackDate && (
-        <div className="p-2 rounded bg-[hsl(var(--callback-light))] border border-[hsl(var(--callback))]">
-          <p className="text-sm font-medium text-foreground">
-            📞 Callback: {formatCallbackDate(contact.callbackDate)}
-          </p>
-        </div>
-      )}
-
-      {/* History bar - horizontal scrollable */}
-      <ContactHistoryBar contactId={contact.id} />
-
+  // Section render functions
+  const renderContactInfo = () => (
+    <>
       {/* Two-column resizable layout (stacks on mobile) */}
       <div className="hidden md:block">
         <ResizablePanelGroup direction="horizontal" className="min-h-[300px] rounded-lg border border-border">
@@ -1009,59 +998,145 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
           />
         </div>
       </div>
+    </>
+  );
 
-      {/* AI Research Sections - Custom Research and Persona */}
-      <div className="space-y-3">
-        {/* Custom Company Research */}
-        <AIResearchBox
-          title="Targeted Research"
-          content={companyAI.ai_custom_research}
-          isLoading={isResearching[`custom_${contact.company}`] || false}
-          onRefresh={handleRefreshCustomResearch}
-          lastUpdated={companyAI.ai_custom_updated_at}
-          variant="custom"
-          buttonLabel="Run Research"
-          maxCollapsedLines={5}
-          disabled={targetedResearchDisabled}
-          disabledReason={getDisabledReason()}
-        />
+  const renderHistory = () => (
+    <ContactHistoryBar contactId={contact.id} />
+  );
 
-        {/* Persona */}
-        <AIResearchBox
-          title="Persona"
-          content={contactPersona}
-          isLoading={isResearching[`persona_${contact.id}`] || false}
-          onRefresh={handleRefreshPersona}
-          lastUpdated={personaUpdatedAt}
-          variant="persona"
-          buttonLabel="Refresh"
-          maxCollapsedLines={5}
-        />
+  const renderAIResearch = () => (
+    <div className="space-y-3">
+      {/* Custom Company Research */}
+      <AIResearchBox
+        title="Targeted Research"
+        content={companyAI.ai_custom_research}
+        isLoading={isResearching[`custom_${contact.company}`] || false}
+        onRefresh={handleRefreshCustomResearch}
+        lastUpdated={companyAI.ai_custom_updated_at}
+        variant="custom"
+        buttonLabel="Run Research"
+        maxCollapsedLines={5}
+        disabled={targetedResearchDisabled}
+        disabledReason={getDisabledReason()}
+      />
 
-        {/* AI Script - Yellow Box with Script Selector */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <ScriptSelector 
-              value={selectedScriptId} 
-              onChange={setSelectedScriptId}
-              disabled={isGeneratingScript || isAutoGenerating}
-            />
-          </div>
-          <AIResearchBox
-            title="AI Script"
-            content={aiScript}
-            isLoading={isGeneratingScript}
-            onRefresh={() => handleGenerateScript()}
-            lastUpdated={aiScriptUpdatedAt}
-            variant="script"
-            buttonLabel="Regenerate"
-            maxCollapsedLines={8}
+      {/* Persona */}
+      <AIResearchBox
+        title="Persona"
+        content={contactPersona}
+        isLoading={isResearching[`persona_${contact.id}`] || false}
+        onRefresh={handleRefreshPersona}
+        lastUpdated={personaUpdatedAt}
+        variant="persona"
+        buttonLabel="Refresh"
+        maxCollapsedLines={5}
+      />
+
+      {/* AI Script - Yellow Box with Script Selector */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <ScriptSelector 
+            value={selectedScriptId} 
+            onChange={setSelectedScriptId}
+            disabled={isGeneratingScript || isAutoGenerating}
           />
         </div>
+        <AIResearchBox
+          title="AI Script"
+          content={aiScript}
+          isLoading={isGeneratingScript}
+          onRefresh={() => handleGenerateScript()}
+          lastUpdated={aiScriptUpdatedAt}
+          variant="script"
+          buttonLabel="Regenerate"
+          maxCollapsedLines={8}
+        />
       </div>
+    </div>
+  );
 
-      {/* Static Script Card */}
-      <StaticScriptCard contact={contact} />
+  const renderStaticScript = () => (
+    <StaticScriptCard contact={contact} />
+  );
+
+  const renderCompanyFields = () => {
+    if (activeCompanyFields.length === 0 || !contact.company) return null;
+    
+    return (
+      <div className="space-y-2 p-2 rounded border border-primary/20 bg-primary/5">
+        <span className="text-xs text-primary font-medium flex items-center gap-1">
+          <Building2 className="w-3 h-3" />
+          Company Data (syncs to all {contact.company} contacts)
+        </span>
+        {activeCompanyFields.map(field => {
+          const fieldValue = getCompanyFieldValue(field);
+          const isEditing = editingField === `company_${field.id}`;
+          
+          return (
+            <div key={field.id} className="group flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-24 truncate flex-shrink-0" title={field.label}>
+                {field.label}:
+              </span>
+              {isEditing ? (
+                <div className="flex-1 flex gap-1">
+                  {renderFieldInput(field, true)}
+                  <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCompanyField(field.id)}>
+                    <Check className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <span 
+                    className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate"
+                    onClick={() => startEditing(`company_${field.id}`, fieldValue)}
+                  >
+                    {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                  </span>
+                  {fieldValue && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                      onClick={() => copyToClipboard(fieldValue, `company_${field.id}`)}
+                    >
+                      {copiedField === `company_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const sectionRenderers: Record<SectionKey, () => React.ReactNode> = {
+    contact_info: renderContactInfo,
+    history: renderHistory,
+    ai_research: renderAIResearch,
+    static_script: renderStaticScript,
+    company_fields: renderCompanyFields,
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Callback indicator - at top (always first) */}
+      {contact.status === 'callback' && contact.callbackDate && (
+        <div className="p-2 rounded bg-[hsl(var(--callback-light))] border border-[hsl(var(--callback))]">
+          <p className="text-sm font-medium text-foreground">
+            📞 Callback: {formatCallbackDate(contact.callbackDate)}
+          </p>
+        </div>
+      )}
+
+      {/* Render sections in order */}
+      {sectionOrder.map((sectionKey) => (
+        <div key={sectionKey}>
+          {sectionRenderers[sectionKey]?.()}
+        </div>
+      ))}
 
       {/* Auto-generate progress indicator */}
       {isAutoGenerating && autoGenProgress && (
@@ -1071,56 +1146,7 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
         </div>
       )}
 
-      {/* Company Fields */}
-      {activeCompanyFields.length > 0 && contact.company && (
-        <div className="space-y-2 p-2 rounded border border-primary/20 bg-primary/5">
-          <span className="text-xs text-primary font-medium flex items-center gap-1">
-            <Building2 className="w-3 h-3" />
-            Company Data (syncs to all {contact.company} contacts)
-          </span>
-          {activeCompanyFields.map(field => {
-            const fieldValue = getCompanyFieldValue(field);
-            const isEditing = editingField === `company_${field.id}`;
-            
-            return (
-              <div key={field.id} className="group flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-24 truncate flex-shrink-0" title={field.label}>
-                  {field.label}:
-                </span>
-                {isEditing ? (
-                  <div className="flex-1 flex gap-1">
-                    {renderFieldInput(field, true)}
-                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCompanyField(field.id)}>
-                      <Check className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <span 
-                      className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate"
-                      onClick={() => startEditing(`company_${field.id}`, fieldValue)}
-                    >
-                      {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
-                    </span>
-                    {fieldValue && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0"
-                        onClick={() => copyToClipboard(fieldValue, `company_${field.id}`)}
-                      >
-                        {copiedField === `company_${field.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Danger Zone - Hidden by default */}
+      {/* Danger Zone - Hidden by default (always at bottom) */}
       {onDelete && (
         <Collapsible className="mt-4 pt-4 border-t border-destructive/20">
           <CollapsibleTrigger asChild>

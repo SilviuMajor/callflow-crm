@@ -320,6 +320,27 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_card_section_order: {
+        Row: {
+          created_at: string
+          id: string
+          section_order: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          section_order?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          section_order?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_history: {
         Row: {
           action_timestamp: string
