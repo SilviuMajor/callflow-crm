@@ -9,7 +9,6 @@ export const DEFAULT_SECTION_ORDER = [
   'persona',
   'ai_script',
   'static_script',
-  'company_fields'
 ] as const;
 
 export type SectionKey = typeof DEFAULT_SECTION_ORDER[number];
@@ -21,7 +20,6 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   persona: 'Persona',
   ai_script: 'AI Script',
   static_script: 'Static Script',
-  company_fields: 'Company Fields',
 };
 
 export function useContactCardSectionOrder() {
