@@ -27,26 +27,29 @@ function getCallbackStatus(callbackDate: Date | undefined): {
 }
 
 function getCardStyle(contact: Contact, isActive: boolean): string {
-  if (isActive) {
-    return 'ring-2 ring-primary bg-primary/5';
-  }
+  const selectionClasses = isActive ? 'ring-2 ring-primary' : '';
   
   if (contact.status === 'callback' && contact.callbackDate) {
     const { isOverdue, hoursOverdue, isFuture } = getCallbackStatus(contact.callbackDate);
     
     if (isFuture) {
-      return 'bg-muted/50 border-muted-foreground/20';
+      return `bg-muted/50 border-muted-foreground/20 ${selectionClasses}`.trim();
     }
     
     if (isOverdue) {
-      if (hoursOverdue >= 24) return 'bg-[hsl(var(--callback-overdue-24))]/20 border-[hsl(var(--callback-overdue-24))]';
-      if (hoursOverdue >= 5) return 'bg-[hsl(var(--callback-overdue-5))]/20 border-[hsl(var(--callback-overdue-5))]';
-      if (hoursOverdue >= 3) return 'bg-[hsl(var(--callback-overdue-3))]/20 border-[hsl(var(--callback-overdue-3))]';
-      if (hoursOverdue >= 1) return 'bg-[hsl(var(--callback-overdue-1))]/20 border-[hsl(var(--callback-overdue-1))]';
-      return 'bg-[hsl(var(--callback-light))] border-[hsl(var(--callback))]';
+      if (hoursOverdue >= 24) return `bg-[hsl(var(--callback-overdue-24))]/20 border-[hsl(var(--callback-overdue-24))] ${selectionClasses}`.trim();
+      if (hoursOverdue >= 5) return `bg-[hsl(var(--callback-overdue-5))]/20 border-[hsl(var(--callback-overdue-5))] ${selectionClasses}`.trim();
+      if (hoursOverdue >= 3) return `bg-[hsl(var(--callback-overdue-3))]/20 border-[hsl(var(--callback-overdue-3))] ${selectionClasses}`.trim();
+      if (hoursOverdue >= 1) return `bg-[hsl(var(--callback-overdue-1))]/20 border-[hsl(var(--callback-overdue-1))] ${selectionClasses}`.trim();
+      return `bg-[hsl(var(--callback-light))] border-[hsl(var(--callback))] ${selectionClasses}`.trim();
     }
     
-    return 'bg-[hsl(var(--callback-light))] border-[hsl(var(--callback))]';
+    return `bg-[hsl(var(--callback-light))] border-[hsl(var(--callback))] ${selectionClasses}`.trim();
+  }
+  
+  // Non-callback contacts
+  if (isActive) {
+    return 'ring-2 ring-primary bg-primary/5';
   }
   
   return 'bg-card hover:bg-accent/50';

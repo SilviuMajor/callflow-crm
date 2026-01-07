@@ -42,42 +42,69 @@ export function CalcomEmbed({
 
     // Build the Cal.com embed URL
     // Handle both full URLs and just slugs
-    const baseUrl = eventTypeSlug.startsWith('http') 
-      ? eventTypeSlug 
-      : `https://cal.com/${eventTypeSlug}`;
+    let baseUrl = eventTypeSlug;
     
+    // Clean up the URL - remove any trailing slashes and ensure proper format
+    if (!baseUrl.startsWith('http')) {
+      // If it's just a slug like "username/event-type", add the base URL
+      baseUrl = `https://cal.com/${baseUrl}`;
+    }
+    
+    // Use Cal.com's embed parameter format
     const params = new URLSearchParams();
     if (name) params.set('name', name);
     if (email) params.set('email', email);
     if (notes) params.set('notes', notes);
+    if (phone) params.set('guests', ''); // Clear guests, phone goes in notes
     
-    const embedUrl = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+    // Add embed=true for proper embed mode
+    params.set('embed', 'true');
+    params.set('theme', 'light');
+    params.set('hideEventTypeDetails', 'false');
+    
+    const embedUrl = `${baseUrl}?${params.toString()}`;
+    
+    console.log('[CalcomEmbed] Loading embed URL:', embedUrl);
 
-    // Create iframe
+    // Create iframe with proper embed settings
     const iframe = document.createElement('iframe');
     iframe.src = embedUrl;
     iframe.style.width = '100%';
     iframe.style.height = '100%';
+    iframe.style.minHeight = '600px';
     iframe.style.border = 'none';
     iframe.style.borderRadius = '8px';
     iframe.setAttribute('loading', 'lazy');
+    iframe.setAttribute('allow', 'payment');
 
     if (containerRef.current) {
       containerRef.current.appendChild(iframe);
     }
 
-    // Listen for booking completed message
+    // Listen for booking completed message from Cal.com
     const handleMessage = (event: MessageEvent) => {
+      // Cal.com sends messages from their domain
       if (!event.origin.includes('cal.com')) return;
+      
+      console.log('[CalcomEmbed] Received message from Cal.com:', event.data);
       
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data.type === 'booking-successful' || data.type === 'booking_successful' || 
-            data.event === 'booking-successful' || data.event === 'bookingSuccessful') {
+        
+        // Cal.com uses various event formats
+        if (
+          data.type === 'booking-successful' || 
+          data.type === 'booking_successful' ||
+          data.type === 'bookingSuccessful' ||
+          data.event === 'booking-successful' || 
+          data.event === 'bookingSuccessful' ||
+          (data.data && data.data.type === 'booking-successful')
+        ) {
+          console.log('[CalcomEmbed] Booking successful detected!');
           onEventScheduled();
         }
       } catch {
-        // Ignore parse errors
+        // Some messages aren't JSON, that's okay
       }
     };
 
@@ -85,6 +112,9 @@ export function CalcomEmbed({
 
     return () => {
       window.removeEventListener('message', handleMessage);
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
     };
   }, [open, eventTypeSlug, contact, onEventScheduled]);
 
