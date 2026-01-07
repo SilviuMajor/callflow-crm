@@ -334,6 +334,26 @@ serve(async (req) => {
 
     console.log(`Research complete. Content length: ${result.content.length}, Citations: ${result.citations?.length || 0}`);
 
+    // Log credit usage
+    const featureTypeMap: Record<string, string> = {
+      'company_search': 'company_research',
+      'custom_company_research': 'targeted_research',
+      'persona': 'contact_persona'
+    };
+    
+    try {
+      await supabase.from('ai_credits_usage').insert({
+        feature_type: featureTypeMap[type] || type,
+        credits_used: 1,
+        contact_id: context.contact_id || null,
+        metadata: { model: promptConfig.model, provider }
+      });
+      console.log(`Credit logged for ${type}`);
+    } catch (creditError) {
+      console.error('Failed to log credit usage:', creditError);
+      // Don't fail the request if credit logging fails
+    }
+
     return new Response(JSON.stringify({ 
       content: result.content,
       citations: result.citations || [],
