@@ -148,7 +148,7 @@ function HistoryCard({
         </p>
       </div>
       {contextText && (
-        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">
           {contextText}
         </p>
       )}

@@ -33,6 +33,7 @@ const PROMPT_CONFIG = {
     description: 'AI will research the company when you click Generate. Uses company name and website.',
     icon: Building2,
     color: 'text-blue-500',
+    borderClass: 'border-2 border-blue-400/30',
     defaultPrompt: `Research the company {company_name}. Their website is {website}.
 
 Provide a comprehensive overview including:
@@ -50,6 +51,7 @@ Keep the response concise but informative.`,
     description: 'Custom research using your company context. Drag or click placeholders to build your prompt.',
     icon: Target,
     color: 'text-purple-500',
+    borderClass: 'border-2 border-purple-400/30',
     defaultPrompt: `Research how to approach {company_name} ({website}) as a potential customer for {seller_company_name}.
 
 About us:
@@ -72,6 +74,7 @@ Keep the response actionable and focused.`,
     description: 'AI will research the contact person to understand their role and how to approach them.',
     icon: Users,
     color: 'text-emerald-500',
+    borderClass: 'border-2 border-emerald-400/30',
     defaultPrompt: `Research {first_name} {last_name}, {job_title} at {company}.
 
 Provide insights on:
@@ -665,7 +668,7 @@ export default function AISettingsPage() {
                   const placeholderGroups = getPlaceholderGroups(prompt.prompt_type);
 
                   return (
-                    <Card key={prompt.prompt_type} className="relative">
+                    <Card key={prompt.prompt_type} className={`relative ${config.borderClass || ''}`}>
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
