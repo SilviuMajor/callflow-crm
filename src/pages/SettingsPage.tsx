@@ -690,7 +690,7 @@ export default function SettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="custom-fields" className="flex items-center gap-1 text-xs">
               <Database className="w-3 h-3" />
               <span className="hidden sm:inline">Custom Fields</span>

@@ -1007,54 +1007,53 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
     <ContactHistoryBar contactId={contact.id} />
   );
 
-  const renderAIResearch = () => (
-    <div className="space-y-3">
-      {/* Custom Company Research */}
-      <AIResearchBox
-        title="Targeted Research"
-        content={companyAI.ai_custom_research}
-        isLoading={isResearching[`custom_${contact.company}`] || false}
-        onRefresh={handleRefreshCustomResearch}
-        lastUpdated={companyAI.ai_custom_updated_at}
-        variant="custom"
-        buttonLabel="Run Research"
-        maxCollapsedLines={5}
-        disabled={targetedResearchDisabled}
-        disabledReason={getDisabledReason()}
-      />
+  const renderTargetedResearch = () => (
+    <AIResearchBox
+      title="Targeted Research"
+      content={companyAI.ai_custom_research}
+      isLoading={isResearching[`custom_${contact.company}`] || false}
+      onRefresh={handleRefreshCustomResearch}
+      lastUpdated={companyAI.ai_custom_updated_at}
+      variant="custom"
+      buttonLabel="Run Research"
+      maxCollapsedLines={5}
+      disabled={targetedResearchDisabled}
+      disabledReason={getDisabledReason()}
+    />
+  );
 
-      {/* Persona */}
-      <AIResearchBox
-        title="Persona"
-        content={contactPersona}
-        isLoading={isResearching[`persona_${contact.id}`] || false}
-        onRefresh={handleRefreshPersona}
-        lastUpdated={personaUpdatedAt}
-        variant="persona"
-        buttonLabel="Refresh"
-        maxCollapsedLines={5}
-      />
+  const renderPersona = () => (
+    <AIResearchBox
+      title="Persona"
+      content={contactPersona}
+      isLoading={isResearching[`persona_${contact.id}`] || false}
+      onRefresh={handleRefreshPersona}
+      lastUpdated={personaUpdatedAt}
+      variant="persona"
+      buttonLabel="Refresh"
+      maxCollapsedLines={5}
+    />
+  );
 
-      {/* AI Script - Yellow Box with Script Selector */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <ScriptSelector 
-            value={selectedScriptId} 
-            onChange={setSelectedScriptId}
-            disabled={isGeneratingScript || isAutoGenerating}
-          />
-        </div>
-        <AIResearchBox
-          title="AI Script"
-          content={aiScript}
-          isLoading={isGeneratingScript}
-          onRefresh={() => handleGenerateScript()}
-          lastUpdated={aiScriptUpdatedAt}
-          variant="script"
-          buttonLabel="Regenerate"
-          maxCollapsedLines={8}
+  const renderAIScript = () => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <ScriptSelector 
+          value={selectedScriptId} 
+          onChange={setSelectedScriptId}
+          disabled={isGeneratingScript || isAutoGenerating}
         />
       </div>
+      <AIResearchBox
+        title="AI Script"
+        content={aiScript}
+        isLoading={isGeneratingScript}
+        onRefresh={() => handleGenerateScript()}
+        lastUpdated={aiScriptUpdatedAt}
+        variant="script"
+        buttonLabel="Regenerate"
+        maxCollapsedLines={8}
+      />
     </div>
   );
 
@@ -1117,7 +1116,9 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   const sectionRenderers: Record<SectionKey, () => React.ReactNode> = {
     contact_info: renderContactInfo,
     history: renderHistory,
-    ai_research: renderAIResearch,
+    targeted_research: renderTargetedResearch,
+    persona: renderPersona,
+    ai_script: renderAIScript,
     static_script: renderStaticScript,
     company_fields: renderCompanyFields,
   };
@@ -1135,9 +1136,9 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
 
       {/* Render sections in order */}
       {sectionOrder.map((sectionKey) => (
-        <div key={sectionKey}>
+        <React.Fragment key={sectionKey}>
           {sectionRenderers[sectionKey]?.()}
-        </div>
+        </React.Fragment>
       ))}
 
       {/* Auto-generate progress indicator */}
