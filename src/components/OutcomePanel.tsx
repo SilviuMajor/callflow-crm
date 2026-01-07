@@ -16,7 +16,9 @@ import {
 import { useWebhookSettings } from '@/hooks/useWebhookSettings';
 import { useOutcomeOptions } from '@/hooks/useOutcomeOptions';
 import { useCalendlySettings } from '@/hooks/useCalendlySettings';
+import { useCalcomSettings } from '@/hooks/useCalcomSettings';
 import { CalendlyEmbed } from '@/components/CalendlyEmbed';
+import { CalcomEmbed } from '@/components/CalcomEmbed';
 
 interface OutcomePanelProps {
   contact: Contact;
@@ -35,6 +37,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [showNotInterestedModal, setShowNotInterestedModal] = useState(false);
   const [showCalendlyModal, setShowCalendlyModal] = useState(false);
+  const [showCalcomModal, setShowCalcomModal] = useState(false);
   
   const [callbackDate, setCallbackDate] = useState('');
   const [callbackTime, setCallbackTime] = useState('');
@@ -66,9 +69,13 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
   const { completedOptions, notInterestedOptions } = useOutcomeOptions();
   const { settings: calendlySettings } = useCalendlySettings();
+  const { settings: calcomSettings } = useCalcomSettings();
 
   // Check if Calendly is enabled and configured
   const isCalendlyEnabled = calendlySettings.enabled && calendlySettings.calendly_url;
+  
+  // Check if Cal.com is enabled and configured
+  const isCalcomEnabled = calcomSettings?.enabled && calcomSettings?.event_type_slug;
 
   // Set default values based on first option from database
   useEffect(() => {
@@ -167,6 +174,29 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
       setShowCompletedModal(true);
       toast.info('Please confirm appointment details', {
         description: 'Enter the appointment date and time from Calendly.',
+      });
+    }, 3000);
+  };
+
+  // Handle Cal.com booking completion
+  const handleCalcomEventScheduled = () => {
+    setShowCalcomModal(false);
+    setWaitingForWebhook(true);
+    
+    toast.success('Appointment scheduled!', {
+      description: 'Waiting for confirmation...',
+    });
+    
+    // After 3 seconds, show the manual confirmation modal as fallback
+    setTimeout(() => {
+      setWaitingForWebhook(false);
+      const today = new Date();
+      setAppointmentDate(today.toISOString().split('T')[0]);
+      setAppointmentTime('09:00');
+      setCompletedReason('appointment_booked');
+      setShowCompletedModal(true);
+      toast.info('Please confirm appointment details', {
+        description: 'Enter the appointment date and time from Cal.com.',
       });
     }, 3000);
   };
@@ -310,25 +340,43 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
             {/* Appointment booking section - show Calendly or manual picker */}
             {completedReason === 'appointment_booked' && (
               <div className="space-y-3 p-2 bg-muted/50 rounded border border-border">
-                {isCalendlyEnabled ? (
+                {(isCalendlyEnabled || isCalcomEnabled) && (
                   <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-center gap-2"
-                      onClick={() => {
-                        setShowCompletedModal(false);
-                        setShowCalendlyModal(true);
-                      }}
-                    >
-                      <Calendar className="w-4 h-4" />
-                      Book via Calendly
-                    </Button>
+                    <div className="flex gap-2">
+                      {isCalendlyEnabled && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 justify-center gap-2"
+                          onClick={() => {
+                            setShowCompletedModal(false);
+                            setShowCalendlyModal(true);
+                          }}
+                        >
+                          <Calendar className="w-4 h-4" />
+                          Book via Calendly
+                        </Button>
+                      )}
+                      {isCalcomEnabled && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 justify-center gap-2"
+                          onClick={() => {
+                            setShowCompletedModal(false);
+                            setShowCalcomModal(true);
+                          }}
+                        >
+                          <Calendar className="w-4 h-4" />
+                          Book via Cal.com
+                        </Button>
+                      )}
+                    </div>
                     <div className="text-center">
                       <span className="text-xs text-muted-foreground">or enter manually</span>
                     </div>
                   </>
-                ) : null}
+                )}
                 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
@@ -404,6 +452,17 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
           open={showCalendlyModal}
           onOpenChange={setShowCalendlyModal}
           onEventScheduled={handleCalendlyEventScheduled}
+        />
+      )}
+
+      {/* Cal.com Embed Modal */}
+      {isCalcomEnabled && calcomSettings?.event_type_slug && (
+        <CalcomEmbed
+          contact={contact}
+          eventTypeSlug={calcomSettings.event_type_slug}
+          open={showCalcomModal}
+          onOpenChange={setShowCalcomModal}
+          onEventScheduled={handleCalcomEventScheduled}
         />
       )}
 
