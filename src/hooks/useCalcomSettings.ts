@@ -1,12 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface CalcomFieldMappings {
+  phone?: string;
+  company?: string;
+  jobTitle?: string;
+  [key: string]: string | undefined;
+}
+
 export interface CalcomSettings {
   id: string;
   enabled: boolean;
   api_key: string | null;
   event_type_slug: string | null;
   webhook_secret: string | null;
+  field_mappings: CalcomFieldMappings;
 }
 
 export function useCalcomSettings() {
@@ -16,6 +24,7 @@ export function useCalcomSettings() {
     api_key: null,
     event_type_slug: null,
     webhook_secret: null,
+    field_mappings: {},
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -39,6 +48,7 @@ export function useCalcomSettings() {
         api_key: data.api_key,
         event_type_slug: data.event_type_slug,
         webhook_secret: data.webhook_secret,
+        field_mappings: (data.field_mappings as CalcomFieldMappings) || {},
       });
     }
     setIsLoading(false);
@@ -58,6 +68,7 @@ export function useCalcomSettings() {
           api_key: updates.api_key ?? null,
           event_type_slug: updates.event_type_slug ?? null,
           webhook_secret: updates.webhook_secret ?? null,
+          field_mappings: updates.field_mappings ?? {},
         })
         .select()
         .single();
@@ -74,6 +85,7 @@ export function useCalcomSettings() {
           api_key: data.api_key,
           event_type_slug: data.event_type_slug,
           webhook_secret: data.webhook_secret,
+          field_mappings: (data.field_mappings as CalcomFieldMappings) || {},
         });
       }
       return true;
