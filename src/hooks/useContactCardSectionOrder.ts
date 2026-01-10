@@ -22,8 +22,26 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   static_script: 'Static Script',
 };
 
+// Sections that can have expanded defaults
+export const EXPANDABLE_SECTIONS: SectionKey[] = [
+  'targeted_research',
+  'persona',
+  'ai_script',
+  'static_script',
+];
+
+export type SectionExpandedDefaults = Record<string, boolean>;
+
+const DEFAULT_EXPANDED_DEFAULTS: SectionExpandedDefaults = {
+  targeted_research: false,
+  persona: false,
+  ai_script: false,
+  static_script: false,
+};
+
 export function useContactCardSectionOrder() {
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>([...DEFAULT_SECTION_ORDER]);
+  const [sectionExpandedDefaults, setSectionExpandedDefaults] = useState<SectionExpandedDefaults>({ ...DEFAULT_EXPANDED_DEFAULTS });
   const [isLoading, setIsLoading] = useState(true);
   const [settingsId, setSettingsId] = useState<string | null>(null);
 
@@ -41,19 +59,24 @@ export function useContactCardSectionOrder() {
           // No rows exist, create default
           const { data: newData, error: insertError } = await supabase
             .from('contact_card_section_order')
-            .insert({ section_order: [...DEFAULT_SECTION_ORDER] })
+            .insert({ 
+              section_order: [...DEFAULT_SECTION_ORDER],
+              section_expanded_defaults: { ...DEFAULT_EXPANDED_DEFAULTS }
+            })
             .select()
             .single();
 
           if (insertError) throw insertError;
           if (newData) {
             setSectionOrder(newData.section_order as SectionKey[]);
+            setSectionExpandedDefaults((newData.section_expanded_defaults as SectionExpandedDefaults) || { ...DEFAULT_EXPANDED_DEFAULTS });
             setSettingsId(newData.id);
           }
         } else if (error) {
           throw error;
         } else if (data) {
           setSectionOrder(data.section_order as SectionKey[]);
+          setSectionExpandedDefaults((data.section_expanded_defaults as SectionExpandedDefaults) || { ...DEFAULT_EXPANDED_DEFAULTS });
           setSettingsId(data.id);
         }
       } catch (err) {
@@ -84,15 +107,54 @@ export function useContactCardSectionOrder() {
     }
   }, [settingsId]);
 
+  const updateExpandedDefault = useCallback(async (sectionKey: SectionKey, isExpanded: boolean) => {
+    if (!settingsId) return;
+
+    const newDefaults = { ...sectionExpandedDefaults, [sectionKey]: isExpanded };
+    setSectionExpandedDefaults(newDefaults);
+    
+    try {
+      const { error } = await supabase
+        .from('contact_card_section_order')
+        .update({ section_expanded_defaults: newDefaults })
+        .eq('id', settingsId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to update expanded default:', err);
+      toast.error('Failed to save expanded setting');
+    }
+  }, [settingsId, sectionExpandedDefaults]);
+
   const resetToDefault = useCallback(async () => {
-    await updateOrder([...DEFAULT_SECTION_ORDER]);
-    toast.success('Section order reset to default');
-  }, [updateOrder]);
+    if (!settingsId) return;
+    
+    setSectionOrder([...DEFAULT_SECTION_ORDER]);
+    setSectionExpandedDefaults({ ...DEFAULT_EXPANDED_DEFAULTS });
+    
+    try {
+      const { error } = await supabase
+        .from('contact_card_section_order')
+        .update({ 
+          section_order: [...DEFAULT_SECTION_ORDER],
+          section_expanded_defaults: { ...DEFAULT_EXPANDED_DEFAULTS }
+        })
+        .eq('id', settingsId);
+
+      if (error) throw error;
+      toast.success('Section order reset to default');
+    } catch (err) {
+      console.error('Failed to reset section order:', err);
+      toast.error('Failed to reset section order');
+    }
+  }, [settingsId]);
 
   return {
     sectionOrder,
+    sectionExpandedDefaults,
     isLoading,
     updateOrder,
+    updateExpandedDefault,
     resetToDefault,
   };
 }
