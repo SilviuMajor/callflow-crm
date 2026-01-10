@@ -31,7 +31,7 @@ import { useCalendlySettings } from '@/hooks/useCalendlySettings';
 import { useCalcomSettings } from '@/hooks/useCalcomSettings';
 import { useStaticScripts } from '@/hooks/useStaticScripts';
 import { useStaticScriptSettings } from '@/hooks/useStaticScriptSettings';
-import { useContactCardSectionOrder, DEFAULT_SECTION_ORDER, SECTION_LABELS, SectionKey } from '@/hooks/useContactCardSectionOrder';
+import { useContactCardSectionOrder, DEFAULT_SECTION_ORDER, SECTION_LABELS, SectionKey, EXPANDABLE_SECTIONS } from '@/hooks/useContactCardSectionOrder';
 
 // Types
 import { QualifyingQuestion, QuestionType, QUESTION_TYPES, CustomContactField, CompanyField } from '@/types/contact';
@@ -279,7 +279,17 @@ function SortableScriptItem({
 }
 
 // Sortable Section Order Item
-function SortableSectionItem({ sectionKey }: { sectionKey: SectionKey }) {
+function SortableSectionItem({ 
+  sectionKey, 
+  isExpanded, 
+  onExpandedChange,
+  showExpandToggle 
+}: { 
+  sectionKey: SectionKey;
+  isExpanded?: boolean;
+  onExpandedChange?: (isExpanded: boolean) => void;
+  showExpandToggle?: boolean;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sectionKey });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -289,6 +299,15 @@ function SortableSectionItem({ sectionKey }: { sectionKey: SectionKey }) {
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </button>
       <span className="flex-1 text-sm font-medium">{SECTION_LABELS[sectionKey]}</span>
+      {showExpandToggle && (
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Expanded</Label>
+          <Switch
+            checked={isExpanded}
+            onCheckedChange={onExpandedChange}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -317,7 +336,7 @@ export default function SettingsPage() {
   
   // Integrations state
   const { settings: calendlySettings, isLoading: isLoadingCalendly, updateSettings: updateCalendlySettings } = useCalendlySettings();
-  const { settings: calcomSettings, isLoading: isLoadingCalcom, updateSettings: updateCalcomSettings } = useCalcomSettings();
+  const { settings: calcomSettings, isLoading: isLoadingCalcom, updateSettings: updateCalcomSettings, availableFields: calcomAvailableFields, isFetchingFields: isFetchingCalcomFields, fetchBookingFields: fetchCalcomBookingFields } = useCalcomSettings();
   const [calendlyEnabled, setCalendlyEnabled] = useState(false);
   const [calendlyUrl, setCalendlyUrl] = useState('');
   const [calcomEnabled, setCalcomEnabled] = useState(false);
@@ -335,7 +354,7 @@ export default function SettingsPage() {
   const { settings: scriptSettings, updateSettings: updateScriptSettings, isLoading: scriptSettingsLoading } = useStaticScriptSettings();
   
   // Section order state
-  const { sectionOrder, isLoading: sectionOrderLoading, updateOrder: updateSectionOrder, resetToDefault: resetSectionOrder } = useContactCardSectionOrder();
+  const { sectionOrder, sectionExpandedDefaults, isLoading: sectionOrderLoading, updateOrder: updateSectionOrder, updateExpandedDefault, resetToDefault: resetSectionOrder } = useContactCardSectionOrder();
   const [pendingSectionOrder, setPendingSectionOrder] = useState<SectionKey[] | null>(null);
   const [isSavingSectionOrder, setIsSavingSectionOrder] = useState(false);
   
@@ -937,23 +956,13 @@ export default function SettingsPage() {
                     <CardTitle className="text-base">Static Scripts</CardTitle>
                     <CardDescription>Pre-written scripts with placeholder support.</CardDescription>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="script-enabled" className="text-sm">Show on Contact Card</Label>
-                      <Switch
-                        id="script-enabled"
-                        checked={scriptSettings?.enabled ?? true}
-                        onCheckedChange={(checked) => updateScriptSettings({ enabled: checked })}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="script-expanded" className="text-sm">Start Expanded</Label>
-                      <Switch
-                        id="script-expanded"
-                        checked={scriptSettings?.default_expanded ?? false}
-                        onCheckedChange={(checked) => updateScriptSettings({ default_expanded: checked })}
-                      />
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="script-enabled" className="text-sm">Show on Contact Card</Label>
+                    <Switch
+                      id="script-enabled"
+                      checked={scriptSettings?.enabled ?? true}
+                      onCheckedChange={(checked) => updateScriptSettings({ enabled: checked })}
+                    />
                   </div>
                 </div>
               </CardHeader>
@@ -1262,43 +1271,121 @@ export default function SettingsPage() {
                     {/* Field Mappings Section */}
                     {calcomEnabled && (
                       <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
-                        <div>
-                          <Label className="text-sm font-medium">Field Mappings</Label>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Map contact fields to Cal.com booking question identifiers. Find these in your Cal.com event's booking form settings.
-                          </p>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-sm font-medium">Field Mappings</Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Map contact fields to Cal.com booking fields.
+                            </p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => fetchCalcomBookingFields(calcomEventSlug)}
+                            disabled={!calcomEventSlug || isFetchingCalcomFields}
+                          >
+                            {isFetchingCalcomFields ? (
+                              <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Fetching...</>
+                            ) : (
+                              'Fetch Fields'
+                            )}
+                          </Button>
                         </div>
-                        <div className="grid gap-3">
-                          <div className="grid grid-cols-2 gap-2 items-center">
-                            <Label className="text-xs">Phone Number</Label>
-                            <Input
-                              placeholder="e.g., phone or location"
-                              value={calcomFieldMappings.phone || ''}
-                              onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, phone: e.target.value || undefined }))}
-                              className="h-8 text-sm"
-                            />
+                        
+                        {calcomAvailableFields.length > 0 ? (
+                          <div className="grid gap-3">
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-xs">Phone Number</Label>
+                              <Select
+                                value={calcomFieldMappings.phone || ''}
+                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, phone: value || undefined }))}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select field..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {calcomAvailableFields.map(field => (
+                                    <SelectItem key={field.slug} value={field.slug}>
+                                      {field.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-xs">Company</Label>
+                              <Select
+                                value={calcomFieldMappings.company || ''}
+                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, company: value || undefined }))}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select field..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {calcomAvailableFields.map(field => (
+                                    <SelectItem key={field.slug} value={field.slug}>
+                                      {field.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-xs">Job Title</Label>
+                              <Select
+                                value={calcomFieldMappings.jobTitle || ''}
+                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, jobTitle: value || undefined }))}
+                              >
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue placeholder="Select field..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {calcomAvailableFields.map(field => (
+                                    <SelectItem key={field.slug} value={field.slug}>
+                                      {field.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 items-center">
-                            <Label className="text-xs">Company</Label>
-                            <Input
-                              placeholder="e.g., company"
-                              value={calcomFieldMappings.company || ''}
-                              onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, company: e.target.value || undefined }))}
-                              className="h-8 text-sm"
-                            />
+                        ) : (
+                          <div className="grid gap-3">
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-xs">Phone Number</Label>
+                              <Input
+                                placeholder="e.g., phone or location"
+                                value={calcomFieldMappings.phone || ''}
+                                onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, phone: e.target.value || undefined }))}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-xs">Company</Label>
+                              <Input
+                                placeholder="e.g., company"
+                                value={calcomFieldMappings.company || ''}
+                                onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, company: e.target.value || undefined }))}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-xs">Job Title</Label>
+                              <Input
+                                placeholder="e.g., jobTitle"
+                                value={calcomFieldMappings.jobTitle || ''}
+                                onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, jobTitle: e.target.value || undefined }))}
+                                className="h-8 text-sm"
+                              />
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 items-center">
-                            <Label className="text-xs">Job Title</Label>
-                            <Input
-                              placeholder="e.g., jobTitle"
-                              value={calcomFieldMappings.jobTitle || ''}
-                              onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, jobTitle: e.target.value || undefined }))}
-                              className="h-8 text-sm"
-                            />
-                          </div>
-                        </div>
+                        )}
+                        
                         <p className="text-xs text-muted-foreground">
-                          Tip: Use "location" for Phone if your Cal.com event uses phone call as a location option.
+                          Click "Fetch Fields" to load available booking fields from your Cal.com event.
                         </p>
                       </div>
                     )}
@@ -1351,7 +1438,13 @@ export default function SettingsPage() {
                     <SortableContext items={displaySectionOrder} strategy={verticalListSortingStrategy}>
                       <div className="space-y-2">
                         {displaySectionOrder.map((key) => (
-                          <SortableSectionItem key={key} sectionKey={key} />
+                          <SortableSectionItem 
+                            key={key} 
+                            sectionKey={key}
+                            showExpandToggle={EXPANDABLE_SECTIONS.includes(key)}
+                            isExpanded={sectionExpandedDefaults[key] ?? false}
+                            onExpandedChange={(checked) => updateExpandedDefault(key, checked)}
+                          />
                         ))}
                       </div>
                     </SortableContext>

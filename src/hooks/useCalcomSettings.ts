@@ -17,6 +17,12 @@ export interface CalcomSettings {
   field_mappings: CalcomFieldMappings;
 }
 
+export interface CalcomBookingField {
+  slug: string;
+  label: string;
+  type: string;
+}
+
 export function useCalcomSettings() {
   const [settings, setSettings] = useState<CalcomSettings>({
     id: '',
@@ -27,6 +33,8 @@ export function useCalcomSettings() {
     field_mappings: {},
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [availableFields, setAvailableFields] = useState<CalcomBookingField[]>([]);
+  const [isFetchingFields, setIsFetchingFields] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     const { data, error } = await supabase
@@ -57,6 +65,31 @@ export function useCalcomSettings() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  const fetchBookingFields = useCallback(async (eventSlug: string): Promise<CalcomBookingField[]> => {
+    if (!eventSlug) return [];
+    
+    setIsFetchingFields(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('calcom-booking-fields', {
+        body: { eventSlug }
+      });
+
+      if (error) {
+        console.error('Error fetching booking fields:', error);
+        return [];
+      }
+
+      const fields = data?.fields || [];
+      setAvailableFields(fields);
+      return fields;
+    } catch (err) {
+      console.error('Error fetching booking fields:', err);
+      return [];
+    } finally {
+      setIsFetchingFields(false);
+    }
+  }, []);
 
   const updateSettings = async (updates: Partial<Omit<CalcomSettings, 'id'>>) => {
     // If no settings exist yet, create a new row
@@ -111,5 +144,8 @@ export function useCalcomSettings() {
     isLoading,
     updateSettings,
     refetch: fetchSettings,
+    availableFields,
+    isFetchingFields,
+    fetchBookingFields,
   };
 }

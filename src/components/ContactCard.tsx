@@ -48,7 +48,7 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   const { getCompanyFieldValues, updateCompanyData } = useCompanyData();
   const { isResearching, researchCompany, researchCompanyCustom, researchPersona } = useAIResearch();
   const { settings: autoGenSettings } = useAutoGenerateSettings();
-  const { sectionOrder } = useContactCardSectionOrder();
+  const { sectionOrder, sectionExpandedDefaults } = useContactCardSectionOrder();
 
   // AI Research state
   const [companyAI, setCompanyAI] = useState<AICache>({});
@@ -1063,57 +1063,95 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   );
 
   const renderTargetedResearch = () => (
-    <AIResearchBox
-      title="Targeted Research"
-      content={companyAI.ai_custom_research}
-      isLoading={isResearching[`custom_${contact.company}`] || false}
-      onRefresh={handleRefreshCustomResearch}
-      lastUpdated={companyAI.ai_custom_updated_at}
-      variant="custom"
-      buttonLabel="Run Research"
-      maxCollapsedLines={5}
-      disabled={targetedResearchDisabled}
-      disabledReason={getDisabledReason()}
-    />
+    <Collapsible defaultOpen={sectionExpandedDefaults?.targeted_research ?? false}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto hover:bg-muted/50">
+          <span className="text-sm font-medium">Targeted Research</span>
+          <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <AIResearchBox
+          title=""
+          content={companyAI.ai_custom_research}
+          isLoading={isResearching[`custom_${contact.company}`] || false}
+          onRefresh={handleRefreshCustomResearch}
+          lastUpdated={companyAI.ai_custom_updated_at}
+          variant="custom"
+          buttonLabel="Run Research"
+          maxCollapsedLines={5}
+          disabled={targetedResearchDisabled}
+          disabledReason={getDisabledReason()}
+        />
+      </CollapsibleContent>
+    </Collapsible>
   );
 
   const renderPersona = () => (
-    <AIResearchBox
-      title="Persona"
-      content={contactPersona}
-      isLoading={isResearching[`persona_${contact.id}`] || false}
-      onRefresh={handleRefreshPersona}
-      lastUpdated={personaUpdatedAt}
-      variant="persona"
-      buttonLabel="Refresh"
-      maxCollapsedLines={5}
-    />
+    <Collapsible defaultOpen={sectionExpandedDefaults?.persona ?? false}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto hover:bg-muted/50">
+          <span className="text-sm font-medium">Persona</span>
+          <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <AIResearchBox
+          title=""
+          content={contactPersona}
+          isLoading={isResearching[`persona_${contact.id}`] || false}
+          onRefresh={handleRefreshPersona}
+          lastUpdated={personaUpdatedAt}
+          variant="persona"
+          buttonLabel="Refresh"
+          maxCollapsedLines={5}
+        />
+      </CollapsibleContent>
+    </Collapsible>
   );
 
   const renderAIScript = () => (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <ScriptSelector 
-          value={selectedScriptId} 
-          onChange={setSelectedScriptId}
-          disabled={isGeneratingScript || isAutoGenerating}
+    <Collapsible defaultOpen={sectionExpandedDefaults?.ai_script ?? false}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto hover:bg-muted/50">
+          <span className="text-sm font-medium">AI Script</span>
+          <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2 space-y-2">
+        <div className="flex items-center justify-between">
+          <ScriptSelector 
+            value={selectedScriptId} 
+            onChange={setSelectedScriptId}
+            disabled={isGeneratingScript || isAutoGenerating}
+          />
+        </div>
+        <AIResearchBox
+          title=""
+          content={aiScript}
+          isLoading={isGeneratingScript}
+          onRefresh={() => handleGenerateScript()}
+          lastUpdated={aiScriptUpdatedAt}
+          variant="script"
+          buttonLabel="Regenerate"
+          maxCollapsedLines={8}
         />
-      </div>
-      <AIResearchBox
-        title="AI Script"
-        content={aiScript}
-        isLoading={isGeneratingScript}
-        onRefresh={() => handleGenerateScript()}
-        lastUpdated={aiScriptUpdatedAt}
-        variant="script"
-        buttonLabel="Regenerate"
-        maxCollapsedLines={8}
-      />
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 
   const renderStaticScript = () => (
-    <StaticScriptCard contact={contact} />
+    <Collapsible defaultOpen={sectionExpandedDefaults?.static_script ?? false}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto hover:bg-muted/50">
+          <span className="text-sm font-medium">Static Script</span>
+          <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <StaticScriptCard contact={contact} />
+      </CollapsibleContent>
+    </Collapsible>
   );
 
   const sectionRenderers: Record<SectionKey, () => React.ReactNode> = {

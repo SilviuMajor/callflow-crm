@@ -327,18 +327,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          section_expanded_defaults: Json | null
           section_order: string[]
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
+          section_expanded_defaults?: Json | null
           section_order?: string[]
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
+          section_expanded_defaults?: Json | null
           section_order?: string[]
           updated_at?: string
         }
