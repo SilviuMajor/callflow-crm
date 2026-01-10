@@ -194,6 +194,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           event_type_slug: string | null
+          field_mappings: Json | null
           id: string
           updated_at: string
           webhook_secret: string | null
@@ -203,6 +204,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           event_type_slug?: string | null
+          field_mappings?: Json | null
           id?: string
           updated_at?: string
           webhook_secret?: string | null
@@ -212,6 +214,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           event_type_slug?: string | null
+          field_mappings?: Json | null
           id?: string
           updated_at?: string
           webhook_secret?: string | null

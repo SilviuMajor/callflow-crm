@@ -322,6 +322,11 @@ export default function SettingsPage() {
   const [calendlyUrl, setCalendlyUrl] = useState('');
   const [calcomEnabled, setCalcomEnabled] = useState(false);
   const [calcomEventSlug, setCalcomEventSlug] = useState('');
+  const [calcomFieldMappings, setCalcomFieldMappings] = useState<{
+    phone?: string;
+    company?: string;
+    jobTitle?: string;
+  }>({});
   const [isSavingCalendly, setIsSavingCalendly] = useState(false);
   const [isSavingCalcom, setIsSavingCalcom] = useState(false);
   
@@ -362,6 +367,7 @@ export default function SettingsPage() {
     if (!isLoadingCalcom) {
       setCalcomEnabled(calcomSettings.enabled);
       setCalcomEventSlug(calcomSettings.event_type_slug || '');
+      setCalcomFieldMappings(calcomSettings.field_mappings || {});
     }
   }, [isLoadingCalcom, calcomSettings]);
 
@@ -676,7 +682,11 @@ export default function SettingsPage() {
       return;
     }
     setIsSavingCalcom(true);
-    const success = await updateCalcomSettings({ enabled: calcomEnabled, event_type_slug: calcomEventSlug });
+    const success = await updateCalcomSettings({ 
+      enabled: calcomEnabled, 
+      event_type_slug: calcomEventSlug,
+      field_mappings: calcomFieldMappings,
+    });
     if (success) {
       toast.success('Cal.com settings saved');
     } else {
@@ -694,7 +704,9 @@ export default function SettingsPage() {
   };
 
   const hasCalendlyChanges = calendlyEnabled !== calendlySettings.enabled || calendlyUrl !== calendlySettings.calendly_url;
-  const hasCalcomChanges = calcomEnabled !== calcomSettings.enabled || calcomEventSlug !== (calcomSettings.event_type_slug || '');
+  const hasCalcomChanges = calcomEnabled !== calcomSettings.enabled || 
+    calcomEventSlug !== (calcomSettings.event_type_slug || '') ||
+    JSON.stringify(calcomFieldMappings) !== JSON.stringify(calcomSettings.field_mappings || {});
 
   return (
     <div className="min-h-screen bg-background">
@@ -1246,6 +1258,51 @@ export default function SettingsPage() {
                       />
                       <p className="text-xs text-muted-foreground">Your Cal.com event URL path (e.g., "john-doe/30min")</p>
                     </div>
+                    
+                    {/* Field Mappings Section */}
+                    {calcomEnabled && (
+                      <div className="space-y-3 p-3 bg-muted/50 rounded-lg border">
+                        <div>
+                          <Label className="text-sm font-medium">Field Mappings</Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Map contact fields to Cal.com booking question identifiers. Find these in your Cal.com event's booking form settings.
+                          </p>
+                        </div>
+                        <div className="grid gap-3">
+                          <div className="grid grid-cols-2 gap-2 items-center">
+                            <Label className="text-xs">Phone Number</Label>
+                            <Input
+                              placeholder="e.g., phone or location"
+                              value={calcomFieldMappings.phone || ''}
+                              onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, phone: e.target.value || undefined }))}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 items-center">
+                            <Label className="text-xs">Company</Label>
+                            <Input
+                              placeholder="e.g., company"
+                              value={calcomFieldMappings.company || ''}
+                              onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, company: e.target.value || undefined }))}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 items-center">
+                            <Label className="text-xs">Job Title</Label>
+                            <Input
+                              placeholder="e.g., jobTitle"
+                              value={calcomFieldMappings.jobTitle || ''}
+                              onChange={(e) => setCalcomFieldMappings(prev => ({ ...prev, jobTitle: e.target.value || undefined }))}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Tip: Use "location" for Phone if your Cal.com event uses phone call as a location option.
+                        </p>
+                      </div>
+                    )}
+                    
                     {calcomEnabled && (
                       <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
                         <Label className="text-xs font-medium">Webhook URL (Optional)</Label>

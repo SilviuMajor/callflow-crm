@@ -179,26 +179,16 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   };
 
   // Handle Cal.com booking completion
+  // The webhook handles marking the contact as completed, so we just show a success message
   const handleCalcomEventScheduled = () => {
     setShowCalcomModal(false);
-    setWaitingForWebhook(true);
     
-    toast.success('Appointment scheduled!', {
-      description: 'Waiting for confirmation...',
+    toast.success('Appointment booked!', {
+      description: `Appointment scheduled for ${contact.firstName} ${contact.lastName}. The contact will be automatically marked as completed.`,
     });
     
-    // After 3 seconds, show the manual confirmation modal as fallback
-    setTimeout(() => {
-      setWaitingForWebhook(false);
-      const today = new Date();
-      setAppointmentDate(today.toISOString().split('T')[0]);
-      setAppointmentTime('09:00');
-      setCompletedReason('appointment_booked');
-      setShowCompletedModal(true);
-      toast.info('Please confirm appointment details', {
-        description: 'Enter the appointment date and time from Cal.com.',
-      });
-    }, 3000);
+    // Don't open the completed modal - the webhook handles the status update
+    // This prevents the "jumping to next contact" issue
   };
 
   // When Calendly is enabled and user selects appointment_booked, show Calendly button
@@ -463,6 +453,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
           open={showCalcomModal}
           onOpenChange={setShowCalcomModal}
           onEventScheduled={handleCalcomEventScheduled}
+          fieldMappings={calcomSettings.field_mappings}
         />
       )}
 

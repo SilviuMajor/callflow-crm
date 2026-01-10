@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Contact } from '@/types/contact';
+import { CalcomFieldMappings } from '@/hooks/useCalcomSettings';
 
 interface CalcomEmbedProps {
   contact: Contact;
@@ -9,6 +10,7 @@ interface CalcomEmbedProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEventScheduled: () => void;
+  fieldMappings?: CalcomFieldMappings;
 }
 
 export function CalcomEmbed({ 
@@ -16,7 +18,8 @@ export function CalcomEmbed({
   eventTypeSlug, 
   open,
   onOpenChange,
-  onEventScheduled 
+  onEventScheduled,
+  fieldMappings = {},
 }: CalcomEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -33,13 +36,8 @@ export function CalcomEmbed({
     const email = contact.email || '';
     const phone = contact.phone || '';
     const company = contact.company || '';
+    const jobTitle = contact.jobTitle || '';
     
-    // Build notes with company and phone info
-    const notes = [
-      company && `Company: ${company}`,
-      phone && `Phone: ${phone}`,
-    ].filter(Boolean).join('\n');
-
     // Build the Cal.com embed URL
     // Handle both full URLs and just slugs
     let baseUrl = eventTypeSlug;
@@ -52,10 +50,60 @@ export function CalcomEmbed({
     
     // Use Cal.com's embed parameter format
     const params = new URLSearchParams();
+    
+    // Standard prefill fields
     if (name) params.set('name', name);
     if (email) params.set('email', email);
-    if (notes) params.set('notes', notes);
-    if (phone) params.set('guests', ''); // Clear guests, phone goes in notes
+    
+    // Build notes with unmapped fields
+    const notesFields: string[] = [];
+    
+    // Apply field mappings for custom Cal.com booking questions
+    // If a field has a mapping, use the mapped identifier instead of putting it in notes
+    if (phone) {
+      if (fieldMappings.phone) {
+        // Check if it's a location-based phone field
+        if (fieldMappings.phone === 'location') {
+          params.set('location', JSON.stringify({ value: 'phone', optionValue: phone }));
+        } else {
+          params.set(fieldMappings.phone, phone);
+        }
+      } else {
+        notesFields.push(`Phone: ${phone}`);
+      }
+    }
+    
+    if (company) {
+      if (fieldMappings.company) {
+        params.set(fieldMappings.company, company);
+      } else {
+        notesFields.push(`Company: ${company}`);
+      }
+    }
+    
+    if (jobTitle) {
+      if (fieldMappings.jobTitle) {
+        params.set(fieldMappings.jobTitle, jobTitle);
+      } else {
+        notesFields.push(`Job Title: ${jobTitle}`);
+      }
+    }
+    
+    // Add any custom field mappings
+    Object.entries(fieldMappings).forEach(([contactField, calcomField]) => {
+      if (!['phone', 'company', 'jobTitle'].includes(contactField) && calcomField) {
+        // Try to get custom field value from contact
+        const customValue = contact.customFields?.[contactField];
+        if (customValue) {
+          params.set(calcomField, String(customValue));
+        }
+      }
+    });
+    
+    // Set notes if we have any unmapped fields
+    if (notesFields.length > 0) {
+      params.set('notes', notesFields.join('\n'));
+    }
     
     // Add embed=true for proper embed mode
     params.set('embed', 'true');
@@ -65,6 +113,7 @@ export function CalcomEmbed({
     const embedUrl = `${baseUrl}?${params.toString()}`;
     
     console.log('[CalcomEmbed] Loading embed URL:', embedUrl);
+    console.log('[CalcomEmbed] Field mappings:', fieldMappings);
 
     // Create iframe with proper embed settings
     const iframe = document.createElement('iframe');
@@ -116,7 +165,7 @@ export function CalcomEmbed({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [open, eventTypeSlug, contact, onEventScheduled]);
+  }, [open, eventTypeSlug, contact, onEventScheduled, fieldMappings]);
 
   if (!open) return null;
 
