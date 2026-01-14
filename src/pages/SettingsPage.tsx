@@ -341,6 +341,7 @@ export default function SettingsPage() {
   const [calendlyUrl, setCalendlyUrl] = useState('');
   const [calcomEnabled, setCalcomEnabled] = useState(false);
   const [calcomEventSlug, setCalcomEventSlug] = useState('');
+  const [calcomApiKey, setCalcomApiKey] = useState('');
   const [calcomFieldMappings, setCalcomFieldMappings] = useState<{
     phone?: string;
     company?: string;
@@ -386,6 +387,7 @@ export default function SettingsPage() {
     if (!isLoadingCalcom) {
       setCalcomEnabled(calcomSettings.enabled);
       setCalcomEventSlug(calcomSettings.event_type_slug || '');
+      setCalcomApiKey(calcomSettings.api_key || '');
       setCalcomFieldMappings(calcomSettings.field_mappings || {});
     }
   }, [isLoadingCalcom, calcomSettings]);
@@ -704,6 +706,7 @@ export default function SettingsPage() {
     const success = await updateCalcomSettings({ 
       enabled: calcomEnabled, 
       event_type_slug: calcomEventSlug,
+      api_key: calcomApiKey || null,
       field_mappings: calcomFieldMappings,
     });
     if (success) {
@@ -725,6 +728,7 @@ export default function SettingsPage() {
   const hasCalendlyChanges = calendlyEnabled !== calendlySettings.enabled || calendlyUrl !== calendlySettings.calendly_url;
   const hasCalcomChanges = calcomEnabled !== calcomSettings.enabled || 
     calcomEventSlug !== (calcomSettings.event_type_slug || '') ||
+    calcomApiKey !== (calcomSettings.api_key || '') ||
     JSON.stringify(calcomFieldMappings) !== JSON.stringify(calcomSettings.field_mappings || {});
 
   return (
@@ -1256,6 +1260,24 @@ export default function SettingsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
+                      <Label htmlFor="calcom-api-key">API Key</Label>
+                      <Input
+                        id="calcom-api-key"
+                        type="password"
+                        placeholder="cal_live_..."
+                        value={calcomApiKey}
+                        onChange={(e) => setCalcomApiKey(e.target.value)}
+                        disabled={!calcomEnabled}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Get your API key from{' '}
+                        <a href="https://cal.com/settings/developer/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                          cal.com/settings/developer/api-keys <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
                       <Label htmlFor="calcom-slug">Event Type Slug</Label>
                       <Input
                         id="calcom-slug"
@@ -1281,8 +1303,19 @@ export default function SettingsPage() {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => fetchCalcomBookingFields(calcomEventSlug)}
-                            disabled={!calcomEventSlug || isFetchingCalcomFields}
+                            onClick={async () => {
+                              if (!calcomApiKey) {
+                                toast.error('Please enter your Cal.com API key first');
+                                return;
+                              }
+                              const result = await fetchCalcomBookingFields(calcomEventSlug, calcomApiKey);
+                              if (result.error) {
+                                toast.error(result.error);
+                              } else if (result.fields.length > 0) {
+                                toast.success(`Found ${result.fields.length} booking fields`);
+                              }
+                            }}
+                            disabled={!calcomEventSlug || !calcomApiKey || isFetchingCalcomFields}
                           >
                             {isFetchingCalcomFields ? (
                               <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Fetching...</>
