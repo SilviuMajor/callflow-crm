@@ -1330,14 +1330,14 @@ export default function SettingsPage() {
                             <div className="grid grid-cols-2 gap-2 items-center">
                               <Label className="text-xs">Phone Number</Label>
                               <Select
-                                value={calcomFieldMappings.phone || ''}
-                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, phone: value || undefined }))}
+                                value={calcomFieldMappings.phone || '__none__'}
+                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, phone: value === '__none__' ? undefined : value }))}
                               >
                                 <SelectTrigger className="h-8 text-sm">
                                   <SelectValue placeholder="Select field..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="__none__">None</SelectItem>
                                   {calcomAvailableFields.map(field => (
                                     <SelectItem key={field.slug} value={field.slug}>
                                       {field.label}
@@ -1349,14 +1349,14 @@ export default function SettingsPage() {
                             <div className="grid grid-cols-2 gap-2 items-center">
                               <Label className="text-xs">Company</Label>
                               <Select
-                                value={calcomFieldMappings.company || ''}
-                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, company: value || undefined }))}
+                                value={calcomFieldMappings.company || '__none__'}
+                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, company: value === '__none__' ? undefined : value }))}
                               >
                                 <SelectTrigger className="h-8 text-sm">
                                   <SelectValue placeholder="Select field..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="__none__">None</SelectItem>
                                   {calcomAvailableFields.map(field => (
                                     <SelectItem key={field.slug} value={field.slug}>
                                       {field.label}
@@ -1368,14 +1368,14 @@ export default function SettingsPage() {
                             <div className="grid grid-cols-2 gap-2 items-center">
                               <Label className="text-xs">Job Title</Label>
                               <Select
-                                value={calcomFieldMappings.jobTitle || ''}
-                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, jobTitle: value || undefined }))}
+                                value={calcomFieldMappings.jobTitle || '__none__'}
+                                onValueChange={(value) => setCalcomFieldMappings(prev => ({ ...prev, jobTitle: value === '__none__' ? undefined : value }))}
                               >
                                 <SelectTrigger className="h-8 text-sm">
                                   <SelectValue placeholder="Select field..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="__none__">None</SelectItem>
                                   {calcomAvailableFields.map(field => (
                                     <SelectItem key={field.slug} value={field.slug}>
                                       {field.label}
