@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface HistoryEntry {
   id: string;
@@ -15,6 +16,9 @@ export interface HistoryEntry {
 }
 
 export function useContactHistory(contactId?: string) {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Unique ID per hook instance to prevent channel collisions when multiple components use this hook
@@ -110,6 +114,11 @@ export function useContactHistory(contactId?: string) {
   }, [contactId]);
 
   const addHistoryEntry = useCallback(async (entry: Omit<HistoryEntry, 'id' | 'created_at'>) => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return null;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('contact_history')
@@ -121,6 +130,7 @@ export function useContactHistory(contactId?: string) {
           appointment_date: entry.appointment_date || null,
           reason: entry.reason || null,
           note: entry.note || null,
+          organization_id: organizationId,
         })
         .select()
         .single();
@@ -136,7 +146,7 @@ export function useContactHistory(contactId?: string) {
       toast.error('Failed to save history entry');
       return null;
     }
-  }, []);
+  }, [organizationId]);
 
   const updateHistoryEntry = useCallback(async (id: string, updates: Partial<Pick<HistoryEntry, 'note'>>) => {
     try {

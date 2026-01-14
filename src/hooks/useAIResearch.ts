@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Contact } from '@/types/contact';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ResearchResult {
   content: string;
@@ -11,6 +12,9 @@ interface ResearchResult {
 }
 
 export function useAIResearch() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [isResearching, setIsResearching] = useState<Record<string, boolean>>({});
 
   const setResearchingState = (key: string, value: boolean) => {
@@ -75,6 +79,11 @@ export function useAIResearch() {
     companyName: string, 
     website?: string
   ): Promise<string | null> => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return null;
+    }
+    
     const key = `company_${companyName}`;
     setResearchingState(key, true);
     
@@ -106,7 +115,8 @@ export function useAIResearch() {
             company_name: companyName,
             field_values: {},
             ai_summary: result.content,
-            ai_summary_updated_at: new Date().toISOString()
+            ai_summary_updated_at: new Date().toISOString(),
+            organization_id: organizationId,
           });
       }
 
@@ -119,12 +129,17 @@ export function useAIResearch() {
     } finally {
       setResearchingState(key, false);
     }
-  }, []);
+  }, [organizationId]);
 
   const researchCompanyCustom = useCallback(async (
     companyName: string,
     website?: string
   ): Promise<string | null> => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return null;
+    }
+    
     const key = `custom_${companyName}`;
     setResearchingState(key, true);
     
@@ -156,7 +171,8 @@ export function useAIResearch() {
             company_name: companyName,
             field_values: {},
             ai_custom_research: result.content,
-            ai_custom_updated_at: new Date().toISOString()
+            ai_custom_updated_at: new Date().toISOString(),
+            organization_id: organizationId,
           });
       }
 
@@ -169,7 +185,7 @@ export function useAIResearch() {
     } finally {
       setResearchingState(key, false);
     }
-  }, []);
+  }, [organizationId]);
 
   const researchPersona = useCallback(async (
     contact: Contact

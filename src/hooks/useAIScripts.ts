@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface AIScript {
   id: string;
@@ -26,15 +27,24 @@ I'd love to share how we've helped similar companies in the {seller_industry} sp
 {{AI_BLOCK:Generate a soft close question that relates to their specific situation}}`;
 
 export function useAIScripts() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [scripts, setScripts] = useState<AIScript[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchScripts = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('ai_scripts')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -57,6 +67,7 @@ export function useAIScripts() {
             model: 'perplexity:sonar',
             enabled: true,
             is_default: true,
+            organization_id: organizationId,
           })
           .select()
           .single();
@@ -71,13 +82,18 @@ export function useAIScripts() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchScripts();
   }, [fetchScripts]);
 
   const createScript = useCallback(async (name: string) => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return null;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('ai_scripts')
@@ -87,6 +103,7 @@ export function useAIScripts() {
           model: 'perplexity:sonar',
           enabled: true,
           is_default: false,
+          organization_id: organizationId,
         })
         .select()
         .single();
@@ -102,7 +119,7 @@ export function useAIScripts() {
       toast.error('Failed to create script');
     }
     return null;
-  }, []);
+  }, [organizationId]);
 
   const updateScript = useCallback(async (
     id: string, 
@@ -128,11 +145,14 @@ export function useAIScripts() {
   }, []);
 
   const setDefault = useCallback(async (id: string) => {
+    if (!organizationId) return;
+    
     try {
-      // First, unset all defaults
+      // First, unset all defaults for this organization
       await supabase
         .from('ai_scripts')
         .update({ is_default: false })
+        .eq('organization_id', organizationId)
         .neq('id', id);
 
       // Set the new default
@@ -149,7 +169,7 @@ export function useAIScripts() {
       console.error('Failed to set default script:', error);
       toast.error('Failed to set default');
     }
-  }, []);
+  }, [organizationId]);
 
   const deleteScript = useCallback(async (id: string) => {
     const script = scripts.find(s => s.id === id);
