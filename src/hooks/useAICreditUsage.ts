@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface CreditUsageRecord {
   id: string;
@@ -19,27 +20,35 @@ export interface DailyUsage {
 }
 
 export interface MonthlyUsage {
-  month: string; // YYYY-MM
+  month: string;
   total: number;
   dailyBreakdown: DailyUsage[];
 }
 
 export function useAICreditUsage() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [usage, setUsage] = useState<CreditUsageRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [monthlyUsage, setMonthlyUsage] = useState<MonthlyUsage[]>([]);
   const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
 
   const fetchUsage = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      // Fetch last 90 days of usage
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
       const { data, error } = await supabase
         .from('ai_credits_usage')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('created_at', ninetyDaysAgo.toISOString())
         .order('created_at', { ascending: false });
 
@@ -47,7 +56,6 @@ export function useAICreditUsage() {
 
       setUsage(data || []);
 
-      // Process into monthly breakdown
       const monthlyMap = new Map<string, { records: CreditUsageRecord[]; dailyMap: Map<string, CreditUsageRecord[]> }>();
 
       (data || []).forEach(record => {
@@ -68,7 +76,6 @@ export function useAICreditUsage() {
         monthData.dailyMap.get(dayKey)!.push(record);
       });
 
-      // Convert to array format
       const monthlyArray: MonthlyUsage[] = [];
       monthlyMap.forEach((value, month) => {
         const dailyBreakdown: DailyUsage[] = [];
@@ -91,7 +98,6 @@ export function useAICreditUsage() {
       monthlyArray.sort((a, b) => b.month.localeCompare(a.month));
       setMonthlyUsage(monthlyArray);
 
-      // Calculate current month total
       const currentMonth = new Date().toISOString().slice(0, 7);
       const currentMonthData = monthlyArray.find(m => m.month === currentMonth);
       setCurrentMonthTotal(currentMonthData?.total || 0);
@@ -101,7 +107,7 @@ export function useAICreditUsage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchUsage();
@@ -113,6 +119,8 @@ export function useAICreditUsage() {
     companyId?: string,
     metadata?: Record<string, any>
   ) => {
+    if (!organizationId) return;
+    
     try {
       const { error } = await supabase
         .from('ai_credits_usage')
@@ -122,17 +130,17 @@ export function useAICreditUsage() {
           contact_id: contactId || null,
           company_id: companyId || null,
           metadata: metadata || {},
+          organization_id: organizationId,
         });
 
       if (error) throw error;
 
-      // Update local state
       setCurrentMonthTotal(prev => prev + 1);
-      fetchUsage(); // Refresh the full data
+      fetchUsage();
     } catch (error) {
       console.error('Failed to log credit usage:', error);
     }
-  }, [fetchUsage]);
+  }, [fetchUsage, organizationId]);
 
   return {
     usage,

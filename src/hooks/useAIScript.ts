@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface AIScript {
   id: string;
@@ -25,15 +26,24 @@ I'd love to share how we've helped similar companies in the {seller_industry} sp
 {{AI_BLOCK:Generate a soft close question that relates to their specific situation}}`;
 
 export function useAIScript() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [script, setScript] = useState<AIScript | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchScript = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('ai_scripts')
         .select('*')
+        .eq('organization_id', organizationId)
         .limit(1)
         .single();
 
@@ -45,7 +55,6 @@ export function useAIScript() {
       if (data) {
         setScript(data);
       } else {
-        // Create default script if none exists
         const { data: newScript, error: insertError } = await supabase
           .from('ai_scripts')
           .insert({
@@ -53,6 +62,7 @@ export function useAIScript() {
             template: DEFAULT_SCRIPT_TEMPLATE,
             model: 'perplexity:sonar',
             enabled: true,
+            organization_id: organizationId,
           })
           .select()
           .single();
@@ -65,7 +75,7 @@ export function useAIScript() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchScript();

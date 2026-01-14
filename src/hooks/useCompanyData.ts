@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Company data entry with field values and AI research
 export type CompanyDataEntry = {
@@ -17,16 +18,25 @@ const normalizeCompanyName = (name: string): string => {
 };
 
 export function useCompanyData() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [companyData, setCompanyData] = useState<CompanyDataStore>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Load company data from database
   useEffect(() => {
     const loadCompanyData = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from('company_data')
-        .select('*');
+        .select('*')
+        .eq('organization_id', organizationId);
 
       if (error) {
         console.error('Error loading company data:', error);
@@ -47,7 +57,7 @@ export function useCompanyData() {
     };
 
     loadCompanyData();
-  }, []);
+  }, [organizationId]);
 
   const getCompanyData = useCallback((companyName: string): CompanyDataEntry => {
     const key = normalizeCompanyName(companyName);
@@ -61,6 +71,11 @@ export function useCompanyData() {
   }, [companyData]);
 
   const updateCompanyData = useCallback(async (companyName: string, fieldId: string, value: any) => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return;
+    }
+    
     const key = normalizeCompanyName(companyName);
     const existing = companyData[key] || { fieldValues: {} };
     const newFieldValues = {
@@ -73,23 +88,45 @@ export function useCompanyData() {
       [key]: { ...existing, fieldValues: newFieldValues },
     }));
 
-    // Upsert to database
-    const { error } = await supabase
+    // Check if record exists first
+    const { data: existingRecord } = await supabase
       .from('company_data')
-      .upsert({
-        company_name: companyName,
-        field_values: newFieldValues,
-      }, {
-        onConflict: 'company_name',
-      });
+      .select('id')
+      .eq('company_name', companyName)
+      .single();
 
-    if (error) {
-      console.error('Error updating company data:', error);
-      toast.error('Failed to save company data');
+    if (existingRecord) {
+      const { error } = await supabase
+        .from('company_data')
+        .update({ field_values: newFieldValues })
+        .eq('company_name', companyName);
+
+      if (error) {
+        console.error('Error updating company data:', error);
+        toast.error('Failed to save company data');
+      }
+    } else {
+      const { error } = await supabase
+        .from('company_data')
+        .insert({
+          company_name: companyName,
+          field_values: newFieldValues,
+          organization_id: organizationId,
+        });
+
+      if (error) {
+        console.error('Error creating company data:', error);
+        toast.error('Failed to save company data');
+      }
     }
-  }, [companyData]);
+  }, [companyData, organizationId]);
 
   const setCompanyFieldValues = useCallback(async (companyName: string, values: Record<string, any>) => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return;
+    }
+    
     const key = normalizeCompanyName(companyName);
     const existing = companyData[key] || { fieldValues: {} };
     
@@ -98,21 +135,38 @@ export function useCompanyData() {
       [key]: { ...existing, fieldValues: values },
     }));
 
-    // Upsert to database
-    const { error } = await supabase
+    // Check if record exists first
+    const { data: existingRecord } = await supabase
       .from('company_data')
-      .upsert({
-        company_name: companyName,
-        field_values: values,
-      }, {
-        onConflict: 'company_name',
-      });
+      .select('id')
+      .eq('company_name', companyName)
+      .single();
 
-    if (error) {
-      console.error('Error setting company field values:', error);
-      toast.error('Failed to save company data');
+    if (existingRecord) {
+      const { error } = await supabase
+        .from('company_data')
+        .update({ field_values: values })
+        .eq('company_name', companyName);
+
+      if (error) {
+        console.error('Error updating company data:', error);
+        toast.error('Failed to save company data');
+      }
+    } else {
+      const { error } = await supabase
+        .from('company_data')
+        .insert({
+          company_name: companyName,
+          field_values: values,
+          organization_id: organizationId,
+        });
+
+      if (error) {
+        console.error('Error creating company data:', error);
+        toast.error('Failed to save company data');
+      }
     }
-  }, [companyData]);
+  }, [companyData, organizationId]);
 
   const deleteCompanyField = useCallback(async (fieldId: string) => {
     // Remove this field from all companies

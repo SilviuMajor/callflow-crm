@@ -3,6 +3,7 @@ import { Contact, CallStatus, CompletedReason, NotInterestedReason } from '@/typ
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Helper to add history entry with optimistic dispatch
 async function addContactHistoryEntry(entry: {
@@ -14,6 +15,7 @@ async function addContactHistoryEntry(entry: {
   appointment_date?: string | null;
   reason?: string | null;
   note?: string | null;
+  organization_id: string;
 }) {
   // Dispatch optimistic event for instant UI update
   const optimisticEntry = {
@@ -36,6 +38,9 @@ async function addContactHistoryEntry(entry: {
 }
 
 export function useContacts(selectedPotId?: string | null) {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,10 +49,16 @@ export function useContacts(selectedPotId?: string | null) {
   // Load contacts from database
   useEffect(() => {
     const loadContacts = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from('contacts')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -111,13 +122,15 @@ export function useContacts(selectedPotId?: string | null) {
     };
 
     loadContacts();
-  }, []);
+  }, [organizationId]);
 
   // Track local updates to skip realtime echoes and prevent React queue errors
   const pendingLocalUpdates = useRef<Set<string>>(new Set());
 
   // Subscribe to realtime updates for contacts
   useEffect(() => {
+    if (!organizationId) return;
+    
     const mapDbRowToContact = (row: any): Contact => ({
       id: row.id,
       firstName: row.first_name,
@@ -145,7 +158,8 @@ export function useContacts(selectedPotId?: string | null) {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'contacts'
+        table: 'contacts',
+        filter: `organization_id=eq.${organizationId}`
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const newContact = mapDbRowToContact(payload.new);
@@ -171,7 +185,7 @@ export function useContacts(selectedPotId?: string | null) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [organizationId]);
 
   // Queue contacts: overdue callbacks -> pending -> future callbacks
   // Filter by selected POT if provided
@@ -239,6 +253,8 @@ export function useContacts(selectedPotId?: string | null) {
     notInterestedReason?: NotInterestedReason,
     appointmentDate?: Date
   ) => {
+    if (!organizationId) return;
+    
     const contact = contacts.find(c => c.id === contactId);
     if (!contact) return;
 
@@ -294,6 +310,7 @@ export function useContacts(selectedPotId?: string | null) {
         appointment_date: appointmentDate?.toISOString() || null,
         reason: completedReason || notInterestedReason || null,
         note: note || null,
+        organization_id: organizationId,
       }),
     ]);
 
@@ -301,7 +318,7 @@ export function useContacts(selectedPotId?: string | null) {
       console.error('Error updating contact status:', contactResult.error);
       toast.error('Failed to save contact status');
     }
-  }, [contacts]);
+  }, [contacts, organizationId]);
 
   const updateContact = useCallback(async (contactId: string, updates: Partial<Contact>) => {
     // Mark as pending local update to skip realtime echo
@@ -390,6 +407,11 @@ export function useContacts(selectedPotId?: string | null) {
   }, []);
 
   const addContact = useCallback(async (contact: Omit<Contact, 'id' | 'createdAt' | 'status'>, potId: string) => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('contacts')
       .insert({
@@ -404,6 +426,7 @@ export function useContacts(selectedPotId?: string | null) {
         qualifying_answers: contact.qualifyingAnswers || {},
         custom_fields: contact.customFields || {},
         pot_id: potId,
+        organization_id: organizationId,
       })
       .select()
       .single();
@@ -432,9 +455,14 @@ export function useContacts(selectedPotId?: string | null) {
       };
       setContacts(prev => [...prev, newContact]);
     }
-  }, []);
+  }, [organizationId]);
 
   const importContacts = useCallback(async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return;
+    }
+    
     const inserts = newContacts.map(contact => ({
       first_name: contact.firstName,
       last_name: contact.lastName,
@@ -447,6 +475,7 @@ export function useContacts(selectedPotId?: string | null) {
       qualifying_answers: contact.qualifyingAnswers || {},
       custom_fields: contact.customFields || {},
       pot_id: potId,
+      organization_id: organizationId,
     }));
 
     const { data, error } = await supabase
@@ -477,250 +506,14 @@ export function useContacts(selectedPotId?: string | null) {
         potId: row.pot_id || undefined,
       }));
       setContacts(prev => [...prev, ...mappedContacts]);
-      toast.success(`Imported ${data.length} contacts`);
+      toast.success(`Imported ${mappedContacts.length} contacts`);
     }
-  }, []);
+  }, [organizationId]);
 
-  const selectContact = useCallback((contactId: string | null) => {
-    setSelectedContactId(contactId);
-  }, []);
-
-  const shufflePending = useCallback(() => {
-    setContacts(prev => {
-      const pending = prev.filter(c => 
-        (c.status === 'pending' || c.status === 'no_answer') &&
-        (!selectedPotId || c.potId === selectedPotId)
-      );
-      const others = prev.filter(c => 
-        (c.status !== 'pending' && c.status !== 'no_answer') ||
-        (selectedPotId && c.potId !== selectedPotId)
-      );
-      
-      // Fisher-Yates shuffle
-      for (let i = pending.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pending[i], pending[j]] = [pending[j], pending[i]];
-      }
-      
-      return [...others, ...pending];
-    });
-  }, [selectedPotId]);
-
-  const sortByCompany = useCallback(() => {
-    setContacts(prev => {
-      const pending = prev.filter(c => 
-        (c.status === 'pending' || c.status === 'no_answer') &&
-        (!selectedPotId || c.potId === selectedPotId)
-      );
-      const others = prev.filter(c => 
-        (c.status !== 'pending' && c.status !== 'no_answer') ||
-        (selectedPotId && c.potId !== selectedPotId)
-      );
-      
-      pending.sort((a, b) => a.company.localeCompare(b.company));
-      
-      return [...others, ...pending];
-    });
-  }, [selectedPotId]);
-
-  // Mark appointment as attended or no-show
-  const markAppointmentAttended = useCallback(async (contactId: string, attended: boolean) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
-
-    setContacts(prev => prev.map(c => 
-      c.id === contactId ? { ...c, appointmentAttended: attended } : c
-    ));
-
-    const { error } = await supabase
-      .from('contacts')
-      .update({ appointment_attended: attended })
-      .eq('id', contactId);
-
-    if (error) {
-      console.error('Error marking appointment attended:', error);
-      toast.error('Failed to update appointment status');
-      return;
-    }
-
-    // Add history entry for attended status
-    await addContactHistoryEntry({
-      id: crypto.randomUUID(),
-      contact_id: contactId,
-      action_type: attended ? 'appointment_attended' : 'appointment_no_show',
-      action_timestamp: new Date().toISOString(),
-      appointment_date: contact.appointmentDate?.toISOString() || null,
-      note: attended ? 'Appointment attended' : 'Appointment was a no-show',
-    });
-
-    toast.success(attended ? 'Marked as attended' : 'Marked as no-show');
-  }, [contacts]);
-
-  // Return contact to pot after no-show (callback date is optional)
-  const returnToPot = useCallback(async (
-    contactId: string, 
-    callbackDate?: Date, 
-    originalReason?: string
-  ) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
-
-    const newStatus = callbackDate ? 'callback' : 'pending';
-
-    // Update locally
-    setContacts(prev => prev.map(c => 
-      c.id === contactId ? { 
-        ...c, 
-        status: newStatus as CallStatus, 
-        callbackDate, 
-        appointmentAttended: false,
-        appointmentDate: undefined,
-        completedReason: undefined,
-      } : c
-    ));
-
-    // Persist to database
-    const { error } = await supabase
-      .from('contacts')
-      .update({
-        status: newStatus,
-        callback_date: callbackDate?.toISOString() || null,
-        appointment_attended: false,
-        appointment_date: null,
-      })
-      .eq('id', contactId);
-
-    if (error) {
-      console.error('Error returning contact to pot:', error);
-      toast.error('Failed to return contact to pot');
-      return;
-    }
-
-    // Add history entry for return to pot
-    await addContactHistoryEntry({
-      id: crypto.randomUUID(),
-      contact_id: contactId,
-      action_type: 'returned_to_pot',
-      action_timestamp: new Date().toISOString(),
-      callback_date: callbackDate?.toISOString() || null,
-      reason: 'appointment_no_show',
-      note: callbackDate 
-        ? `Returned to pot with callback. Originally completed as ${originalReason || 'appointment_booked'}.`
-        : `Returned to pending queue. Originally completed as ${originalReason || 'appointment_booked'}.`,
-    });
-
-    toast.success(callbackDate ? 'Contact returned to pot with callback' : 'Contact returned to pending queue');
-  }, [contacts]);
-
-  // Rebook appointment for a no-show
-  const rebookAppointment = useCallback(async (
-    contactId: string,
-    newAppointmentDate: Date,
-    notes?: string
-  ) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
-
-    // Update locally - keep as completed but reset appointment_attended
-    setContacts(prev => prev.map(c => 
-      c.id === contactId ? { 
-        ...c, 
-        appointmentDate: newAppointmentDate,
-        appointmentAttended: null,
-      } : c
-    ));
-
-    // Persist to database
-    const { error } = await supabase
-      .from('contacts')
-      .update({
-        appointment_date: newAppointmentDate.toISOString(),
-        appointment_attended: null,
-      })
-      .eq('id', contactId);
-
-    if (error) {
-      console.error('Error rebooking appointment:', error);
-      toast.error('Failed to rebook appointment');
-      return;
-    }
-
-    // Add history entry for rebook
-    await addContactHistoryEntry({
-      id: crypto.randomUUID(),
-      contact_id: contactId,
-      action_type: 'rebooked',
-      action_timestamp: new Date().toISOString(),
-      appointment_date: newAppointmentDate.toISOString(),
-      note: notes || 'Appointment rebooked after no-show',
-    });
-
-    toast.success('Appointment rebooked');
-  }, [contacts]);
-
-  // Reschedule appointment (for any appointment, not just no-shows)
-  const rescheduleAppointment = useCallback(async (
-    contactId: string,
-    newAppointmentDate: Date,
-    notes?: string
-  ) => {
-    const contact = contacts.find(c => c.id === contactId);
-    if (!contact) return;
-
-    const oldAppointmentDate = contact.appointmentDate;
-
-    // Update locally
-    setContacts(prev => prev.map(c => 
-      c.id === contactId ? { 
-        ...c, 
-        appointmentDate: newAppointmentDate,
-        appointmentAttended: null, // Reset since it's a new appointment
-      } : c
-    ));
-
-    // Persist to database
-    const { error } = await supabase
-      .from('contacts')
-      .update({
-        appointment_date: newAppointmentDate.toISOString(),
-        appointment_attended: null,
-      })
-      .eq('id', contactId);
-
-    if (error) {
-      console.error('Error rescheduling appointment:', error);
-      toast.error('Failed to reschedule appointment');
-      return;
-    }
-
-    // Add history entry for reschedule
-    const oldDateStr = oldAppointmentDate ? format(oldAppointmentDate, 'do MMM HH:mm') : 'N/A';
-    const newDateStr = format(newAppointmentDate, 'do MMM HH:mm');
+  const deleteContact = useCallback(async (contactId: string) => {
+    pendingLocalUpdates.current.add(contactId);
     
-    await addContactHistoryEntry({
-      id: crypto.randomUUID(),
-      contact_id: contactId,
-      action_type: 'rescheduled',
-      action_timestamp: new Date().toISOString(),
-      appointment_date: newAppointmentDate.toISOString(),
-      note: notes || `Rescheduled from ${oldDateStr} to ${newDateStr}`,
-    });
-
-    toast.success('Appointment rescheduled');
-  }, [contacts]);
-
-  // Delete a contact permanently
-  const deleteContact = useCallback(async (contactId: string): Promise<boolean> => {
-    // First delete related history entries
-    const { error: historyError } = await supabase
-      .from('contact_history')
-      .delete()
-      .eq('contact_id', contactId);
-
-    if (historyError) {
-      console.error('Error deleting contact history:', historyError);
-      // Continue anyway - history is secondary
-    }
+    setContacts(prev => prev.filter(c => c.id !== contactId));
 
     const { error } = await supabase
       .from('contacts')
@@ -730,41 +523,169 @@ export function useContacts(selectedPotId?: string | null) {
     if (error) {
       console.error('Error deleting contact:', error);
       toast.error('Failed to delete contact');
-      return false;
-    }
-
-    // Realtime will handle removing from state
-    toast.success('Contact deleted permanently');
-    return true;
-  }, []);
-
-  // Move contact to a different POT
-  const moveContactToPot = useCallback(async (contactId: string, newPotId: string): Promise<boolean> => {
-    const { error } = await supabase
-      .from('contacts')
-      .update({ pot_id: newPotId })
-      .eq('id', contactId);
-
-    if (error) {
-      console.error('Error moving contact:', error);
-      toast.error('Failed to move contact');
-      return false;
+    } else {
+      toast.success('Contact deleted');
     }
     
-    // Realtime will handle updating state
-    toast.success('Contact moved to new POT');
-    return true;
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
   }, []);
 
-  const stats = useMemo(() => ({
-    total: contacts.length,
-    pending: contacts.filter(c => c.status === 'pending').length,
-    noAnswer: contacts.filter(c => c.status === 'no_answer').length,
-    callbacks: contacts.filter(c => c.status === 'callback').length,
-    completed: contacts.filter(c => c.status === 'completed').length,
-    notInterested: contacts.filter(c => c.status === 'not_interested').length,
-    inQueue: queueContacts.length,
-  }), [contacts, queueContacts]);
+  const returnToPot = useCallback(async (contactId: string, note?: string) => {
+    if (!organizationId) return;
+    
+    pendingLocalUpdates.current.add(contactId);
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { ...c, status: 'pending' as CallStatus, completedReason: undefined, notInterestedReason: undefined } : c
+    ));
+
+    const historyId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+
+    const [contactResult] = await Promise.all([
+      supabase
+        .from('contacts')
+        .update({ 
+          status: 'pending',
+          completed_reason: null,
+          not_interested_reason: null
+        })
+        .eq('id', contactId),
+      addContactHistoryEntry({
+        id: historyId,
+        contact_id: contactId,
+        action_type: 'returned_to_pot',
+        action_timestamp: timestamp,
+        note: note || null,
+        organization_id: organizationId,
+      }),
+    ]);
+
+    if (contactResult.error) {
+      console.error('Error returning contact to pot:', contactResult.error);
+      toast.error('Failed to return contact to pot');
+    } else {
+      toast.success('Contact returned to pot');
+    }
+  }, [organizationId]);
+
+  const rebookAppointment = useCallback(async (contactId: string, newDate: Date, note?: string) => {
+    if (!organizationId) return;
+    
+    pendingLocalUpdates.current.add(contactId);
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { ...c, appointmentDate: newDate, status: 'completed' as CallStatus } : c
+    ));
+
+    const historyId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+
+    const [contactResult] = await Promise.all([
+      supabase
+        .from('contacts')
+        .update({ 
+          appointment_date: newDate.toISOString(),
+          status: 'completed',
+          appointment_attended: null
+        })
+        .eq('id', contactId),
+      addContactHistoryEntry({
+        id: historyId,
+        contact_id: contactId,
+        action_type: 'rebooked',
+        action_timestamp: timestamp,
+        appointment_date: newDate.toISOString(),
+        note: note || null,
+        organization_id: organizationId,
+      }),
+    ]);
+
+    if (contactResult.error) {
+      console.error('Error rebooking appointment:', contactResult.error);
+      toast.error('Failed to rebook appointment');
+    } else {
+      toast.success('Appointment rebooked');
+    }
+  }, [organizationId]);
+
+  const rescheduleCallback = useCallback(async (contactId: string, newDate: Date, note?: string) => {
+    if (!organizationId) return;
+    
+    pendingLocalUpdates.current.add(contactId);
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { ...c, callbackDate: newDate, status: 'callback' as CallStatus } : c
+    ));
+
+    const historyId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+
+    const [contactResult] = await Promise.all([
+      supabase
+        .from('contacts')
+        .update({ 
+          callback_date: newDate.toISOString(),
+          status: 'callback'
+        })
+        .eq('id', contactId),
+      addContactHistoryEntry({
+        id: historyId,
+        contact_id: contactId,
+        action_type: 'rescheduled',
+        action_timestamp: timestamp,
+        callback_date: newDate.toISOString(),
+        note: note || null,
+        organization_id: organizationId,
+      }),
+    ]);
+
+    if (contactResult.error) {
+      console.error('Error rescheduling callback:', contactResult.error);
+      toast.error('Failed to reschedule callback');
+    } else {
+      toast.success('Callback rescheduled');
+    }
+  }, [organizationId]);
+
+  const markAppointmentAttendance = useCallback(async (contactId: string, attended: boolean, note?: string) => {
+    if (!organizationId) return;
+    
+    pendingLocalUpdates.current.add(contactId);
+    setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+
+    setContacts(prev => prev.map(c => 
+      c.id === contactId ? { ...c, appointmentAttended: attended } : c
+    ));
+
+    const historyId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+
+    const [contactResult] = await Promise.all([
+      supabase
+        .from('contacts')
+        .update({ appointment_attended: attended })
+        .eq('id', contactId),
+      addContactHistoryEntry({
+        id: historyId,
+        contact_id: contactId,
+        action_type: attended ? 'appointment_attended' : 'appointment_no_show',
+        action_timestamp: timestamp,
+        note: note || null,
+        organization_id: organizationId,
+      }),
+    ]);
+
+    if (contactResult.error) {
+      console.error('Error marking appointment attendance:', contactResult.error);
+      toast.error('Failed to update appointment');
+    } else {
+      toast.success(attended ? 'Appointment marked as attended' : 'Appointment marked as no-show');
+    }
+  }, [organizationId]);
 
   return {
     contacts,
@@ -772,24 +693,21 @@ export function useContacts(selectedPotId?: string | null) {
     completedContacts,
     filteredContacts,
     currentContact,
+    selectedContactId,
+    setSelectedContactId,
+    searchQuery,
+    setSearchQuery,
     updateContactStatus,
     updateContact,
     updateContactAnswers,
     clearContactAnswers,
     addContact,
     importContacts,
-    selectContact,
-    shufflePending,
-    sortByCompany,
-    markAppointmentAttended,
+    deleteContact,
     returnToPot,
     rebookAppointment,
-    rescheduleAppointment,
-    deleteContact,
-    moveContactToPot,
-    searchQuery,
-    setSearchQuery,
-    stats,
+    rescheduleCallback,
+    markAppointmentAttendance,
     isLoading,
   };
 }

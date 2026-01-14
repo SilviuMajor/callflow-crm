@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          organization_id: string
           script_generation: boolean
           targeted_research: boolean
           updated_at: string
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          organization_id: string
           script_generation?: boolean
           targeted_research?: boolean
           updated_at?: string
@@ -41,17 +43,27 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          organization_id?: string
           script_generation?: boolean
           targeted_research?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_auto_generate_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_credits_settings: {
         Row: {
           created_at: string
           id: string
           monthly_limit: number | null
+          organization_id: string
           reset_day: number
           tier_name: string | null
           updated_at: string
@@ -60,6 +72,7 @@ export type Database = {
           created_at?: string
           id?: string
           monthly_limit?: number | null
+          organization_id: string
           reset_day?: number
           tier_name?: string | null
           updated_at?: string
@@ -68,11 +81,20 @@ export type Database = {
           created_at?: string
           id?: string
           monthly_limit?: number | null
+          organization_id?: string
           reset_day?: number
           tier_name?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_credits_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_credits_usage: {
         Row: {
@@ -83,6 +105,7 @@ export type Database = {
           feature_type: string
           id: string
           metadata: Json | null
+          organization_id: string
         }
         Insert: {
           company_id?: string | null
@@ -92,6 +115,7 @@ export type Database = {
           feature_type: string
           id?: string
           metadata?: Json | null
+          organization_id: string
         }
         Update: {
           company_id?: string | null
@@ -101,6 +125,7 @@ export type Database = {
           feature_type?: string
           id?: string
           metadata?: Json | null
+          organization_id?: string
         }
         Relationships: [
           {
@@ -117,6 +142,13 @@ export type Database = {
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_credits_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_prompts: {
@@ -127,6 +159,7 @@ export type Database = {
           id: string
           model: string | null
           name: string
+          organization_id: string
           prompt: string
           prompt_type: string
           updated_at: string | null
@@ -138,6 +171,7 @@ export type Database = {
           id?: string
           model?: string | null
           name: string
+          organization_id: string
           prompt: string
           prompt_type: string
           updated_at?: string | null
@@ -149,11 +183,20 @@ export type Database = {
           id?: string
           model?: string | null
           name?: string
+          organization_id?: string
           prompt?: string
           prompt_type?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_scripts: {
         Row: {
@@ -163,6 +206,7 @@ export type Database = {
           is_default: boolean
           model: string | null
           name: string
+          organization_id: string
           template: string
           updated_at: string
         }
@@ -173,6 +217,7 @@ export type Database = {
           is_default?: boolean
           model?: string | null
           name?: string
+          organization_id: string
           template?: string
           updated_at?: string
         }
@@ -183,10 +228,19 @@ export type Database = {
           is_default?: boolean
           model?: string | null
           name?: string
+          organization_id?: string
           template?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_scripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calcom_settings: {
         Row: {
@@ -196,6 +250,7 @@ export type Database = {
           event_type_slug: string | null
           field_mappings: Json | null
           id: string
+          organization_id: string
           updated_at: string
           webhook_secret: string | null
         }
@@ -206,6 +261,7 @@ export type Database = {
           event_type_slug?: string | null
           field_mappings?: Json | null
           id?: string
+          organization_id: string
           updated_at?: string
           webhook_secret?: string | null
         }
@@ -216,10 +272,19 @@ export type Database = {
           event_type_slug?: string | null
           field_mappings?: Json | null
           id?: string
+          organization_id?: string
           updated_at?: string
           webhook_secret?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calcom_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calendly_settings: {
         Row: {
@@ -227,6 +292,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          organization_id: string
           personal_access_token: string | null
           updated_at: string
           webhook_signing_key: string | null
@@ -236,6 +302,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          organization_id: string
           personal_access_token?: string | null
           updated_at?: string
           webhook_signing_key?: string | null
@@ -245,11 +312,20 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          organization_id?: string
           personal_access_token?: string | null
           updated_at?: string
           webhook_signing_key?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calendly_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_data: {
         Row: {
@@ -261,6 +337,7 @@ export type Database = {
           created_at: string
           field_values: Json
           id: string
+          organization_id: string
           updated_at: string
         }
         Insert: {
@@ -272,6 +349,7 @@ export type Database = {
           created_at?: string
           field_values?: Json
           id?: string
+          organization_id: string
           updated_at?: string
         }
         Update: {
@@ -283,9 +361,18 @@ export type Database = {
           created_at?: string
           field_values?: Json
           id?: string
+          organization_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_data_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_fields: {
         Row: {
@@ -296,6 +383,7 @@ export type Database = {
           key: string
           label: string
           options: string[] | null
+          organization_id: string
           type: string
           updated_at: string
         }
@@ -307,6 +395,7 @@ export type Database = {
           key: string
           label: string
           options?: string[] | null
+          organization_id: string
           type?: string
           updated_at?: string
         }
@@ -318,15 +407,25 @@ export type Database = {
           key?: string
           label?: string
           options?: string[] | null
+          organization_id?: string
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_fields_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_card_section_order: {
         Row: {
           created_at: string
           id: string
+          organization_id: string
           section_expanded_defaults: Json | null
           section_order: string[]
           updated_at: string
@@ -334,6 +433,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          organization_id: string
           section_expanded_defaults?: Json | null
           section_order?: string[]
           updated_at?: string
@@ -341,11 +441,20 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          organization_id?: string
           section_expanded_defaults?: Json | null
           section_order?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contact_card_section_order_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_history: {
         Row: {
@@ -357,6 +466,7 @@ export type Database = {
           created_at: string
           id: string
           note: string | null
+          organization_id: string
           reason: string | null
         }
         Insert: {
@@ -368,6 +478,7 @@ export type Database = {
           created_at?: string
           id?: string
           note?: string | null
+          organization_id: string
           reason?: string | null
         }
         Update: {
@@ -379,6 +490,7 @@ export type Database = {
           created_at?: string
           id?: string
           note?: string | null
+          organization_id?: string
           reason?: string | null
         }
         Relationships: [
@@ -387,6 +499,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -411,6 +530,7 @@ export type Database = {
           job_title: string | null
           last_name: string
           not_interested_reason: string | null
+          organization_id: string
           phone: string
           pot_id: string | null
           qualifying_answers: Json | null
@@ -437,6 +557,7 @@ export type Database = {
           job_title?: string | null
           last_name: string
           not_interested_reason?: string | null
+          organization_id: string
           phone: string
           pot_id?: string | null
           qualifying_answers?: Json | null
@@ -463,6 +584,7 @@ export type Database = {
           job_title?: string | null
           last_name?: string
           not_interested_reason?: string | null
+          organization_id?: string
           phone?: string
           pot_id?: string | null
           qualifying_answers?: Json | null
@@ -476,6 +598,13 @@ export type Database = {
             columns: ["ai_script_id"]
             isOneToOne: false
             referencedRelation: "ai_scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -496,6 +625,7 @@ export type Database = {
           key: string
           label: string
           options: string[] | null
+          organization_id: string
           type: string
           updated_at: string
         }
@@ -507,6 +637,7 @@ export type Database = {
           key: string
           label: string
           options?: string[] | null
+          organization_id: string
           type?: string
           updated_at?: string
         }
@@ -518,7 +649,37 @@ export type Database = {
           key?: string
           label?: string
           options?: string[] | null
+          organization_id?: string
           type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_contact_fields_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -530,6 +691,7 @@ export type Database = {
           is_archived: boolean
           label: string
           option_order: number
+          organization_id: string
           outcome_type: string
           updated_at: string | null
           value: string
@@ -540,6 +702,7 @@ export type Database = {
           is_archived?: boolean
           label: string
           option_order?: number
+          organization_id: string
           outcome_type: string
           updated_at?: string | null
           value: string
@@ -550,29 +713,84 @@ export type Database = {
           is_archived?: boolean
           label?: string
           option_order?: number
+          organization_id?: string
           outcome_type?: string
           updated_at?: string | null
           value?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "outcome_options_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pots: {
         Row: {
           created_at: string
           id: string
           name: string
+          organization_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          organization_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          organization_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prompt_refinements: {
         Row: {
@@ -580,6 +798,7 @@ export type Database = {
           example_output: string | null
           feedback: string
           id: string
+          organization_id: string
           original_prompt: string
           prompt_type: string
           refined_prompt: string
@@ -591,6 +810,7 @@ export type Database = {
           example_output?: string | null
           feedback: string
           id?: string
+          organization_id: string
           original_prompt: string
           prompt_type: string
           refined_prompt: string
@@ -602,6 +822,7 @@ export type Database = {
           example_output?: string | null
           feedback?: string
           id?: string
+          organization_id?: string
           original_prompt?: string
           prompt_type?: string
           refined_prompt?: string
@@ -609,6 +830,13 @@ export type Database = {
           sample_contact_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "prompt_refinements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prompt_refinements_sample_contact_id_fkey"
             columns: ["sample_contact_id"]
@@ -623,6 +851,7 @@ export type Database = {
           created_at: string
           id: string
           options: string[] | null
+          organization_id: string
           question: string
           question_order: number
           type: string
@@ -632,6 +861,7 @@ export type Database = {
           created_at?: string
           id?: string
           options?: string[] | null
+          organization_id: string
           question: string
           question_order?: number
           type?: string
@@ -641,12 +871,21 @@ export type Database = {
           created_at?: string
           id?: string
           options?: string[] | null
+          organization_id?: string
           question?: string
           question_order?: number
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "qualifying_questions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seller_company: {
         Row: {
@@ -655,6 +894,7 @@ export type Database = {
           custom_fields: Json | null
           id: string
           industry: string | null
+          organization_id: string
           pain_points_solved: string | null
           product_offering: string | null
           product_sets: string | null
@@ -670,6 +910,7 @@ export type Database = {
           custom_fields?: Json | null
           id?: string
           industry?: string | null
+          organization_id: string
           pain_points_solved?: string | null
           product_offering?: string | null
           product_sets?: string | null
@@ -685,6 +926,7 @@ export type Database = {
           custom_fields?: Json | null
           id?: string
           industry?: string | null
+          organization_id?: string
           pain_points_solved?: string | null
           product_offering?: string | null
           product_sets?: string | null
@@ -694,7 +936,15 @@ export type Database = {
           usps?: string | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "seller_company_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seller_custom_fields: {
         Row: {
@@ -705,6 +955,7 @@ export type Database = {
           key: string
           label: string
           options: string[] | null
+          organization_id: string
           type: string
           updated_at: string
         }
@@ -716,6 +967,7 @@ export type Database = {
           key: string
           label: string
           options?: string[] | null
+          organization_id: string
           type?: string
           updated_at?: string
         }
@@ -727,10 +979,19 @@ export type Database = {
           key?: string
           label?: string
           options?: string[] | null
+          organization_id?: string
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "seller_custom_fields_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       static_script_settings: {
         Row: {
@@ -738,6 +999,7 @@ export type Database = {
           default_expanded: boolean
           enabled: boolean
           id: string
+          organization_id: string
           updated_at: string
         }
         Insert: {
@@ -745,6 +1007,7 @@ export type Database = {
           default_expanded?: boolean
           enabled?: boolean
           id?: string
+          organization_id: string
           updated_at?: string
         }
         Update: {
@@ -752,9 +1015,18 @@ export type Database = {
           default_expanded?: boolean
           enabled?: boolean
           id?: string
+          organization_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "static_script_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       static_scripts: {
         Row: {
@@ -765,6 +1037,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
+          organization_id: string
           updated_at: string
         }
         Insert: {
@@ -775,6 +1048,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
+          organization_id: string
           updated_at?: string
         }
         Update: {
@@ -785,7 +1059,37 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
+          organization_id?: string
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "static_scripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -794,6 +1098,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          organization_id: string
           updated_at: string
           url: string
         }
@@ -801,6 +1106,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          organization_id: string
           updated_at?: string
           url?: string
         }
@@ -808,20 +1114,40 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          organization_id?: string
           updated_at?: string
           url?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_organization_id: { Args: { user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      user_belongs_to_org: {
+        Args: { org_id: string; user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -948,6 +1274,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "member"],
+    },
   },
 } as const

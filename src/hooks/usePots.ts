@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Pot {
   id: string;
@@ -16,6 +17,9 @@ export interface PotWithStats extends Pot {
 }
 
 export function usePots() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [pots, setPots] = useState<Pot[]>([]);
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
   const [contactStats, setContactStats] = useState<Record<string, { total: number; callbacks: number; notInterested: number; completed: number }>>({});
@@ -24,10 +28,16 @@ export function usePots() {
   // Load pots
   useEffect(() => {
     const loadPots = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from('pots')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -43,16 +53,19 @@ export function usePots() {
     };
 
     loadPots();
-  }, []);
+  }, [organizationId]);
 
   // Subscribe to realtime updates for pots
   useEffect(() => {
+    if (!organizationId) return;
+    
     const channel = supabase
       .channel('pots-realtime')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'pots'
+        table: 'pots',
+        filter: `organization_id=eq.${organizationId}`
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const newPot: Pot = {
@@ -79,14 +92,17 @@ export function usePots() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [organizationId]);
 
   // Load contact stats for each pot
   useEffect(() => {
     const loadStats = async () => {
+      if (!organizationId) return;
+      
       const { data, error } = await supabase
         .from('contacts')
-        .select('pot_id, status, callback_date');
+        .select('pot_id, status, callback_date')
+        .eq('organization_id', organizationId);
 
       if (error) {
         console.error('Error loading contact stats:', error);
@@ -119,7 +135,7 @@ export function usePots() {
     };
 
     loadStats();
-  }, [pots]);
+  }, [pots, organizationId]);
 
   const potsWithStats = useMemo((): PotWithStats[] => {
     return pots.map(pot => ({
@@ -148,9 +164,14 @@ export function usePots() {
   }, [contactStats]);
 
   const createPot = useCallback(async (name: string): Promise<string | null> => {
+    if (!organizationId) {
+      toast.error('Not authenticated');
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('pots')
-      .insert({ name })
+      .insert({ name, organization_id: organizationId })
       .select()
       .single();
 
@@ -162,7 +183,7 @@ export function usePots() {
 
     // Realtime will handle adding the pot to state
     return data.id;
-  }, []);
+  }, [organizationId]);
 
   const renamePot = useCallback(async (potId: string, newName: string): Promise<boolean> => {
     const { error } = await supabase
@@ -267,9 +288,12 @@ export function usePots() {
   }, []);
 
   const refreshStats = useCallback(async () => {
+    if (!organizationId) return;
+    
     const { data, error } = await supabase
       .from('contacts')
-      .select('pot_id, status, callback_date');
+      .select('pot_id, status, callback_date')
+      .eq('organization_id', organizationId);
 
     if (error) {
       console.error('Error refreshing stats:', error);
@@ -299,7 +323,7 @@ export function usePots() {
     });
 
     setContactStats(stats);
-  }, []);
+  }, [organizationId]);
 
   return {
     pots,
