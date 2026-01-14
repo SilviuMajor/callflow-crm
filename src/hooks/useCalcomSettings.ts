@@ -66,26 +66,32 @@ export function useCalcomSettings() {
     fetchSettings();
   }, [fetchSettings]);
 
-  const fetchBookingFields = useCallback(async (eventSlug: string): Promise<CalcomBookingField[]> => {
-    if (!eventSlug) return [];
+  const fetchBookingFields = useCallback(async (eventSlug: string, apiKey: string): Promise<{ fields: CalcomBookingField[]; error?: string }> => {
+    if (!eventSlug) return { fields: [], error: 'Event slug is required' };
+    if (!apiKey) return { fields: [], error: 'API key is required' };
     
     setIsFetchingFields(true);
     try {
       const { data, error } = await supabase.functions.invoke('calcom-booking-fields', {
-        body: { eventSlug }
+        body: { eventSlug, apiKey }
       });
 
       if (error) {
         console.error('Error fetching booking fields:', error);
-        return [];
+        return { fields: [], error: error.message || 'Failed to fetch fields' };
+      }
+
+      if (data?.error) {
+        console.error('Cal.com API error:', data.error);
+        return { fields: [], error: data.error };
       }
 
       const fields = data?.fields || [];
       setAvailableFields(fields);
-      return fields;
+      return { fields };
     } catch (err) {
       console.error('Error fetching booking fields:', err);
-      return [];
+      return { fields: [], error: err instanceof Error ? err.message : 'Unknown error' };
     } finally {
       setIsFetchingFields(false);
     }

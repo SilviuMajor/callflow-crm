@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { eventSlug } = await req.json();
+    const { eventSlug, apiKey } = await req.json();
     
     if (!eventSlug) {
       return new Response(
@@ -27,9 +27,31 @@ serve(async (req) => {
       );
     }
 
-    // Parse the slug to get username and event name
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: 'API key is required to fetch booking fields' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Clean the event slug - handle full URLs or just the slug
+    let cleanSlug = eventSlug.trim();
+    
+    // Strip protocol and domain if full URL provided
+    if (cleanSlug.startsWith('https://cal.com/')) {
+      cleanSlug = cleanSlug.replace('https://cal.com/', '');
+    } else if (cleanSlug.startsWith('http://cal.com/')) {
+      cleanSlug = cleanSlug.replace('http://cal.com/', '');
+    } else if (cleanSlug.startsWith('cal.com/')) {
+      cleanSlug = cleanSlug.replace('cal.com/', '');
+    }
+    
+    // Remove any trailing slashes
+    cleanSlug = cleanSlug.replace(/\/$/, '');
+
+    // Parse the slug to get the event name
     // Format: "username/event-name" or "team/team-name/event-name"
-    const slugParts = eventSlug.split('/');
+    const slugParts = cleanSlug.split('/');
     if (slugParts.length < 2) {
       return new Response(
         JSON.stringify({ error: 'Invalid event slug format. Expected "username/event-name"' }),
@@ -37,90 +59,110 @@ serve(async (req) => {
       );
     }
 
-    const username = slugParts[0];
     const eventName = slugParts[slugParts.length - 1];
+    console.log('Looking for event:', eventName, 'from slug:', cleanSlug);
 
-    // Use Cal.com's public API to get event type details
-    // This endpoint doesn't require authentication for public event types
-    const calApiUrl = `https://cal.com/api/trpc/public/event?input=${encodeURIComponent(JSON.stringify({ username, eventSlug: eventName }))}`;
+    // Use Cal.com API v2 to get all event types
+    const calApiUrl = 'https://api.cal.com/v2/event-types';
     
-    console.log('Fetching Cal.com event from:', calApiUrl);
+    console.log('Fetching Cal.com event types with API v2');
     
     const response = await fetch(calApiUrl, {
       method: 'GET',
       headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'cal-api-version': '2024-06-14',
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      console.error('Cal.com API error:', response.status, await response.text());
+      const errorText = await response.text();
+      console.error('Cal.com API error:', response.status, errorText);
+      
+      if (response.status === 401) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid API key. Please check your Cal.com API key.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch event details from Cal.com' }),
+        JSON.stringify({ error: 'Failed to fetch event types from Cal.com' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
-    console.log('Cal.com response:', JSON.stringify(data).slice(0, 500));
+    console.log('Cal.com response status:', data?.status);
 
-    // Extract booking fields from the response
-    const eventData = data?.result?.data;
-    if (!eventData) {
+    // Find the matching event type by slug
+    const eventTypes = data?.data || [];
+    console.log('Found event types:', eventTypes.length);
+    
+    const matchingEvent = eventTypes.find(
+      (et: any) => et.slug === eventName || et.slug === cleanSlug
+    );
+
+    if (!matchingEvent) {
+      console.log('Available event slugs:', eventTypes.map((et: any) => et.slug));
       return new Response(
-        JSON.stringify({ error: 'Event not found or not public', fields: [] }),
+        JSON.stringify({ 
+          error: `Event "${eventName}" not found. Available events: ${eventTypes.map((et: any) => et.slug).join(', ')}`,
+          fields: [] 
+        }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Cal.com stores booking fields in bookingFields array
+    console.log('Found matching event:', matchingEvent.title, 'with bookingFields:', matchingEvent.bookingFields?.length || 0);
+
+    // Extract booking fields from the response
     const bookingFields: BookingField[] = [];
     
     // Add standard fields that are always available
     bookingFields.push(
-      { slug: 'name', label: 'Name', type: 'text' },
+      { slug: 'name', label: 'Name', type: 'name' },
       { slug: 'email', label: 'Email', type: 'email' },
     );
 
     // Check for phone location type
-    if (eventData.locations?.some((loc: any) => loc.type === 'phone' || loc.type === 'attendeePhoneNumber')) {
+    if (matchingEvent.locations?.some((loc: any) => 
+      loc.type === 'phone' || 
+      loc.type === 'attendeePhoneNumber' ||
+      loc.type === 'userPhone'
+    )) {
       bookingFields.push({ slug: 'location', label: 'Phone Number (Location)', type: 'phone' });
     }
 
-    // Extract custom booking fields
-    if (eventData.bookingFields && Array.isArray(eventData.bookingFields)) {
-      for (const field of eventData.bookingFields) {
-        if (field.name && field.label && !['name', 'email', 'guests', 'rescheduleReason'].includes(field.name)) {
-          bookingFields.push({
-            slug: field.name,
-            label: field.label || field.name,
-            type: field.type || 'text',
-          });
+    // Extract custom booking fields from the API response
+    if (matchingEvent.bookingFields && Array.isArray(matchingEvent.bookingFields)) {
+      for (const field of matchingEvent.bookingFields) {
+        // Skip standard fields we already added
+        if (['name', 'email', 'guests', 'rescheduleReason'].includes(field.slug)) {
+          continue;
         }
-      }
-    }
-
-    // Also check for legacy customInputs
-    if (eventData.customInputs && Array.isArray(eventData.customInputs)) {
-      for (const input of eventData.customInputs) {
-        if (input.id && input.label) {
-          bookingFields.push({
-            slug: `customInput:${input.id}`,
-            label: input.label,
-            type: input.type || 'text',
-          });
-        }
+        
+        bookingFields.push({
+          slug: field.slug,
+          label: field.label || field.slug,
+          type: field.type || 'text',
+        });
       }
     }
 
     // Always add notes field
-    bookingFields.push({ slug: 'notes', label: 'Additional Notes', type: 'textarea' });
+    if (!bookingFields.some(f => f.slug === 'notes')) {
+      bookingFields.push({ slug: 'notes', label: 'Additional Notes', type: 'textarea' });
+    }
+
+    console.log('Returning fields:', bookingFields.length);
 
     return new Response(
       JSON.stringify({ 
         fields: bookingFields,
-        eventName: eventData.title || eventName,
-        locations: eventData.locations || [],
+        eventName: matchingEvent.title || eventName,
+        eventId: matchingEvent.id,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
