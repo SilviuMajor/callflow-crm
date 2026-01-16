@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const DEFAULT_SECTION_ORDER = [
   'history',
@@ -40,6 +41,9 @@ const DEFAULT_EXPANDED_DEFAULTS: SectionExpandedDefaults = {
 };
 
 export function useContactCardSectionOrder() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>([...DEFAULT_SECTION_ORDER]);
   const [sectionExpandedDefaults, setSectionExpandedDefaults] = useState<SectionExpandedDefaults>({ ...DEFAULT_EXPANDED_DEFAULTS });
   const [isLoading, setIsLoading] = useState(true);
@@ -47,11 +51,17 @@ export function useContactCardSectionOrder() {
 
   useEffect(() => {
     const fetchOrder = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('contact_card_section_order')
           .select('*')
+          .eq('organization_id', organizationId)
           .limit(1)
           .single();
 
@@ -61,7 +71,8 @@ export function useContactCardSectionOrder() {
             .from('contact_card_section_order')
             .insert({ 
               section_order: [...DEFAULT_SECTION_ORDER],
-              section_expanded_defaults: { ...DEFAULT_EXPANDED_DEFAULTS }
+              section_expanded_defaults: { ...DEFAULT_EXPANDED_DEFAULTS },
+              organization_id: organizationId,
             })
             .select()
             .single();
@@ -86,8 +97,10 @@ export function useContactCardSectionOrder() {
       }
     };
 
-    fetchOrder();
-  }, []);
+    if (organizationId) {
+      fetchOrder();
+    }
+  }, [organizationId]);
 
   const updateOrder = useCallback(async (newOrder: SectionKey[]) => {
     if (!settingsId) return;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface AutoGenerateSettings {
   id: string;
@@ -20,6 +21,9 @@ const DEFAULT_SETTINGS: Omit<AutoGenerateSettings, 'id'> = {
 };
 
 export function useAutoGenerateSettings() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [settings, setSettings] = useState<AutoGenerateSettings>({
     id: '',
     ...DEFAULT_SETTINGS,
@@ -27,11 +31,17 @@ export function useAutoGenerateSettings() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('ai_auto_generate_settings')
         .select('*')
+        .eq('organization_id', organizationId)
         .limit(1)
         .maybeSingle();
 
@@ -50,7 +60,7 @@ export function useAutoGenerateSettings() {
         // Create default settings
         const { data: newData, error: insertError } = await supabase
           .from('ai_auto_generate_settings')
-          .insert(DEFAULT_SETTINGS)
+          .insert({ ...DEFAULT_SETTINGS, organization_id: organizationId })
           .select()
           .single();
 
@@ -74,8 +84,10 @@ export function useAutoGenerateSettings() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    if (organizationId) {
+      fetchSettings();
+    }
+  }, [fetchSettings, organizationId]);
 
   const updateSettings = useCallback(async (updates: Partial<Omit<AutoGenerateSettings, 'id'>>) => {
     if (!settings.id) return false;

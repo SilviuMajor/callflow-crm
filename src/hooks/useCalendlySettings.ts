@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface CalendlySettings {
   id: string;
@@ -10,6 +11,9 @@ export interface CalendlySettings {
 }
 
 export function useCalendlySettings() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [settings, setSettings] = useState<CalendlySettings>({
     id: '',
     enabled: false,
@@ -20,9 +24,15 @@ export function useCalendlySettings() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('calendly_settings')
       .select('*')
+      .eq('organization_id', organizationId)
       .limit(1)
       .maybeSingle();
 
@@ -41,13 +51,15 @@ export function useCalendlySettings() {
       });
     }
     setIsLoading(false);
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
   const updateSettings = async (updates: Partial<Omit<CalendlySettings, 'id'>>) => {
+    if (!organizationId) return false;
+    
     // If no settings exist yet, create a new row
     if (!settings.id) {
       const { data, error } = await supabase
@@ -57,6 +69,7 @@ export function useCalendlySettings() {
           calendly_url: updates.calendly_url ?? '',
           personal_access_token: updates.personal_access_token ?? null,
           webhook_signing_key: updates.webhook_signing_key ?? null,
+          organization_id: organizationId,
         })
         .select()
         .single();

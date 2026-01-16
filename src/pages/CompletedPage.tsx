@@ -268,7 +268,7 @@ export default function CompletedPage() {
         }
         break;
       case 'pending':
-        await returnToPot(pendingNoShowContact.id, undefined, pendingNoShowContact.completedReason || 'appointment_booked');
+        await returnToPot(pendingNoShowContact.id, 'Returned to pot after no-show');
         if (selectedContact?.id === pendingNoShowContact.id) {
           setSelectedContact(null);
         }
@@ -276,7 +276,7 @@ export default function CompletedPage() {
       case 'callback':
         if (!noShowCallbackDate || !noShowCallbackTime) return;
         const callbackDate = new Date(`${noShowCallbackDate}T${noShowCallbackTime}`);
-        await returnToPot(pendingNoShowContact.id, callbackDate, pendingNoShowContact.completedReason || 'appointment_booked');
+        await updateContactStatus(pendingNoShowContact.id, 'callback', callbackDate, 'Callback scheduled after no-show');
         if (selectedContact?.id === pendingNoShowContact.id) {
           setSelectedContact(null);
         }
@@ -304,12 +304,12 @@ export default function CompletedPage() {
   const handleReturnToPot = async () => {
     if (!pendingNoShowContact) return;
     
-    let callbackDate: Date | undefined;
     if (returnType === 'callback' && returnCallbackDate && returnCallbackTime) {
-      callbackDate = new Date(`${returnCallbackDate}T${returnCallbackTime}`);
+      const callbackDate = new Date(`${returnCallbackDate}T${returnCallbackTime}`);
+      await updateContactStatus(pendingNoShowContact.id, 'callback', callbackDate, 'Callback scheduled');
+    } else {
+      await returnToPot(pendingNoShowContact.id, 'Returned to pot');
     }
-    
-    await returnToPot(pendingNoShowContact.id, callbackDate, pendingNoShowContact.completedReason || 'appointment_booked');
     
     setShowReturnToPotDialog(false);
     setPendingNoShowContact(null);
@@ -1077,10 +1077,8 @@ export default function CompletedPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={async () => {
                 if (selectedContact) {
-                  const success = await deleteContact(selectedContact.id);
-                  if (success) {
-                    setSelectedContact(null);
-                  }
+                  await deleteContact(selectedContact.id);
+                  setSelectedContact(null);
                 }
                 setShowDeleteConfirm(false);
               }}

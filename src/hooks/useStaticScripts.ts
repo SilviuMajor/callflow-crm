@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface StaticScript {
   id: string;
@@ -13,14 +14,23 @@ export interface StaticScript {
 }
 
 export function useStaticScripts() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [scripts, setScripts] = useState<StaticScript[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchScripts = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     const { data, error } = await supabase
       .from('static_scripts')
       .select('*')
+      .eq('organization_id', organizationId)
       .order('field_order', { ascending: true });
 
     if (error) {
@@ -29,13 +39,17 @@ export function useStaticScripts() {
       setScripts(data || []);
     }
     setIsLoading(false);
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
-    fetchScripts();
-  }, [fetchScripts]);
+    if (organizationId) {
+      fetchScripts();
+    }
+  }, [fetchScripts, organizationId]);
 
   const addScript = async (script: Partial<Omit<StaticScript, 'id' | 'created_at' | 'updated_at'>>) => {
+    if (!organizationId) return null;
+    
     const maxOrder = scripts.length > 0 ? Math.max(...scripts.map(s => s.field_order)) : -1;
     
     const { data, error } = await supabase
@@ -46,6 +60,7 @@ export function useStaticScripts() {
         enabled: script.enabled ?? true,
         is_default: script.is_default ?? false,
         field_order: maxOrder + 1,
+        organization_id: organizationId,
       })
       .select()
       .single();

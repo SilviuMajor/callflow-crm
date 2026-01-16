@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface StaticScriptSettings {
   id: string;
@@ -15,14 +16,23 @@ const DEFAULT_SETTINGS: Omit<StaticScriptSettings, 'id' | 'created_at' | 'update
 };
 
 export function useStaticScriptSettings() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [settings, setSettings] = useState<StaticScriptSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     const { data, error } = await supabase
       .from('static_script_settings')
       .select('*')
+      .eq('organization_id', organizationId)
       .limit(1)
       .maybeSingle();
 
@@ -36,7 +46,7 @@ export function useStaticScriptSettings() {
       // Create default settings if none exist
       const { data: newData, error: insertError } = await supabase
         .from('static_script_settings')
-        .insert(DEFAULT_SETTINGS)
+        .insert({ ...DEFAULT_SETTINGS, organization_id: organizationId })
         .select()
         .single();
 
@@ -47,11 +57,13 @@ export function useStaticScriptSettings() {
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    if (organizationId) {
+      fetchSettings();
+    }
+  }, [fetchSettings, organizationId]);
 
   const updateSettings = async (updates: Partial<Omit<StaticScriptSettings, 'id' | 'created_at' | 'updated_at'>>) => {
     if (!settings) return false;

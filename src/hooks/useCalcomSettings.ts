@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface CalcomFieldMappings {
   phone?: string;
@@ -24,6 +25,9 @@ export interface CalcomBookingField {
 }
 
 export function useCalcomSettings() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [settings, setSettings] = useState<CalcomSettings>({
     id: '',
     enabled: false,
@@ -37,9 +41,15 @@ export function useCalcomSettings() {
   const [isFetchingFields, setIsFetchingFields] = useState(false);
 
   const fetchSettings = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('calcom_settings')
       .select('*')
+      .eq('organization_id', organizationId)
       .limit(1)
       .maybeSingle();
 
@@ -60,7 +70,7 @@ export function useCalcomSettings() {
       });
     }
     setIsLoading(false);
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchSettings();
@@ -98,6 +108,8 @@ export function useCalcomSettings() {
   }, []);
 
   const updateSettings = async (updates: Partial<Omit<CalcomSettings, 'id'>>) => {
+    if (!organizationId) return false;
+    
     // If no settings exist yet, create a new row
     if (!settings.id) {
       const { data, error } = await supabase
@@ -108,6 +120,7 @@ export function useCalcomSettings() {
           event_type_slug: updates.event_type_slug ?? null,
           webhook_secret: updates.webhook_secret ?? null,
           field_mappings: updates.field_mappings ?? {},
+          organization_id: organizationId,
         })
         .select()
         .single();

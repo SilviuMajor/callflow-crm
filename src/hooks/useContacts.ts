@@ -687,6 +687,36 @@ export function useContacts(selectedPotId?: string | null) {
     }
   }, [organizationId]);
 
+  // Shuffle pending contacts randomly
+  const shufflePending = useCallback(() => {
+    setContacts(prev => {
+      const pending = prev.filter(c => c.status === 'pending' || c.status === 'no_answer');
+      const others = prev.filter(c => c.status !== 'pending' && c.status !== 'no_answer');
+      
+      // Fisher-Yates shuffle
+      for (let i = pending.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pending[i], pending[j]] = [pending[j], pending[i]];
+      }
+      
+      return [...others, ...pending];
+    });
+    toast.success('Queue shuffled');
+  }, []);
+
+  // Sort contacts by company name
+  const sortByCompany = useCallback(() => {
+    setContacts(prev => {
+      const pending = prev.filter(c => c.status === 'pending' || c.status === 'no_answer');
+      const others = prev.filter(c => c.status !== 'pending' && c.status !== 'no_answer');
+      
+      pending.sort((a, b) => a.company.localeCompare(b.company));
+      
+      return [...others, ...pending];
+    });
+    toast.success('Sorted by company');
+  }, []);
+
   return {
     contacts,
     queueContacts,
@@ -709,5 +739,11 @@ export function useContacts(selectedPotId?: string | null) {
     rescheduleCallback,
     markAppointmentAttendance,
     isLoading,
+    // Aliases for pages expecting different names
+    selectContact: setSelectedContactId,
+    shufflePending,
+    sortByCompany,
+    markAppointmentAttended: markAppointmentAttendance,
+    rescheduleAppointment: rescheduleCallback,
   };
 }

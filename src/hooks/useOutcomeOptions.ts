@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface OutcomeOption {
   id: string;
@@ -12,13 +13,22 @@ export interface OutcomeOption {
 }
 
 export function useOutcomeOptions() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [options, setOptions] = useState<OutcomeOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchOptions = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('outcome_options')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('is_archived', false)
       .order('option_order', { ascending: true });
 
@@ -33,13 +43,17 @@ export function useOutcomeOptions() {
   }, []);
 
   useEffect(() => {
-    fetchOptions();
-  }, [fetchOptions]);
+    if (organizationId) {
+      fetchOptions();
+    }
+  }, [fetchOptions, organizationId]);
 
   const completedOptions = options.filter(o => o.outcome_type === 'completed');
   const notInterestedOptions = options.filter(o => o.outcome_type === 'not_interested');
 
   const addOption = async (outcomeType: 'completed' | 'not_interested', value: string, label: string) => {
+    if (!organizationId) return;
+    
     const maxOrder = options
       .filter(o => o.outcome_type === outcomeType)
       .reduce((max, o) => Math.max(max, o.option_order), -1);
@@ -51,6 +65,7 @@ export function useOutcomeOptions() {
         value,
         label,
         option_order: maxOrder + 1,
+        organization_id: organizationId,
       })
       .select()
       .single();

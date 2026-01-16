@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface WebhookSettings {
   enabled: boolean;
@@ -13,6 +14,9 @@ const defaultSettings: WebhookSettings = {
 };
 
 export function useWebhookSettings() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [settings, setSettings] = useState<WebhookSettings>(defaultSettings);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,10 +24,16 @@ export function useWebhookSettings() {
   // Load settings from database
   useEffect(() => {
     const loadSettings = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from('webhook_settings')
         .select('*')
+        .eq('organization_id', organizationId)
         .limit(1)
         .maybeSingle();
 
@@ -39,8 +49,10 @@ export function useWebhookSettings() {
       setIsLoading(false);
     };
 
-    loadSettings();
-  }, []);
+    if (organizationId) {
+      loadSettings();
+    }
+  }, [organizationId]);
 
   const updateSettings = useCallback(async (updates: Partial<WebhookSettings>) => {
     const newSettings = { ...settings, ...updates };
@@ -60,13 +72,14 @@ export function useWebhookSettings() {
         console.error('Error updating webhook settings:', error);
         toast.error('Failed to save webhook settings');
       }
-    } else {
+    } else if (organizationId) {
       // Insert new record
       const { data, error } = await supabase
         .from('webhook_settings')
         .insert({
           enabled: newSettings.enabled,
           url: newSettings.url,
+          organization_id: organizationId,
         })
         .select()
         .single();
@@ -78,7 +91,7 @@ export function useWebhookSettings() {
         setSettingsId(data.id);
       }
     }
-  }, [settings, settingsId]);
+  }, [settings, settingsId, organizationId]);
 
   const sendWebhook = useCallback(async (contact: Record<string, any>): Promise<{ success: boolean; error?: string }> => {
     if (!settings.enabled || !settings.url) {

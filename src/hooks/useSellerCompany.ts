@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface SellerCompany {
   id: string;
@@ -19,15 +20,24 @@ export interface SellerCompany {
 }
 
 export function useSellerCompany() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [sellerCompany, setSellerCompany] = useState<SellerCompany | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchSellerCompany = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('seller_company')
         .select('*')
+        .eq('organization_id', organizationId)
         .limit(1)
         .single();
 
@@ -49,7 +59,7 @@ export function useSellerCompany() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchSellerCompany();
@@ -67,11 +77,11 @@ export function useSellerCompany() {
         if (error) throw error;
         
         setSellerCompany(prev => prev ? { ...prev, [field]: value } : null);
-      } else {
+      } else if (organizationId) {
         // Create new record
         const { data, error } = await supabase
           .from('seller_company')
-          .insert({ [field]: value })
+          .insert({ [field]: value, organization_id: organizationId })
           .select()
           .single();
 
@@ -86,7 +96,7 @@ export function useSellerCompany() {
       toast.error('Failed to save');
       throw error;
     }
-  }, [sellerCompany]);
+  }, [sellerCompany, organizationId]);
 
   const updateCustomField = useCallback(async (key: string, value: any) => {
     try {
@@ -106,10 +116,10 @@ export function useSellerCompany() {
 
         if (error) throw error;
         setSellerCompany(prev => prev ? { ...prev, custom_fields: newCustomFields } : null);
-      } else {
+      } else if (organizationId) {
         const { data, error } = await supabase
           .from('seller_company')
-          .insert({ custom_fields: newCustomFields })
+          .insert({ custom_fields: newCustomFields, organization_id: organizationId })
           .select()
           .single();
 
@@ -124,7 +134,7 @@ export function useSellerCompany() {
       toast.error('Failed to save');
       throw error;
     }
-  }, [sellerCompany]);
+  }, [sellerCompany, organizationId]);
 
   const getContextString = useCallback(() => {
     if (!sellerCompany) return '';

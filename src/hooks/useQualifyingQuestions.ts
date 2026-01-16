@@ -2,18 +2,28 @@ import { useState, useCallback, useEffect } from 'react';
 import { QualifyingQuestion } from '@/types/contact';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useQualifyingQuestions() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [questions, setQuestions] = useState<QualifyingQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load questions from database
   useEffect(() => {
     const loadQuestions = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from('qualifying_questions')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('question_order', { ascending: true });
 
       if (error) {
@@ -34,9 +44,11 @@ export function useQualifyingQuestions() {
     };
 
     loadQuestions();
-  }, []);
+  }, [organizationId]);
 
   const addQuestion = useCallback(async (question: Omit<QualifyingQuestion, 'id' | 'order'>) => {
+    if (!organizationId) return '';
+    
     const newOrder = questions.length;
     
     const { data, error } = await supabase
@@ -46,6 +58,7 @@ export function useQualifyingQuestions() {
         type: question.type,
         options: question.options || null,
         question_order: newOrder,
+        organization_id: organizationId,
       })
       .select()
       .single();
@@ -69,7 +82,7 @@ export function useQualifyingQuestions() {
       return data.id;
     }
     return '';
-  }, [questions.length]);
+  }, [questions.length, organizationId]);
 
   const updateQuestion = useCallback(async (id: string, updates: Partial<Omit<QualifyingQuestion, 'id'>>) => {
     setQuestions(prev => prev.map(q => 
