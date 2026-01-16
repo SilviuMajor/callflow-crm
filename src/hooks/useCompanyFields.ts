@@ -2,18 +2,28 @@ import { useState, useCallback, useEffect } from 'react';
 import { CompanyField } from '@/types/contact';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useCompanyFields() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [fields, setFields] = useState<CompanyField[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load fields from database
   useEffect(() => {
     const loadFields = async () => {
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from('company_fields')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('field_order', { ascending: true });
 
       if (error) {
@@ -35,9 +45,11 @@ export function useCompanyFields() {
     };
 
     loadFields();
-  }, []);
+  }, [organizationId]);
 
   const addField = useCallback(async (field: Omit<CompanyField, 'id' | 'order'>) => {
+    if (!organizationId) return '';
+    
     const newOrder = fields.length;
     
     const { data, error } = await supabase
@@ -49,6 +61,7 @@ export function useCompanyFields() {
         options: field.options || null,
         field_order: newOrder,
         is_archived: field.isArchived || false,
+        organization_id: organizationId,
       })
       .select()
       .single();
@@ -73,7 +86,7 @@ export function useCompanyFields() {
       return data.id;
     }
     return '';
-  }, [fields.length]);
+  }, [fields.length, organizationId]);
 
   const updateField = useCallback(async (id: string, updates: Partial<Omit<CompanyField, 'id'>>) => {
     setFields(prev => prev.map(f => 

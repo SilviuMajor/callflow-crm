@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface PromptRefinement {
   id: string;
@@ -21,16 +22,22 @@ interface RefinementResult {
 }
 
 export function usePromptRefinements(promptType: string) {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [refinements, setRefinements] = useState<PromptRefinement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
 
   const fetchRefinements = useCallback(async () => {
+    if (!organizationId) return;
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('prompt_refinements')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('prompt_type', promptType)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -58,7 +65,7 @@ export function usePromptRefinements(promptType: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [promptType]);
+  }, [promptType, organizationId]);
 
   const refinePrompt = useCallback(async (
     originalPrompt: string,
@@ -105,6 +112,8 @@ export function usePromptRefinements(promptType: string) {
     sampleContactId: string | null,
     exampleOutput: string | null
   ) => {
+    if (!organizationId) return null;
+    
     try {
       const { data, error } = await supabase
         .from('prompt_refinements')
@@ -115,7 +124,8 @@ export function usePromptRefinements(promptType: string) {
           feedback,
           refinement_summary: refinementSummary,
           sample_contact_id: sampleContactId,
-          example_output: exampleOutput
+          example_output: exampleOutput,
+          organization_id: organizationId,
         })
         .select()
         .single();
@@ -134,7 +144,7 @@ export function usePromptRefinements(promptType: string) {
       toast.error('Failed to save refinement history');
       return null;
     }
-  }, [promptType]);
+  }, [promptType, organizationId]);
 
   const deleteRefinement = useCallback(async (id: string) => {
     try {

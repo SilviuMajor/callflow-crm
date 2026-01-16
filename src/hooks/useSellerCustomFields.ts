@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface SellerCustomField {
   id: string;
@@ -15,15 +16,24 @@ export interface SellerCustomField {
 }
 
 export function useSellerCustomFields() {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
+  
   const [fields, setFields] = useState<SellerCustomField[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchFields = useCallback(async () => {
+    if (!organizationId) {
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('seller_custom_fields')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('is_archived', false)
         .order('field_order', { ascending: true });
 
@@ -35,13 +45,15 @@ export function useSellerCustomFields() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     fetchFields();
   }, [fetchFields]);
 
   const addField = useCallback(async (label: string, type: SellerCustomField['type'], options?: string[]) => {
+    if (!organizationId) return null;
+    
     const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     const maxOrder = Math.max(0, ...fields.map(f => f.field_order));
 
@@ -54,6 +66,7 @@ export function useSellerCustomFields() {
           type,
           options: options || null,
           field_order: maxOrder + 1,
+          organization_id: organizationId,
         })
         .select()
         .single();
@@ -71,7 +84,7 @@ export function useSellerCustomFields() {
       }
       throw error;
     }
-  }, [fields]);
+  }, [fields, organizationId]);
 
   const updateField = useCallback(async (id: string, updates: Partial<Pick<SellerCustomField, 'label' | 'type' | 'options'>>) => {
     try {
