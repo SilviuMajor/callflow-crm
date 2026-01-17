@@ -510,7 +510,7 @@ export function useContacts(selectedPotId?: string | null) {
     }
   }, [organizationId]);
 
-  const deleteContact = useCallback(async (contactId: string) => {
+  const deleteContact = useCallback(async (contactId: string): Promise<boolean> => {
     pendingLocalUpdates.current.add(contactId);
     
     setContacts(prev => prev.filter(c => c.id !== contactId));
@@ -523,11 +523,13 @@ export function useContacts(selectedPotId?: string | null) {
     if (error) {
       console.error('Error deleting contact:', error);
       toast.error('Failed to delete contact');
-    } else {
-      toast.success('Contact deleted');
+      setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+      return false;
     }
     
+    toast.success('Contact deleted');
     setTimeout(() => pendingLocalUpdates.current.delete(contactId), 2000);
+    return true;
   }, []);
 
   const returnToPot = useCallback(async (contactId: string, note?: string) => {
