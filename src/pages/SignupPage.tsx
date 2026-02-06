@@ -6,14 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, Phone } from 'lucide-react';
+import { Loader2, Phone, Building2, Users } from 'lucide-react';
+
+type SignupMode = 'new_org' | 'join_org';
 
 export default function SignupPage() {
+  const [mode, setMode] = useState<SignupMode>('new_org');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -21,8 +25,18 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password || !organizationName) {
+    if (!email || !password) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (mode === 'new_org' && !organizationName) {
+      toast.error('Please enter an organization name');
+      return;
+    }
+
+    if (mode === 'join_org' && !inviteCode) {
+      toast.error('Please enter an invite code');
       return;
     }
 
@@ -37,7 +51,13 @@ export default function SignupPage() {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(email, password, organizationName, fullName);
+    const { error } = await signUp(
+      email, 
+      password, 
+      mode === 'new_org' ? organizationName : '', 
+      fullName,
+      mode === 'join_org' ? inviteCode : undefined
+    );
     setIsLoading(false);
 
     if (error) {
@@ -59,22 +79,68 @@ export default function SignupPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
-            Set up your organization to get started
+            Choose how you'd like to get started
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="organizationName">Organization Name *</Label>
-              <Input
-                id="organizationName"
-                type="text"
-                placeholder="Your Company Ltd"
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                disabled={isLoading}
-              />
+            {/* Mode Toggle */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={mode === 'new_org' ? 'default' : 'outline'}
+                className="flex items-center gap-2 h-auto py-3"
+                onClick={() => setMode('new_org')}
+              >
+                <Building2 className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">New Organization</div>
+                </div>
+              </Button>
+              <Button
+                type="button"
+                variant={mode === 'join_org' ? 'default' : 'outline'}
+                className="flex items-center gap-2 h-auto py-3"
+                onClick={() => setMode('join_org')}
+              >
+                <Users className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Join with Code</div>
+                </div>
+              </Button>
             </div>
+
+            {/* Conditional Fields */}
+            {mode === 'new_org' ? (
+              <div className="space-y-2">
+                <Label htmlFor="organizationName">Organization Name *</Label>
+                <Input
+                  id="organizationName"
+                  type="text"
+                  placeholder="Your Company Ltd"
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="inviteCode">Invite Code *</Label>
+                <Input
+                  id="inviteCode"
+                  type="text"
+                  placeholder="Enter your invite code"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  disabled={isLoading}
+                  className="font-mono tracking-wider uppercase"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Ask your organization admin for an invite code
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
