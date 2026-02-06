@@ -21,7 +21,7 @@ interface AuthContextType {
   organization: Organization | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, organizationName: string, fullName?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, organizationName: string, fullName?: string, inviteCode?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -116,21 +116,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
-  const signUp = async (email: string, password: string, organizationName: string, fullName?: string) => {
+  const signUp = async (email: string, password: string, organizationName: string, fullName?: string, inviteCode?: string) => {
     try {
-      // 1. Create the organization first
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({ name: organizationName })
-        .select()
-        .single();
+      let orgId: string;
 
-      if (orgError) {
-        console.error('Error creating organization:', orgError);
-        return { error: new Error('Failed to create organization') };
+      if (inviteCode) {
+        // Validate invite code and get organization ID
+        const { data: validatedOrgId, error: rpcError } = await supabase
+          .rpc('validate_invite_code', { invite_code: inviteCode });
+
+        if (rpcError) {
+          console.error('Error validating invite code:', rpcError);
+          return { error: new Error('Failed to validate invite code') };
+        }
+
+        if (!validatedOrgId) {
+          return { error: new Error('Invalid, expired, or fully used invite code') };
+        }
+
+        orgId = validatedOrgId;
+      } else {
+        // Create new organization
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .insert({ name: organizationName })
+          .select()
+          .single();
+
+        if (orgError) {
+          console.error('Error creating organization:', orgError);
+          return { error: new Error('Failed to create organization') };
+        }
+
+        orgId = orgData.id;
       }
 
-      // 2. Sign up the user
+      // Sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -138,43 +159,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: window.location.origin,
           data: {
             full_name: fullName,
-            organization_id: orgData.id,
+            organization_id: orgId,
           },
         },
       });
 
       if (authError) {
-        // Rollback: delete the organization if user signup fails
-        await supabase.from('organizations').delete().eq('id', orgData.id);
+        // Rollback: delete the organization if user signup fails (only if we created it)
+        if (!inviteCode) {
+          await supabase.from('organizations').delete().eq('id', orgId);
+        }
         return { error: authError as Error };
       }
 
       if (!authData.user) {
-        await supabase.from('organizations').delete().eq('id', orgData.id);
+        if (!inviteCode) {
+          await supabase.from('organizations').delete().eq('id', orgId);
+        }
         return { error: new Error('Failed to create user') };
       }
 
-      // 3. Create the profile
+      // Create the profile
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: authData.user.id,
-          organization_id: orgData.id,
+          organization_id: orgId,
           full_name: fullName || null,
           email: email,
         });
 
       if (profileError) {
         console.error('Error creating profile:', profileError);
-        // Note: We don't rollback here as the user exists and they can retry
       }
 
-      // 4. Create user role as admin (first user of org is admin)
+      // Assign role: admin for new org creators, member for invite code users
+      const role = inviteCode ? 'member' : 'admin';
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
           user_id: authData.user.id,
-          role: 'admin',
+          role: role,
         });
 
       if (roleError) {

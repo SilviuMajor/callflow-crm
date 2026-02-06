@@ -13,8 +13,9 @@ import {
   Database, Scroll, CheckCircle2, Webhook, Plug, Settings, 
   Plus, Trash2, GripVertical, X, MoreVertical, Archive, RotateCcw,
   Send, AlertCircle, Building2, HelpCircle, Calendar, ExternalLink, 
-  Loader2, Check, Copy, Star, LayoutGrid
+  Loader2, Check, Copy, Star, LayoutGrid, Users
 } from 'lucide-react';
+import { InviteCodeManager } from '@/components/InviteCodeManager';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -745,10 +746,10 @@ export default function SettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="custom-fields" className="flex items-center gap-1 text-xs">
               <Database className="w-3 h-3" />
-              <span className="hidden sm:inline">Custom Fields</span>
+              <span className="hidden sm:inline">Fields</span>
             </TabsTrigger>
             <TabsTrigger value="scripts" className="flex items-center gap-1 text-xs">
               <Scroll className="w-3 h-3" />
@@ -769,6 +770,10 @@ export default function SettingsPage() {
             <TabsTrigger value="layout" className="flex items-center gap-1 text-xs">
               <LayoutGrid className="w-3 h-3" />
               <span className="hidden sm:inline">Layout</span>
+            </TabsTrigger>
+            <TabsTrigger value="team" className="flex items-center gap-1 text-xs">
+              <Users className="w-3 h-3" />
+              <span className="hidden sm:inline">Team</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1501,6 +1506,11 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Team Tab */}
+          <TabsContent value="team" className="space-y-6 py-4">
+            <InviteCodeManager />
           </TabsContent>
         </Tabs>
       </main>
