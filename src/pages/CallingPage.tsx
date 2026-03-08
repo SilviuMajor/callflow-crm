@@ -6,6 +6,7 @@ import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTodayStats } from '@/hooks/useTodayStats';
 import { TopNav } from '@/components/TopNav';
 import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
@@ -17,7 +18,7 @@ import { ImportCSVModal } from '@/components/ImportCSVModal';
 import { MobilePanelIndicator } from '@/components/MobilePanelIndicator';
 import { NotesSection } from '@/components/NotesSection';
 import { CallStatus, CompletedReason, NotInterestedReason, Contact } from '@/types/contact';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload } from 'lucide-react';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
@@ -28,6 +29,7 @@ export default function CallingPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activePanel, setActivePanel] = useState(1);
+  const [overdueToastShown, setOverdueToastShown] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   
@@ -37,6 +39,7 @@ export default function CallingPage() {
   const {
     contacts,
     queueContacts,
+    overdueCallbackCount,
     currentContact,
     updateContactStatus,
     updateContact,
@@ -49,6 +52,8 @@ export default function CallingPage() {
     importContacts,
     deleteContact,
   } = useContacts(selectedPotId);
+
+  const { stats: todayStats, refresh: refreshTodayStats } = useTodayStats();
   
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
@@ -73,6 +78,17 @@ export default function CallingPage() {
   useEffect(() => {
     refreshStats();
   }, [contacts, refreshStats]);
+
+  // Overdue callback toast — show once per page load when overdue count is known
+  useEffect(() => {
+    if (!overdueToastShown && overdueCallbackCount > 0) {
+      setOverdueToastShown(true);
+      toast.warning(
+        `${overdueCallbackCount} overdue callback${overdueCallbackCount > 1 ? 's' : ''}`,
+        { description: 'These are at the top of your queue.' }
+      );
+    }
+  }, [overdueCallbackCount, overdueToastShown]);
 
   // Handle scroll snap end to update active panel indicator
   useEffect(() => {
@@ -112,25 +128,41 @@ export default function CallingPage() {
     appointmentDate?: Date
   ) => {
     if (!currentContact) return;
+
+    // Find the next contact BEFORE updating (current contact will leave the queue)
+    const currentIndex = queueContacts.findIndex(c => c.id === currentContact.id);
+    const nextContact = queueContacts[currentIndex + 1] ?? queueContacts[0];
+    const hasNext = nextContact && nextContact.id !== currentContact.id;
+    const isLastContact = queueContacts.length === 1;
     
     updateContactStatus(currentContact.id, status, callbackDate, notes, completedReason, notInterestedReason, appointmentDate);
-    
-    const messages: Record<CallStatus, string> = {
-      'no_answer': 'Marked as no answer',
-      'callback': `Callback scheduled for ${callbackDate?.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`,
-      'completed': 'Marked as completed',
-      'not_interested': 'Marked as not interested',
-      'pending': 'Status updated',
-    };
-    
-    toast({
-      title: messages[status],
-      duration: 2000,
-    });
+
+    // Refresh today's stats after each action
+    setTimeout(() => refreshTodayStats(), 500);
+
+    // Session summary when queue is cleared
+    if (isLastContact) {
+      setTimeout(() => {
+        refreshTodayStats().then(() => {
+          // Show session summary toast
+          toast.success('Queue complete! 🎉', {
+            description: `Today: ${todayStats.total + 1} calls — ${todayStats.completed + (status === 'completed' ? 1 : 0)} completed, ${todayStats.callbacks + (status === 'callback' ? 1 : 0)} callbacks, ${todayStats.noAnswer + (status === 'no_answer' ? 1 : 0)} no answer`,
+            duration: 8000,
+          });
+        });
+      }, 600);
+    }
+
+    // Auto-advance to next contact
+    if (hasNext) {
+      setTimeout(() => selectContact(nextContact.id), 100);
+    } else {
+      selectContact(null as any);
+    }
 
     // Auto-swipe back to contact panel on mobile after coding an outcome
     if (isMobile) {
-      scrollToPanel(1); // Contact panel is index 1
+      scrollToPanel(1);
     }
   };
 
@@ -194,6 +226,7 @@ export default function CallingPage() {
             onExportCSV={handleExportCSV}
             onExportJSON={handleExportJSON}
             onImportClick={() => setShowImportModal(true)}
+            overdueCallbackCount={overdueCallbackCount}
           />
         
         <div 
@@ -217,6 +250,7 @@ export default function CallingPage() {
               onRenamePot={renamePot}
               onDeletePot={deletePot}
               onMergePots={mergePots}
+              todayStats={todayStats}
             />
           </div>
           
@@ -307,6 +341,7 @@ export default function CallingPage() {
           onExportCSV={handleExportCSV}
           onExportJSON={handleExportJSON}
           onImportClick={() => setShowImportModal(true)}
+          overdueCallbackCount={overdueCallbackCount}
         />
       
       <div className="flex-1 flex overflow-hidden">
@@ -324,6 +359,7 @@ export default function CallingPage() {
           onRenamePot={renamePot}
           onDeletePot={deletePot}
           onMergePots={mergePots}
+          todayStats={todayStats}
         />
         
         <ResizablePanelGroup direction="horizontal" className="flex-1">

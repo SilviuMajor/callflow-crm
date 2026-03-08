@@ -218,6 +218,14 @@ export function useContacts(selectedPotId?: string | null) {
     return filtered;
   }, [contacts, selectedPotId]);
 
+  // Count ALL overdue callbacks across all POTs (for nav badge)
+  const overdueCallbackCount = useMemo(() => {
+    const now = new Date();
+    return contacts.filter(
+      c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) <= now
+    ).length;
+  }, [contacts]);
+
   const filteredContacts = useMemo(() => {
     let filtered = contacts;
     if (selectedPotId) {
@@ -274,13 +282,14 @@ export function useContacts(selectedPotId?: string | null) {
 
     // Update locally first for responsiveness
     setContacts(prev => prev.map(c => c.id === contactId ? updatedContact : c));
-    setSelectedContactId(null);
+    // Note: selection management is handled by CallingPage.handleAction for auto-advance
 
     // Persist to database and add history entry concurrently
     const dbUpdates: Record<string, any> = {
       status,
       callback_date: callbackDate?.toISOString() || null,
       appointment_date: appointmentDate?.toISOString() || null,
+      last_called_at: new Date().toISOString(), // Always update for every outcome
     };
     
     // Save reason columns when status is completed or not_interested
@@ -724,6 +733,7 @@ export function useContacts(selectedPotId?: string | null) {
     queueContacts,
     completedContacts,
     filteredContacts,
+    overdueCallbackCount,
     currentContact,
     selectedContactId,
     setSelectedContactId,

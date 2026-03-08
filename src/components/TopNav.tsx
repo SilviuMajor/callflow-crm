@@ -10,9 +10,10 @@ interface TopNavProps {
   onExportCSV?: () => void;
   onExportJSON?: () => void;
   onImportClick?: () => void;
+  overdueCallbackCount?: number;
 }
 
-export function TopNav({ searchQuery, onSearchChange, onExportCSV, onExportJSON, onImportClick }: TopNavProps) {
+export function TopNav({ searchQuery, onSearchChange, onExportCSV, onExportJSON, onImportClick, overdueCallbackCount = 0 }: TopNavProps) {
   const location = useLocation();
   
   const navItems = [
@@ -54,6 +55,11 @@ export function TopNav({ searchQuery, onSearchChange, onExportCSV, onExportJSON,
             <Link to={item.path} className="flex items-center gap-1.5">
               <item.icon className="w-3.5 h-3.5" />
               {item.label}
+              {item.path === '/calling' && overdueCallbackCount > 0 && (
+                <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none animate-pulse">
+                  {overdueCallbackCount > 99 ? '99+' : overdueCallbackCount}
+                </span>
+              )}
             </Link>
           </Button>
         ))}

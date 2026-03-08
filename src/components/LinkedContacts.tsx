@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LinkedContact {
   id: string;
@@ -16,12 +17,14 @@ interface LinkedContactsProps {
 }
 
 export function LinkedContacts({ company, currentContactId, onSelectContact }: LinkedContactsProps) {
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
   const [linkedContacts, setLinkedContacts] = useState<LinkedContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchLinkedContacts = async () => {
-      if (!company) {
+      if (!company || !organizationId) {
         setLinkedContacts([]);
         setIsLoading(false);
         return;
@@ -31,6 +34,7 @@ export function LinkedContacts({ company, currentContactId, onSelectContact }: L
         .from('contacts')
         .select('id, first_name, last_name, job_title')
         .eq('company', company)
+        .eq('organization_id', organizationId)
         .neq('id', currentContactId)
         .order('last_name');
 
@@ -46,7 +50,7 @@ export function LinkedContacts({ company, currentContactId, onSelectContact }: L
     };
 
     fetchLinkedContacts();
-  }, [company, currentContactId]);
+  }, [company, currentContactId, organizationId]);
 
   if (!company || isLoading) return null;
 

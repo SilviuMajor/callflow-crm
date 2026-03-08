@@ -103,11 +103,13 @@ export default function AnalyticsPage() {
     }
     // Filter by date range from the analytics hook
     if (dateRange) {
-      filtered = filtered.filter(c => 
-        c.createdAt && 
-        isAfter(new Date(c.createdAt), dateRange.start) &&
-        new Date(c.createdAt) <= dateRange.end
-      );
+      filtered = filtered.filter(c => {
+        // Use lastCalledAt when available (shows contacts worked in period), fallback to createdAt
+        const refDate = c.lastCalledAt || c.createdAt;
+        return refDate &&
+          isAfter(new Date(refDate), dateRange.start) &&
+          new Date(refDate) <= dateRange.end;
+      });
     }
     return filtered;
   }, [allContacts, selectedPotId, dateRange]);

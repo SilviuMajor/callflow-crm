@@ -667,6 +667,16 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
                     className="text-sm font-medium"
                   />
                 </div>
+                {contact.phone && (
+                  <a
+                    href={`tel:${contact.phone}`}
+                    className="h-6 w-6 flex items-center justify-center opacity-0 group-hover:opacity-100 flex-shrink-0 rounded text-success hover:bg-success/10 transition-colors"
+                    title="Call"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Phone className="w-3 h-3" />
+                  </a>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -961,6 +971,16 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
                 className="text-sm font-medium"
               />
             </div>
+            {contact.phone && (
+              <a
+                href={`tel:${contact.phone}`}
+                className="h-6 w-6 flex items-center justify-center opacity-0 group-hover:opacity-100 flex-shrink-0 rounded text-success hover:bg-success/10 transition-colors"
+                title="Call"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Phone className="w-3 h-3" />
+              </a>
+            )}
             <Button
               variant="ghost"
               size="sm"

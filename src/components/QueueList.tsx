@@ -8,6 +8,7 @@ import { Shuffle, ArrowDownAZ, Search, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PotWithStats } from '@/hooks/usePots';
 import { POTManagementDialog } from './POTManagementDialog';
+import { TodayStats } from '@/hooks/useTodayStats';
 
 interface QueueListProps {
   contacts: Contact[];
@@ -20,10 +21,12 @@ interface QueueListProps {
   selectedPotId?: string | null;
   onSelectPot?: (potId: string | null) => void;
   totalStats?: { total: number; callbacks: number; notInterested: number; completed: number };
-  contactPotMap?: Record<string, string>; // contactId -> potName
+  contactPotMap?: Record<string, string>;
   onRenamePot?: (potId: string, newName: string) => Promise<boolean>;
   onDeletePot?: (potId: string, moveContactsToPotId?: string) => Promise<boolean>;
   onMergePots?: (sourcePotId: string, targetPotId: string) => Promise<boolean>;
+  todayStats?: TodayStats;
+  dailyTarget?: number;
 }
 
 export function QueueList({ 
@@ -41,6 +44,8 @@ export function QueueList({
   onRenamePot,
   onDeletePot,
   onMergePots,
+  todayStats,
+  dailyTarget = 50,
 }: QueueListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showPotManagement, setShowPotManagement] = useState(false);
@@ -105,6 +110,32 @@ export function QueueList({
           </SelectContent>
         </Select>
       </div>
+        </div>
+      )}
+
+      {/* Daily Progress Bar */}
+      {todayStats && (
+        <div className="px-3 py-2 border-b border-border">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Today</span>
+            <span className="text-[10px] font-medium text-foreground tabular-nums">
+              {todayStats.total}/{dailyTarget}
+            </span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                todayStats.total >= dailyTarget ? "bg-success" : "bg-primary"
+              )}
+              style={{ width: `${Math.min((todayStats.total / dailyTarget) * 100, 100)}%` }}
+            />
+          </div>
+          <div className="flex gap-2 mt-1.5 text-[10px] text-muted-foreground">
+            {todayStats.completed > 0 && <span className="text-success">✓ {todayStats.completed}</span>}
+            {todayStats.callbacks > 0 && <span className="text-[hsl(var(--callback))]">⏰ {todayStats.callbacks}</span>}
+            {todayStats.noAnswer > 0 && <span>✗ {todayStats.noAnswer}</span>}
+          </div>
         </div>
       )}
 

@@ -920,11 +920,15 @@ export default function CompletedPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span>{selectedContact.phone}</span>
+                        {selectedContact.phone ? (
+                          <a href={`tel:${selectedContact.phone}`} className="hover:underline text-foreground">{selectedContact.phone}</a>
+                        ) : <span>-</span>}
                       </div>
                       <div className="flex items-center gap-2">
                         <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span>{selectedContact.email || '-'}</span>
+                        {selectedContact.email ? (
+                          <a href={`mailto:${selectedContact.email}`} className="hover:underline text-foreground">{selectedContact.email}</a>
+                        ) : <span>-</span>}
                       </div>
                       <div className="flex items-center gap-2">
                         <Globe className="w-4 h-4 text-muted-foreground" />

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar, Phone, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   Contact, 
@@ -32,52 +33,86 @@ interface OutcomePanelProps {
   ) => void;
 }
 
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
 export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
+  // Modal state
+  const [showNoAnswerModal, setShowNoAnswerModal] = useState(false);
   const [showCallbackModal, setShowCallbackModal] = useState(false);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
   const [showNotInterestedModal, setShowNotInterestedModal] = useState(false);
   const [showCalendlyModal, setShowCalendlyModal] = useState(false);
   const [showCalcomModal, setShowCalcomModal] = useState(false);
-  
+
+  // No Answer quick note
+  const [noAnswerNote, setNoAnswerNote] = useState('');
+
+  // Callback fields
   const [callbackDate, setCallbackDate] = useState('');
   const [callbackTime, setCallbackTime] = useState('');
   const [callbackNotes, setCallbackNotes] = useState('');
-  
+
+  // Completed fields
   const [completedReason, setCompletedReason] = useState<CompletedReason>('appointment_booked');
   const [completedNotes, setCompletedNotes] = useState('');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [waitingForWebhook, setWaitingForWebhook] = useState(false);
-  
+
+  // Not Interested fields
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
 
-  // Pre-populate notes from last callback note when modals open
-  useEffect(() => {
-    if (showCallbackModal) setCallbackNotes('');
-  }, [showCallbackModal]);
-
-  useEffect(() => {
-    if (showCompletedModal) setCompletedNotes('');
-  }, [showCompletedModal]);
-
-  useEffect(() => {
-    if (showNotInterestedModal) setNotInterestedNotes('');
-  }, [showNotInterestedModal]);
+  // Call timer (Task 5)
+  const [callActive, setCallActive] = useState(false);
+  const [callSeconds, setCallSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
   const { completedOptions, notInterestedOptions } = useOutcomeOptions();
   const { settings: calendlySettings } = useCalendlySettings();
   const { settings: calcomSettings } = useCalcomSettings();
 
-  // Check if Calendly is enabled and configured
   const isCalendlyEnabled = calendlySettings.enabled && calendlySettings.calendly_url;
-  
-  // Check if Cal.com is enabled and configured
   const isCalcomEnabled = calcomSettings?.enabled && calcomSettings?.event_type_slug;
+  const webhookEnabled = webhookSettings.enabled && webhookSettings.url;
 
-  // Set default values based on first option from database
+  // Timer logic
+  useEffect(() => {
+    if (callActive) {
+      timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [callActive]);
+
+  // Reset timer when contact changes
+  useEffect(() => {
+    setCallActive(false);
+    setCallSeconds(0);
+  }, [contact.id]);
+
+  const startCall = useCallback(() => {
+    setCallSeconds(0);
+    setCallActive(true);
+  }, []);
+
+  const endCall = useCallback(() => {
+    setCallActive(false);
+  }, []);
+
+  // Reset modals on open
+  useEffect(() => { if (showNoAnswerModal) setNoAnswerNote(''); }, [showNoAnswerModal]);
+  useEffect(() => { if (showCallbackModal) setCallbackNotes(''); }, [showCallbackModal]);
+  useEffect(() => { if (showCompletedModal) setCompletedNotes(''); }, [showCompletedModal]);
+  useEffect(() => { if (showNotInterestedModal) setNotInterestedNotes(''); }, [showNotInterestedModal]);
+
   useEffect(() => {
     if (completedOptions.length > 0 && completedReason === 'appointment_booked') {
       setCompletedReason(completedOptions[0].value as CompletedReason);
@@ -90,14 +125,58 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     }
   }, [notInterestedOptions]);
 
+  // Keyboard shortcuts (Task 6) — only when no modal is open
+  useEffect(() => {
+    const anyModalOpen = showNoAnswerModal || showCallbackModal || showCompletedModal || showNotInterestedModal || showCalendlyModal || showCalcomModal;
+    if (anyModalOpen) return;
+
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      switch (e.key.toLowerCase()) {
+        case 'n': e.preventDefault(); setShowNoAnswerModal(true); break;
+        case 'c': e.preventDefault(); setShowCallbackModal(true); break;
+        case 'd': e.preventDefault(); setShowCompletedModal(true); break;
+        case 'x': e.preventDefault(); setShowNotInterestedModal(true); break;
+        case 's': e.preventDefault(); startCall(); break;
+        case 'e': e.preventDefault(); endCall(); break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [showNoAnswerModal, showCallbackModal, showCompletedModal, showNotInterestedModal, showCalendlyModal, showCalcomModal, startCall, endCall]);
+
+  // Fire webhook silently (non-blocking) for all outcomes except completed (which is blocking)
+  const fireWebhookSilent = useCallback(async (updatedContact: Record<string, any>, eventType: string) => {
+    if (!webhookEnabled) return;
+    sendWebhook(updatedContact, eventType).then(result => {
+      if (!result.success) console.warn('Webhook failed silently:', result.error);
+    });
+  }, [webhookEnabled, sendWebhook]);
+
+  const handleNoAnswer = () => {
+    const updatedContact = { ...contact, status: 'no_answer' as const, lastCalledAt: new Date().toISOString() };
+    fireWebhookSilent(updatedContact, 'contact_no_answer');
+    onAction('no_answer', undefined, noAnswerNote || undefined);
+    setShowNoAnswerModal(false);
+    setNoAnswerNote('');
+    endCall();
+  };
+
   const handleCallback = () => {
     if (callbackDate && callbackTime) {
       const scheduledDate = new Date(`${callbackDate}T${callbackTime}`);
+      const updatedContact = { ...contact, status: 'callback' as const, callbackDate: scheduledDate.toISOString(), lastCalledAt: new Date().toISOString() };
+      fireWebhookSilent(updatedContact, 'contact_callback');
       onAction('callback', scheduledDate, callbackNotes);
       setShowCallbackModal(false);
       setCallbackDate('');
       setCallbackTime('');
       setCallbackNotes('');
+      endCall();
     }
   };
 
@@ -107,397 +186,357 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
       aptDate = new Date(`${appointmentDate}T${appointmentTime}`);
     }
 
-    // Build the updated contact data for webhook
     const updatedContact = {
       ...contact,
       status: 'completed' as const,
       completedReason,
       appointmentDate: aptDate?.toISOString(),
-      completedNotes: completedNotes,
       lastCalledAt: new Date().toISOString(),
     };
 
-    // If webhook is enabled, send it first
-    if (webhookSettings.enabled && webhookSettings.url) {
+    // Completed webhook is blocking — user sees error if it fails
+    if (webhookEnabled) {
       setIsSubmitting(true);
-      
-      const result = await sendWebhook(updatedContact);
-      
+      const result = await sendWebhook(updatedContact, 'contact_completed');
       if (!result.success) {
         setIsSubmitting(false);
-        toast.error('Webhook failed', {
-          description: `${result.error}. Contact was NOT saved.`,
-        });
-        return; // Block - don't save locally
+        toast.error('Webhook failed', { description: `${result.error}. Contact was NOT saved.` });
+        return;
       }
-      
-      toast.success('Webhook sent', {
-        description: 'Contact data sent to webhook successfully.',
-      });
+      toast.success('Webhook sent');
       setIsSubmitting(false);
     }
 
-    // Proceed to save locally
     onAction('completed', undefined, completedNotes, completedReason, undefined, aptDate);
     setShowCompletedModal(false);
     setCompletedReason('appointment_booked');
     setCompletedNotes('');
     setAppointmentDate('');
     setAppointmentTime('');
+    endCall();
   };
 
   const handleNotInterested = () => {
+    const updatedContact = { ...contact, status: 'not_interested' as const, notInterestedReason, lastCalledAt: new Date().toISOString() };
+    fireWebhookSilent(updatedContact, 'contact_not_interested');
     onAction('not_interested', undefined, notInterestedNotes, undefined, notInterestedReason);
     setShowNotInterestedModal(false);
     setNotInterestedReason('no_budget');
     setNotInterestedNotes('');
+    endCall();
   };
 
-  // Handle Calendly booking completion
-  const handleCalendlyEventScheduled = (eventUri: string, startTime: string) => {
+  const handleCalendlyEventScheduled = (_eventUri: string, _startTime: string) => {
     setShowCalendlyModal(false);
     setWaitingForWebhook(true);
-    
-    // Wait a few seconds for webhook to update the contact, then show manual fallback
-    toast.success('Appointment scheduled!', {
-      description: 'Waiting for confirmation...',
-    });
-    
-    // After 3 seconds, show the manual confirmation modal as fallback
+    toast.success('Appointment scheduled!', { description: 'Waiting for confirmation...' });
     setTimeout(() => {
       setWaitingForWebhook(false);
-      // Pre-fill today's date as a starting point for manual entry
       const today = new Date();
       setAppointmentDate(today.toISOString().split('T')[0]);
       setAppointmentTime('09:00');
       setCompletedReason('appointment_booked');
       setShowCompletedModal(true);
-      toast.info('Please confirm appointment details', {
-        description: 'Enter the appointment date and time from Calendly.',
-      });
+      toast.info('Please confirm appointment details');
     }, 3000);
   };
 
-  // Handle Cal.com booking completion
-  // The webhook handles marking the contact as completed, so we just show a success message
   const handleCalcomEventScheduled = () => {
     setShowCalcomModal(false);
-    
     toast.success('Appointment booked!', {
-      description: `Appointment scheduled for ${contact.firstName} ${contact.lastName}. The contact will be automatically marked as completed.`,
+      description: `${contact.firstName} ${contact.lastName} will be automatically marked as completed.`,
     });
-    
-    // Don't open the completed modal - the webhook handles the status update
-    // This prevents the "jumping to next contact" issue
-  };
-
-  // When Calendly is enabled and user selects appointment_booked, show Calendly button
-  const handleCompletedReasonChange = (value: string) => {
-    setCompletedReason(value as CompletedReason);
   };
 
   return (
-    <>
-      <div className="space-y-2">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-          Outcome
-        </h3>
-        
-        <Button
-          variant="outline"
-          onClick={() => onAction('no_answer')}
-          className="w-full justify-start gap-2 h-9"
-        >
-          <PhoneOff className="w-4 h-4" />
-          No Answer
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => setShowCallbackModal(true)}
-          className="w-full justify-start gap-2 h-9 border-[hsl(var(--callback))] text-foreground hover:bg-[hsl(var(--callback-light))]"
-        >
-          <Clock className="w-4 h-4" />
-          Callback
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => setShowCompletedModal(true)}
-          className="w-full justify-start gap-2 h-9 border-success text-success hover:bg-success/10"
-          disabled={waitingForWebhook}
-        >
-          {waitingForWebhook ? (
+    <TooltipProvider delayDuration={400}>
+      <>
+        {/* Call Timer */}
+        <div className="flex items-center gap-2 mb-3 p-2 rounded-lg border border-border bg-muted/30">
+          {callActive ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Confirming...
+              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm font-mono font-medium text-foreground tabular-nums flex-1">
+                {formatDuration(callSeconds)}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 px-2 border-destructive text-destructive hover:bg-destructive/10" onClick={endCall}>
+                    <Square className="w-3 h-3 mr-1" />
+                    End <span className="ml-1 text-[10px] opacity-60">E</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>End call (E)</TooltipContent>
+              </Tooltip>
             </>
           ) : (
             <>
-              <CheckCircle2 className="w-4 h-4" />
-              Completed
+              <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+              <span className="text-xs text-muted-foreground flex-1">
+                {callSeconds > 0 ? `Last: ${formatDuration(callSeconds)}` : 'Ready'}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 px-2 border-success text-success hover:bg-success/10" onClick={startCall}>
+                    <Phone className="w-3 h-3 mr-1" />
+                    Start <span className="ml-1 text-[10px] opacity-60">S</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Start call timer (S)</TooltipContent>
+              </Tooltip>
             </>
           )}
-        </Button>
+        </div>
 
-        <Button
-          variant="outline"
-          onClick={() => setShowNotInterestedModal(true)}
-          className="w-full justify-start gap-2 h-9 border-destructive text-destructive hover:bg-destructive/10"
-        >
-          <XCircle className="w-4 h-4" />
-          Not Interested
-        </Button>
-      </div>
+        {/* Outcome Buttons */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Outcome
+          </h3>
 
-      {/* Callback Modal */}
-      <Dialog open={showCallbackModal} onOpenChange={setShowCallbackModal}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Schedule Callback</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="callback-date" className="text-xs">Date</Label>
-                <Input
-                  id="callback-date"
-                  type="date"
-                  value={callbackDate}
-                  onChange={(e) => setCallbackDate(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="callback-time" className="text-xs">Time</Label>
-                <Input
-                  id="callback-time"
-                  type="time"
-                  value={callbackTime}
-                  onChange={(e) => setCallbackTime(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="callback-notes" className="text-xs">Notes</Label>
-              <Textarea
-                id="callback-notes"
-                placeholder="Add or edit notes..."
-                value={callbackNotes}
-                onChange={(e) => setCallbackNotes(e.target.value)}
-                className="text-sm min-h-[60px]"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowCallbackModal(false)}>
-              Cancel
-            </Button>
-            <Button 
-              size="sm"
-              onClick={handleCallback}
-              disabled={!callbackDate || !callbackTime}
-              className="bg-[hsl(var(--callback))] hover:bg-[hsl(var(--callback))]/90"
-            >
-              Schedule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* No Answer — most-used, gets stronger styling */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => setShowNoAnswerModal(true)}
+                className="w-full justify-start gap-2 h-10 font-medium border-2"
+              >
+                <PhoneOff className="w-4 h-4" />
+                No Answer
+                <span className="ml-auto text-[10px] text-muted-foreground font-normal">N</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>No answer (N)</TooltipContent>
+          </Tooltip>
 
-      {/* Completed Modal */}
-      <Dialog open={showCompletedModal} onOpenChange={setShowCompletedModal}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-success" />
-              Mark as Completed
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-3">
-            <RadioGroup value={completedReason} onValueChange={handleCompletedReasonChange}>
-              {completedOptions.map(reason => (
-                <div key={reason.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={reason.value} id={`completed-${reason.value}`} />
-                  <Label htmlFor={`completed-${reason.value}`} className="text-sm cursor-pointer">
-                    {reason.label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-            
-            {/* Appointment booking section - show Calendly or manual picker */}
-            {completedReason === 'appointment_booked' && (
-              <div className="space-y-3 p-2 bg-muted/50 rounded border border-border">
-                {(isCalendlyEnabled || isCalcomEnabled) && (
-                  <>
-                    <div className="flex gap-2">
-                      {isCalendlyEnabled && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="flex-1 justify-center gap-2"
-                          onClick={() => {
-                            setShowCompletedModal(false);
-                            setShowCalendlyModal(true);
-                          }}
-                        >
-                          <Calendar className="w-4 h-4" />
-                          Book via Calendly
-                        </Button>
-                      )}
-                      {isCalcomEnabled && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="flex-1 justify-center gap-2"
-                          onClick={() => {
-                            setShowCompletedModal(false);
-                            setShowCalcomModal(true);
-                          }}
-                        >
-                          <Calendar className="w-4 h-4" />
-                          Book via Cal.com
-                        </Button>
-                      )}
-                    </div>
-                    <div className="text-center">
-                      <span className="text-xs text-muted-foreground">or enter manually</span>
-                    </div>
-                  </>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => setShowCallbackModal(true)}
+                className="w-full justify-start gap-2 h-9 border-[hsl(var(--callback))] text-foreground hover:bg-[hsl(var(--callback-light))]"
+              >
+                <Clock className="w-4 h-4" />
+                Callback
+                <span className="ml-auto text-[10px] text-muted-foreground">C</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Schedule callback (C)</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => setShowCompletedModal(true)}
+                className="w-full justify-start gap-2 h-9 border-success text-success hover:bg-success/10"
+                disabled={waitingForWebhook}
+              >
+                {waitingForWebhook ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" />Confirming...</>
+                ) : (
+                  <><CheckCircle2 className="w-4 h-4" />Completed<span className="ml-auto text-[10px] text-muted-foreground">D</span></>
                 )}
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="apt-date" className="text-xs">Appointment Date</Label>
-                    <Input
-                      id="apt-date"
-                      type="date"
-                      value={appointmentDate}
-                      onChange={(e) => setAppointmentDate(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="apt-time" className="text-xs">Time</Label>
-                    <Input
-                      id="apt-time"
-                      type="time"
-                      value={appointmentTime}
-                      onChange={(e) => setAppointmentTime(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Mark completed (D)</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={() => setShowNotInterestedModal(true)}
+                className="w-full justify-start gap-2 h-9 border-destructive text-destructive hover:bg-destructive/10"
+              >
+                <XCircle className="w-4 h-4" />
+                Not Interested
+                <span className="ml-auto text-[10px] text-muted-foreground">X</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Not interested (X)</TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* No Answer Modal — with quick note */}
+        <Dialog open={showNoAnswerModal} onOpenChange={setShowNoAnswerModal}>
+          <DialogContent className="bg-card border-border sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <PhoneOff className="w-4 h-4" />
+                No Answer
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <Label htmlFor="na-note" className="text-xs">Quick note (optional)</Label>
+              <Textarea
+                id="na-note"
+                placeholder="e.g. Left voicemail, spoke to PA..."
+                value={noAnswerNote}
+                onChange={(e) => setNoAnswerNote(e.target.value)}
+                className="text-sm min-h-[60px] mt-1"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleNoAnswer(); } }}
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowNoAnswerModal(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleNoAnswer}>
+                <PhoneOff className="w-3 h-3 mr-1" />
+                Confirm
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Callback Modal */}
+        <Dialog open={showCallbackModal} onOpenChange={setShowCallbackModal}>
+          <DialogContent className="bg-card border-border sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg">Schedule Callback</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3 py-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="callback-date" className="text-xs">Date</Label>
+                  <Input id="callback-date" type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="callback-time" className="text-xs">Time</Label>
+                  <Input id="callback-time" type="time" value={callbackTime} onChange={(e) => setCallbackTime(e.target.value)} className="h-8 text-sm" />
                 </div>
               </div>
-            )}
-            
-            <div className="space-y-1">
-              <Label htmlFor="completed-notes" className="text-xs">Notes</Label>
-              <Textarea
-                id="completed-notes"
-                placeholder="Add or edit notes..."
-                value={completedNotes}
-                onChange={(e) => setCompletedNotes(e.target.value)}
-                className="text-sm min-h-[60px]"
-              />
+              <div className="space-y-1">
+                <Label htmlFor="callback-notes" className="text-xs">Notes</Label>
+                <Textarea id="callback-notes" placeholder="Add or edit notes..." value={callbackNotes} onChange={(e) => setCallbackNotes(e.target.value)} className="text-sm min-h-[60px]" />
+              </div>
             </div>
-            
-            {webhookSettings.enabled && webhookSettings.url && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Will send to webhook on completion
-              </p>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowCompletedModal(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button 
-              size="sm" 
-              className="bg-success hover:bg-success/90" 
-              onClick={handleCompleted}
-              disabled={(completedReason === 'appointment_booked' && (!appointmentDate || !appointmentTime)) || isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                'Confirm'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowCallbackModal(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleCallback} disabled={!callbackDate || !callbackTime} className="bg-[hsl(var(--callback))] hover:bg-[hsl(var(--callback))]/90">
+                Schedule
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Calendly Embed Modal */}
-      {isCalendlyEnabled && (
-        <CalendlyEmbed
-          contact={contact}
-          calendlyUrl={calendlySettings.calendly_url}
-          open={showCalendlyModal}
-          onOpenChange={setShowCalendlyModal}
-          onEventScheduled={handleCalendlyEventScheduled}
-        />
-      )}
+        {/* Completed Modal */}
+        <Dialog open={showCompletedModal} onOpenChange={setShowCompletedModal}>
+          <DialogContent className="bg-card border-border sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-success" />
+                Mark as Completed
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3 py-3">
+              <RadioGroup value={completedReason} onValueChange={(v) => setCompletedReason(v as CompletedReason)}>
+                {completedOptions.map(reason => (
+                  <div key={reason.value} className="flex items-center space-x-2">
+                    <RadioGroupItem value={reason.value} id={`completed-${reason.value}`} />
+                    <Label htmlFor={`completed-${reason.value}`} className="text-sm cursor-pointer">{reason.label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
 
-      {/* Cal.com Embed Modal */}
-      {isCalcomEnabled && calcomSettings?.event_type_slug && (
-        <CalcomEmbed
-          contact={contact}
-          eventTypeSlug={calcomSettings.event_type_slug}
-          open={showCalcomModal}
-          onOpenChange={setShowCalcomModal}
-          onEventScheduled={handleCalcomEventScheduled}
-          fieldMappings={calcomSettings.field_mappings}
-        />
-      )}
-
-      {/* Not Interested Modal */}
-      <Dialog open={showNotInterestedModal} onOpenChange={setShowNotInterestedModal}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg flex items-center gap-2">
-              <XCircle className="w-4 h-4 text-muted-foreground" />
-              Mark as Not Interested
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-3">
-            <RadioGroup value={notInterestedReason} onValueChange={(v) => setNotInterestedReason(v as NotInterestedReason)}>
-              {notInterestedOptions.map(reason => (
-                <div key={reason.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={reason.value} id={`not-interested-${reason.value}`} />
-                  <Label htmlFor={`not-interested-${reason.value}`} className="text-sm cursor-pointer">
-                    {reason.label}
-                  </Label>
+              {completedReason === 'appointment_booked' && (
+                <div className="space-y-3 p-2 bg-muted/50 rounded border border-border">
+                  {(isCalendlyEnabled || isCalcomEnabled) && (
+                    <>
+                      <div className="flex gap-2">
+                        {isCalendlyEnabled && (
+                          <Button type="button" variant="outline" className="flex-1 justify-center gap-2" onClick={() => { setShowCompletedModal(false); setShowCalendlyModal(true); }}>
+                            <Calendar className="w-4 h-4" />Book via Calendly
+                          </Button>
+                        )}
+                        {isCalcomEnabled && (
+                          <Button type="button" variant="outline" className="flex-1 justify-center gap-2" onClick={() => { setShowCompletedModal(false); setShowCalcomModal(true); }}>
+                            <Calendar className="w-4 h-4" />Book via Cal.com
+                          </Button>
+                        )}
+                      </div>
+                      <div className="text-center"><span className="text-xs text-muted-foreground">or enter manually</span></div>
+                    </>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="apt-date" className="text-xs">Appointment Date</Label>
+                      <Input id="apt-date" type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="apt-time" className="text-xs">Time</Label>
+                      <Input id="apt-time" type="time" value={appointmentTime} onChange={(e) => setAppointmentTime(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </RadioGroup>
-            <div className="space-y-1">
-              <Label htmlFor="not-interested-notes" className="text-xs">Notes</Label>
-              <Textarea
-                id="not-interested-notes"
-                placeholder="Add or edit notes..."
-                value={notInterestedNotes}
-                onChange={(e) => setNotInterestedNotes(e.target.value)}
-                className="text-sm min-h-[60px]"
-              />
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="completed-notes" className="text-xs">Notes</Label>
+                <Textarea id="completed-notes" placeholder="Add or edit notes..." value={completedNotes} onChange={(e) => setCompletedNotes(e.target.value)} className="text-sm min-h-[60px]" />
+              </div>
+
+              {webhookEnabled && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />Will send to webhook on completion
+                </p>
+              )}
             </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowNotInterestedModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="secondary" size="sm" onClick={handleNotInterested}>
-              Confirm
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowCompletedModal(false)} disabled={isSubmitting}>Cancel</Button>
+              <Button
+                size="sm"
+                className="bg-success hover:bg-success/90"
+                onClick={handleCompleted}
+                disabled={(completedReason === 'appointment_booked' && (!appointmentDate || !appointmentTime)) || isSubmitting}
+              >
+                {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : 'Confirm'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Calendly Embed */}
+        {isCalendlyEnabled && (
+          <CalendlyEmbed contact={contact} calendlyUrl={calendlySettings.calendly_url} open={showCalendlyModal} onOpenChange={setShowCalendlyModal} onEventScheduled={handleCalendlyEventScheduled} />
+        )}
+
+        {/* Cal.com Embed */}
+        {isCalcomEnabled && calcomSettings?.event_type_slug && (
+          <CalcomEmbed contact={contact} eventTypeSlug={calcomSettings.event_type_slug} open={showCalcomModal} onOpenChange={setShowCalcomModal} onEventScheduled={handleCalcomEventScheduled} fieldMappings={calcomSettings.field_mappings} />
+        )}
+
+        {/* Not Interested Modal */}
+        <Dialog open={showNotInterestedModal} onOpenChange={setShowNotInterestedModal}>
+          <DialogContent className="bg-card border-border sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-muted-foreground" />
+                Mark as Not Interested
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3 py-3">
+              <RadioGroup value={notInterestedReason} onValueChange={(v) => setNotInterestedReason(v as NotInterestedReason)}>
+                {notInterestedOptions.map(reason => (
+                  <div key={reason.value} className="flex items-center space-x-2">
+                    <RadioGroupItem value={reason.value} id={`not-interested-${reason.value}`} />
+                    <Label htmlFor={`not-interested-${reason.value}`} className="text-sm cursor-pointer">{reason.label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              <div className="space-y-1">
+                <Label htmlFor="not-interested-notes" className="text-xs">Notes</Label>
+                <Textarea id="not-interested-notes" placeholder="Add or edit notes..." value={notInterestedNotes} onChange={(e) => setNotInterestedNotes(e.target.value)} className="text-sm min-h-[60px]" />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowNotInterestedModal(false)}>Cancel</Button>
+              <Button variant="secondary" size="sm" onClick={handleNotInterested}>Confirm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    </TooltipProvider>
   );
 }
