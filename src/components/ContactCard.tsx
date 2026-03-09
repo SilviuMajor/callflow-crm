@@ -780,14 +780,72 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
                 >
                   {copiedField === 'email' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 px-2 text-xs flex-shrink-0"
-                  onClick={openGmail}
-                >
-                  Gmail
-                </Button>
+                <TooltipProvider>
+                  <Popover open={emailPopoverOpen} onOpenChange={(open) => { setEmailPopoverOpen(open); if (!open) { setEmailOpened(false); setSelectedTemplate(null); } }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs flex-shrink-0"
+                            disabled={!contact.email}
+                          >
+                            <Mail className="w-3 h-3 mr-1" />
+                            Send Email
+                          </Button>
+                        </PopoverTrigger>
+                      </TooltipTrigger>
+                      {!contact.email && (
+                        <TooltipContent>No email address on file</TooltipContent>
+                      )}
+                    </Tooltip>
+                    <PopoverContent className="w-64 p-2" align="end">
+                      {!emailOpened ? (
+                        <>
+                          {emailTemplates.filter(t => t.enabled).length === 0 ? (
+                            <div className="text-center py-2 space-y-1">
+                              <p className="text-xs text-muted-foreground">No email templates yet</p>
+                              <a href="/ai-settings" className="text-xs text-primary underline">Create them in AI Settings</a>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-muted-foreground px-1 pb-1">Choose a template</p>
+                              {emailTemplates.filter(t => t.enabled).map(tpl => (
+                                <button
+                                  key={tpl.id}
+                                  type="button"
+                                  className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors"
+                                  onClick={() => handleOpenEmailTemplate(tpl, setEmailOpened, setSelectedTemplate)}
+                                >
+                                  {tpl.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-2 py-1">
+                          <p className="text-xs font-medium text-foreground">Email opened in Gmail ✓</p>
+                          <Button
+                            size="sm"
+                            className="w-full h-7 text-xs"
+                            onClick={() => handleLogEmail(selectedTemplate, setEmailPopoverOpen, setEmailOpened, setSelectedTemplate)}
+                          >
+                            Log email sent
+                          </Button>
+                          <button
+                            type="button"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => { setEmailPopoverOpen(false); setEmailOpened(false); setSelectedTemplate(null); }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </TooltipProvider>
               </div>
 
               {/* Custom Contact Fields */}
