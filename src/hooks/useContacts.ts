@@ -440,6 +440,13 @@ export function useContacts(selectedPotId?: string | null) {
         linkedin_url: contact.linkedinUrl || null,
         twitter_url: contact.twitterUrl || null,
         status: 'pending',
+        qualifying_answers: contact.qualifyingAnswers || {},
+        custom_fields: contact.customFields || {},
+        pot_id: potId,
+        organization_id: organizationId,
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error('Error adding contact:', error);
@@ -457,6 +464,8 @@ export function useContacts(selectedPotId?: string | null) {
         phone: data.phone,
         email: data.email || '',
         website: data.website || '',
+        linkedinUrl: data.linkedin_url || '',
+        twitterUrl: data.twitter_url || '',
         status: data.status as CallStatus,
         qualifyingAnswers: (data.qualifying_answers as Record<string, any>) || {},
         customFields: (data.custom_fields as Record<string, any>) || {},
