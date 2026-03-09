@@ -520,6 +520,8 @@ export function useContacts(selectedPotId?: string | null) {
       pot_id: potId,
       organization_id: organizationId,
     }));
+
+    const { data, error } = await supabase
       .from('contacts')
       .insert(inserts)
       .select();
@@ -540,6 +542,8 @@ export function useContacts(selectedPotId?: string | null) {
         phone: row.phone,
         email: row.email || '',
         website: row.website || '',
+        linkedinUrl: row.linkedin_url || '',
+        twitterUrl: row.twitter_url || '',
         status: row.status as CallStatus,
         qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
         customFields: (row.custom_fields as Record<string, any>) || {},
