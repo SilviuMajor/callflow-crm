@@ -61,6 +61,7 @@ export default function AnalyticsPage() {
     timeGranularity, 
     selectedDate
   );
+  const { stats: todayStats } = useTodayStats();
 
   // Get label for date picker based on granularity
   const getDateLabel = () => {
