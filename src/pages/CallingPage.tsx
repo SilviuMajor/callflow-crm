@@ -207,9 +207,10 @@ export default function CallingPage() {
     refreshStats();
   };
 
-  const handleImportContacts = async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => {
-    await importContacts(newContacts, potId);
+  const handleImportContacts = async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string): Promise<{ imported: number; skipped: number }> => {
+    const result = await importContacts(newContacts, potId);
     refreshStats();
+    return result ?? { imported: 0, skipped: 0 };
   };
 
   const activeQuestions = questions.filter(q => !q.isArchived);
