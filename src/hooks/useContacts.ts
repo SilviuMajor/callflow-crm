@@ -352,6 +352,8 @@ export function useContacts(selectedPotId?: string | null) {
     if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
     if (updates.email !== undefined) dbUpdates.email = updates.email;
     if (updates.website !== undefined) dbUpdates.website = updates.website;
+    if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl || null;
+    if (updates.twitterUrl !== undefined) dbUpdates.twitter_url = updates.twitterUrl || null;
     
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.callbackDate !== undefined) dbUpdates.callback_date = updates.callbackDate?.toISOString() || null;
