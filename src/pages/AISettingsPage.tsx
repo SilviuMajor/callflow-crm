@@ -171,6 +171,47 @@ export default function AISettingsPage() {
       body: 'Hi {{firstName}},\n\nAs promised, here\'s the information we discussed...\n\nLet me know if you have any questions.\n\nBest,',
     },
   ];
+  // Initialize active template when templates load
+  useEffect(() => {
+    if (templates.length > 0 && !activeTemplateId) {
+      setActiveTemplateId(templates[0].id);
+    }
+  }, [templates, activeTemplateId]);
+
+  // Initialize edited template bodies and subjects
+  useEffect(() => {
+    const bodies: Record<string, string> = {};
+    const subjects: Record<string, string> = {};
+    templates.forEach(t => {
+      if (editedTemplateBodies[t.id] === undefined) bodies[t.id] = t.body;
+      if (editedTemplateSubjects[t.id] === undefined) subjects[t.id] = t.subject;
+    });
+    if (Object.keys(bodies).length > 0) setEditedTemplateBodies(prev => ({ ...prev, ...bodies }));
+    if (Object.keys(subjects).length > 0) setEditedTemplateSubjects(prev => ({ ...prev, ...subjects }));
+  }, [templates]);
+
+  const handleTemplateBodyChange = (id: string, value: string) => {
+    setEditedTemplateBodies(prev => ({ ...prev, [id]: value }));
+    clearTimeout(saveTimers.current[`body_${id}`]);
+    saveTimers.current[`body_${id}`] = setTimeout(() => {
+      updateTemplate(id, { body: value });
+    }, 600);
+  };
+
+  const handleTemplateSubjectChange = (id: string, value: string) => {
+    setEditedTemplateSubjects(prev => ({ ...prev, [id]: value }));
+    clearTimeout(saveTimers.current[`subject_${id}`]);
+    saveTimers.current[`subject_${id}`] = setTimeout(() => {
+      updateTemplate(id, { subject: value });
+    }, 600);
+  };
+
+  const handleCopyMergeField = (field: string) => {
+    navigator.clipboard.writeText(field);
+    setCopiedMergeField(field);
+    setTimeout(() => setCopiedMergeField(null), 1500);
+  };
+
   useEffect(() => {
     if (scripts.length > 0 && !activeScriptId) {
       const defaultScript = scripts.find(s => s.is_default) || scripts[0];
