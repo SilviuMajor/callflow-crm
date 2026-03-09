@@ -112,7 +112,7 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showNoAnswerModal, showCallbackModal, showCompletedModal, showNotInterestedModal, showCalendlyModal, showCalcomModal, startCall, endCall]);
+  }, [showNoAnswerModal, showCallbackModal, showCompletedModal, showNotInterestedModal, showCalendlyModal, showCalcomModal]);
 
   // Fire webhook silently (non-blocking) for all outcomes except completed (which is blocking)
   const fireWebhookSilent = useCallback(async (updatedContact: Record<string, any>, eventType: string) => {
