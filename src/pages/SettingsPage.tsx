@@ -33,6 +33,7 @@ import { useCalcomSettings } from '@/hooks/useCalcomSettings';
 import { useStaticScripts } from '@/hooks/useStaticScripts';
 import { useStaticScriptSettings } from '@/hooks/useStaticScriptSettings';
 import { useContactCardSectionOrder, DEFAULT_SECTION_ORDER, SECTION_LABELS, SectionKey, EXPANDABLE_SECTIONS } from '@/hooks/useContactCardSectionOrder';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 
 // Types
 import { QualifyingQuestion, QuestionType, QUESTION_TYPES, CustomContactField, CompanyField } from '@/types/contact';
