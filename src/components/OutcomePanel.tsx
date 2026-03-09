@@ -128,7 +128,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     onAction('no_answer', undefined, noAnswerNote || undefined);
     setShowNoAnswerModal(false);
     setNoAnswerNote('');
-    endCall();
   };
 
   const handleCallback = () => {
