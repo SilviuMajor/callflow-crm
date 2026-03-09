@@ -192,7 +192,7 @@ export default function CallingPage() {
 
   const handleExportJSON = () => {
     exportToJSON(contacts, questions, companyData);
-    toast({ title: 'Exported as JSON', duration: 2000 });
+    toast.success('Exported as JSON');
   };
 
   const handleSelectContact = (contactId: string) => {
