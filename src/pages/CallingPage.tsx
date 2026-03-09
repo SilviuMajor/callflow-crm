@@ -355,7 +355,12 @@ export default function CallingPage() {
           overdueCallbackCount={overdueCallbackCount}
         />
       
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Stats overview */}
+        <div className="px-4 pt-3 pb-1 shrink-0">
+          <StatsBar stats={statsBarData} />
+        </div>
+        <div className="flex-1 flex overflow-hidden">
         <QueueList
           contacts={queueContacts}
           currentContactId={currentContact?.id || null}
