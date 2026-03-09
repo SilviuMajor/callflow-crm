@@ -5,11 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 import { useCustomFields } from '@/hooks/useCustomFields';
 import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { useAIResearch } from '@/hooks/useAIResearch';
+import { useEmailTemplates } from '@/hooks/useEmailTemplates';
+import { useContactHistory } from '@/hooks/useContactHistory';
+import { useAuth } from '@/contexts/AuthContext';
 import { AIResearchBox } from '@/components/AIResearchBox';
 import { InlineEditField } from '@/components/InlineEditField';
 import { LinkedContacts } from '@/components/LinkedContacts';
@@ -19,7 +25,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { toast as sonnerToast } from 'sonner';
 import { useAutoGenerateSettings } from '@/hooks/useAutoGenerateSettings';
 import { StaticScriptCard } from '@/components/StaticScriptCard';
 import { useContactCardSectionOrder, SectionKey } from '@/hooks/useContactCardSectionOrder';
@@ -43,12 +48,21 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Send Email popover state
+  const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
+  const [emailPopoverOpenMobile, setEmailPopoverOpenMobile] = useState(false);
+  const [emailOpened, setEmailOpened] = useState(false);
+  const [emailOpenedMobile, setEmailOpenedMobile] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<import('@/hooks/useEmailTemplates').EmailTemplate | null>(null);
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
   const { getCompanyFieldValues, updateCompanyData } = useCompanyData();
   const { isResearching, researchCompany, researchCompanyCustom, researchPersona } = useAIResearch();
   const { settings: autoGenSettings } = useAutoGenerateSettings();
   const { sectionOrder, sectionExpandedDefaults } = useContactCardSectionOrder();
+  const { templates: emailTemplates } = useEmailTemplates();
+  const { addHistoryEntry } = useContactHistory(contact.id);
+  const { profile } = useAuth();
 
   // AI Research state
   const [companyAI, setCompanyAI] = useState<AICache>({});
@@ -318,8 +332,46 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
     setTimeout(() => setCopiedField(null), 1500);
   };
 
-  const openGmail = () => {
-    window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}`, '_blank');
+  const resolveMergeFields = (text: string) => {
+    return text
+      .replace(/\{\{firstName\}\}/g, contact.firstName || '')
+      .replace(/\{\{lastName\}\}/g, contact.lastName || '')
+      .replace(/\{\{company\}\}/g, contact.company || '')
+      .replace(/\{\{jobTitle\}\}/g, contact.jobTitle || '')
+      .replace(/\{\{phone\}\}/g, contact.phone || '')
+      .replace(/\{\{email\}\}/g, contact.email || '');
+  };
+
+  const handleOpenEmailTemplate = async (
+    template: import('@/hooks/useEmailTemplates').EmailTemplate,
+    setOpened: (v: boolean) => void,
+    setSelected: (t: import('@/hooks/useEmailTemplates').EmailTemplate | null) => void
+  ) => {
+    const resolvedSubject = resolveMergeFields(template.subject);
+    const resolvedBody = resolveMergeFields(template.body);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email || '')}&su=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
+    window.open(gmailUrl, '_blank');
+    setOpened(true);
+    setSelected(template);
+  };
+
+  const handleLogEmail = async (
+    template: import('@/hooks/useEmailTemplates').EmailTemplate | null,
+    setOpen: (v: boolean) => void,
+    setOpened: (v: boolean) => void,
+    setSelected: (t: import('@/hooks/useEmailTemplates').EmailTemplate | null) => void
+  ) => {
+    if (!template || !profile?.organization_id) return;
+    await addHistoryEntry({
+      contact_id: contact.id,
+      action_type: 'email_sent',
+      action_timestamp: new Date().toISOString(),
+      note: `Template: ${template.name}`,
+    });
+    setOpen(false);
+    setOpened(false);
+    setSelected(null);
+    sonnerToast.success('Email logged');
   };
 
   const startEditing = (field: string, value: string) => {
@@ -728,14 +780,72 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
                 >
                   {copiedField === 'email' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 px-2 text-xs flex-shrink-0"
-                  onClick={openGmail}
-                >
-                  Gmail
-                </Button>
+                <TooltipProvider>
+                  <Popover open={emailPopoverOpen} onOpenChange={(open) => { setEmailPopoverOpen(open); if (!open) { setEmailOpened(false); setSelectedTemplate(null); } }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs flex-shrink-0"
+                            disabled={!contact.email}
+                          >
+                            <Mail className="w-3 h-3 mr-1" />
+                            Send Email
+                          </Button>
+                        </PopoverTrigger>
+                      </TooltipTrigger>
+                      {!contact.email && (
+                        <TooltipContent>No email address on file</TooltipContent>
+                      )}
+                    </Tooltip>
+                    <PopoverContent className="w-64 p-2" align="end">
+                      {!emailOpened ? (
+                        <>
+                          {emailTemplates.filter(t => t.enabled).length === 0 ? (
+                            <div className="text-center py-2 space-y-1">
+                              <p className="text-xs text-muted-foreground">No email templates yet</p>
+                              <a href="/ai-settings" className="text-xs text-primary underline">Create them in AI Settings</a>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-muted-foreground px-1 pb-1">Choose a template</p>
+                              {emailTemplates.filter(t => t.enabled).map(tpl => (
+                                <button
+                                  key={tpl.id}
+                                  type="button"
+                                  className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors"
+                                  onClick={() => handleOpenEmailTemplate(tpl, setEmailOpened, setSelectedTemplate)}
+                                >
+                                  {tpl.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-2 py-1">
+                          <p className="text-xs font-medium text-foreground">Email opened in Gmail ✓</p>
+                          <Button
+                            size="sm"
+                            className="w-full h-7 text-xs"
+                            onClick={() => handleLogEmail(selectedTemplate, setEmailPopoverOpen, setEmailOpened, setSelectedTemplate)}
+                          >
+                            Log email sent
+                          </Button>
+                          <button
+                            type="button"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => { setEmailPopoverOpen(false); setEmailOpened(false); setSelectedTemplate(null); }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </TooltipProvider>
               </div>
 
               {/* Custom Contact Fields */}
@@ -1053,14 +1163,72 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
             >
               {copiedField === 'email' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 px-2 text-xs flex-shrink-0"
-              onClick={openGmail}
-            >
-              Gmail
-            </Button>
+            <TooltipProvider>
+              <Popover open={emailPopoverOpenMobile} onOpenChange={(open) => { setEmailPopoverOpenMobile(open); if (!open) { setEmailOpenedMobile(false); setSelectedTemplate(null); } }}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs flex-shrink-0"
+                        disabled={!contact.email}
+                      >
+                        <Mail className="w-3 h-3 mr-1" />
+                        Send Email
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  {!contact.email && (
+                    <TooltipContent>No email address on file</TooltipContent>
+                  )}
+                </Tooltip>
+                <PopoverContent className="w-64 p-2" align="end">
+                  {!emailOpenedMobile ? (
+                    <>
+                      {emailTemplates.filter(t => t.enabled).length === 0 ? (
+                        <div className="text-center py-2 space-y-1">
+                          <p className="text-xs text-muted-foreground">No email templates yet</p>
+                          <a href="/ai-settings" className="text-xs text-primary underline">Create them in AI Settings</a>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground px-1 pb-1">Choose a template</p>
+                          {emailTemplates.filter(t => t.enabled).map(tpl => (
+                            <button
+                              key={tpl.id}
+                              type="button"
+                              className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors"
+                              onClick={() => handleOpenEmailTemplate(tpl, setEmailOpenedMobile, setSelectedTemplate)}
+                            >
+                              {tpl.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2 py-1">
+                      <p className="text-xs font-medium text-foreground">Email opened in Gmail ✓</p>
+                      <Button
+                        size="sm"
+                        className="w-full h-7 text-xs"
+                        onClick={() => handleLogEmail(selectedTemplate, setEmailPopoverOpenMobile, setEmailOpenedMobile, setSelectedTemplate)}
+                      >
+                        Log email sent
+                      </Button>
+                      <button
+                        type="button"
+                        className="w-full text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => { setEmailPopoverOpenMobile(false); setEmailOpenedMobile(false); setSelectedTemplate(null); }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </TooltipProvider>
           </div>
 
           {/* Custom Contact Fields */}
