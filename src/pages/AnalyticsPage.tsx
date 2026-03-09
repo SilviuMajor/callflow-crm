@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { TopNav } from '@/components/TopNav';
+import { StatsBar } from '@/components/StatsBar';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { usePots } from '@/hooks/usePots';
@@ -122,6 +123,9 @@ export default function AnalyticsPage() {
     callbacks: contacts.filter(c => c.status === 'callback').length,
     completed: contacts.filter(c => c.status === 'completed').length,
     notInterested: contacts.filter(c => c.status === 'not_interested').length,
+    dueCallbacks: contacts.filter(
+      c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) <= new Date()
+    ).length,
   }), [contacts]);
 
   const completedContacts = useMemo(() => 
@@ -251,14 +255,7 @@ export default function AnalyticsPage() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <StatCard label="Total" value={stats.total} />
-              <StatCard label="Pending" value={stats.pending} />
-              <StatCard label="No Answer" value={stats.noAnswer} />
-              <StatCard label="Callbacks" value={stats.callbacks} />
-              <StatCard label="Completed" value={stats.completed} color="text-success" />
-              <StatCard label="Not Interested" value={stats.notInterested} />
-            </div>
+            <StatsBar stats={stats} />
             
             {/* Rates */}
             <div className="grid md:grid-cols-2 gap-4">

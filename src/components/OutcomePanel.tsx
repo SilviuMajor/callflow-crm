@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar, Phone, Square } from 'lucide-react';
+import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   Contact, 
@@ -33,11 +33,6 @@ interface OutcomePanelProps {
   ) => void;
 }
 
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
 
 export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   // Modal state
@@ -68,10 +63,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
 
-  // Call timer (Task 5)
-  const [callActive, setCallActive] = useState(false);
-  const [callSeconds, setCallSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
   const { completedOptions, notInterestedOptions } = useOutcomeOptions();
@@ -81,31 +72,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const isCalendlyEnabled = calendlySettings.enabled && calendlySettings.calendly_url;
   const isCalcomEnabled = calcomSettings?.enabled && calcomSettings?.event_type_slug;
   const webhookEnabled = webhookSettings.enabled && webhookSettings.url;
-
-  // Timer logic
-  useEffect(() => {
-    if (callActive) {
-      timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [callActive]);
-
-  // Reset timer when contact changes
-  useEffect(() => {
-    setCallActive(false);
-    setCallSeconds(0);
-  }, [contact.id]);
-
-  const startCall = useCallback(() => {
-    setCallSeconds(0);
-    setCallActive(true);
-  }, []);
-
-  const endCall = useCallback(() => {
-    setCallActive(false);
-  }, []);
 
   // Reset modals on open
   useEffect(() => { if (showNoAnswerModal) setNoAnswerNote(''); }, [showNoAnswerModal]);
@@ -140,14 +106,12 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
         case 'c': e.preventDefault(); setShowCallbackModal(true); break;
         case 'd': e.preventDefault(); setShowCompletedModal(true); break;
         case 'x': e.preventDefault(); setShowNotInterestedModal(true); break;
-        case 's': e.preventDefault(); startCall(); break;
-        case 'e': e.preventDefault(); endCall(); break;
       }
     };
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [showNoAnswerModal, showCallbackModal, showCompletedModal, showNotInterestedModal, showCalendlyModal, showCalcomModal, startCall, endCall]);
+  }, [showNoAnswerModal, showCallbackModal, showCompletedModal, showNotInterestedModal, showCalendlyModal, showCalcomModal]);
 
   // Fire webhook silently (non-blocking) for all outcomes except completed (which is blocking)
   const fireWebhookSilent = useCallback(async (updatedContact: Record<string, any>, eventType: string) => {
@@ -163,7 +127,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     onAction('no_answer', undefined, noAnswerNote || undefined);
     setShowNoAnswerModal(false);
     setNoAnswerNote('');
-    endCall();
   };
 
   const handleCallback = () => {
@@ -176,7 +139,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
       setCallbackDate('');
       setCallbackTime('');
       setCallbackNotes('');
-      endCall();
     }
   };
 
@@ -213,7 +175,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     setCompletedNotes('');
     setAppointmentDate('');
     setAppointmentTime('');
-    endCall();
   };
 
   const handleNotInterested = () => {
@@ -223,7 +184,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     setShowNotInterestedModal(false);
     setNotInterestedReason('no_budget');
     setNotInterestedNotes('');
-    endCall();
   };
 
   const handleCalendlyEventScheduled = (_eventUri: string, _startTime: string) => {
@@ -251,43 +211,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   return (
     <TooltipProvider delayDuration={400}>
       <>
-        {/* Call Timer */}
-        <div className="flex items-center gap-2 mb-3 p-2 rounded-lg border border-border bg-muted/30">
-          {callActive ? (
-            <>
-              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-sm font-mono font-medium text-foreground tabular-nums flex-1">
-                {formatDuration(callSeconds)}
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-7 px-2 border-destructive text-destructive hover:bg-destructive/10" onClick={endCall}>
-                    <Square className="w-3 h-3 mr-1" />
-                    End <span className="ml-1 text-[10px] opacity-60">E</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>End call (E)</TooltipContent>
-              </Tooltip>
-            </>
-          ) : (
-            <>
-              <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-              <span className="text-xs text-muted-foreground flex-1">
-                {callSeconds > 0 ? `Last: ${formatDuration(callSeconds)}` : 'Ready'}
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-7 px-2 border-success text-success hover:bg-success/10" onClick={startCall}>
-                    <Phone className="w-3 h-3 mr-1" />
-                    Start <span className="ml-1 text-[10px] opacity-60">S</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Start call timer (S)</TooltipContent>
-              </Tooltip>
-            </>
-          )}
-        </div>
-
         {/* Outcome Buttons */}
         <div className="space-y-2">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">

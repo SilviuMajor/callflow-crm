@@ -8,7 +8,6 @@ import { useCompanyData } from '@/hooks/useCompanyData';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTodayStats } from '@/hooks/useTodayStats';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
-import { StatsBar } from '@/components/StatsBar';
 import { TopNav } from '@/components/TopNav';
 import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
@@ -76,16 +75,6 @@ export default function CallingPage() {
     });
     return map;
   }, [contacts, potsWithStats]);
-
-  const statsBarData = useMemo(() => ({
-    total: contacts.length,
-    pending: contacts.filter(c => c.status === 'pending' || c.status === 'no_answer').length,
-    noAnswer: contacts.filter(c => c.status === 'no_answer').length,
-    callbacks: contacts.filter(c => c.status === 'callback').length,
-    completed: contacts.filter(c => c.status === 'completed').length,
-    notInterested: contacts.filter(c => c.status === 'not_interested').length,
-    dueCallbacks: overdueCallbackCount,
-  }), [contacts, overdueCallbackCount]);
 
   // Refresh POT stats when contacts change
   useEffect(() => {
@@ -356,10 +345,6 @@ export default function CallingPage() {
         />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Stats overview */}
-        <div className="px-4 pt-3 pb-1 shrink-0">
-          <StatsBar stats={statsBarData} />
-        </div>
         <div className="flex-1 flex overflow-hidden">
         <QueueList
           contacts={queueContacts}
