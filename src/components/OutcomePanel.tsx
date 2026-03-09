@@ -107,8 +107,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
         case 'c': e.preventDefault(); setShowCallbackModal(true); break;
         case 'd': e.preventDefault(); setShowCompletedModal(true); break;
         case 'x': e.preventDefault(); setShowNotInterestedModal(true); break;
-        case 's': e.preventDefault(); startCall(); break;
-        case 'e': e.preventDefault(); endCall(); break;
       }
     };
 
