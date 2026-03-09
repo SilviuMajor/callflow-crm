@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useAIPrompts, AI_MODELS, AIPrompt } from '@/hooks/useAIPrompts';
 import { useAIScripts } from '@/hooks/useAIScripts';
+import { useEmailTemplates } from '@/hooks/useEmailTemplates';
 import { useSellerCompany } from '@/hooks/useSellerCompany';
 import { useSellerCustomFields } from '@/hooks/useSellerCustomFields';
 import { useCustomFields } from '@/hooks/useCustomFields';
@@ -13,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll, Plus, Trash2, Star, Eye, Settings, BarChart3 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sparkles, Building2, Users, Target, Save, Loader2, RotateCcw, Briefcase, Wand2, FlaskConical, Scroll, Plus, Trash2, Star, Eye, Settings, BarChart3, Mail } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { PlaceholderToolbar } from '@/components/PlaceholderToolbar';
