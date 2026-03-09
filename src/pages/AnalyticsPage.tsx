@@ -61,6 +61,11 @@ export default function AnalyticsPage() {
     timeGranularity, 
     selectedDate
   );
+  const { getTimeData: hourlyData, isLoading: isLoadingHourly } = useAnalyticsData(
+    selectedPotId,
+    'hourly',
+    new Date()
+  );
   const { stats: todayStats } = useTodayStats();
 
   // Get label for date picker based on granularity
@@ -574,6 +579,29 @@ export default function AnalyticsPage() {
               ) : (
                 <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
                   No activity data for this period
+                </div>
+              )}
+            </div>
+            {/* Calls by Hour of Day */}
+            <div className="p-4 rounded-lg border border-border bg-card">
+              <p className="text-sm font-medium mb-1">Calls by Hour of Day</p>
+              <p className="text-xs text-muted-foreground mb-3">Today's activity by hour</p>
+              {isLoadingHourly ? (
+                <div className="h-48 flex items-center justify-center text-muted-foreground">Loading...</div>
+              ) : hourlyData.length > 0 ? (
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={hourlyData}>
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={1} />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="total" fill="hsl(220, 90%, 56%)" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                  No calls today
                 </div>
               )}
             </div>
