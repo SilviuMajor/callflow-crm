@@ -212,43 +212,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   return (
     <TooltipProvider delayDuration={400}>
       <>
-        {/* Call Timer */}
-        <div className="flex items-center gap-2 mb-3 p-2 rounded-lg border border-border bg-muted/30">
-          {callActive ? (
-            <>
-              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-sm font-mono font-medium text-foreground tabular-nums flex-1">
-                {formatDuration(callSeconds)}
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-7 px-2 border-destructive text-destructive hover:bg-destructive/10" onClick={endCall}>
-                    <Square className="w-3 h-3 mr-1" />
-                    End <span className="ml-1 text-[10px] opacity-60">E</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>End call (E)</TooltipContent>
-              </Tooltip>
-            </>
-          ) : (
-            <>
-              <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-              <span className="text-xs text-muted-foreground flex-1">
-                {callSeconds > 0 ? `Last: ${formatDuration(callSeconds)}` : 'Ready'}
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-7 px-2 border-success text-success hover:bg-success/10" onClick={startCall}>
-                    <Phone className="w-3 h-3 mr-1" />
-                    Start <span className="ml-1 text-[10px] opacity-60">S</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Start call timer (S)</TooltipContent>
-              </Tooltip>
-            </>
-          )}
-        </div>
-
         {/* Outcome Buttons */}
         <div className="space-y-2">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
