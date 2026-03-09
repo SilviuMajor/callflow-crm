@@ -437,14 +437,9 @@ export function useContacts(selectedPotId?: string | null) {
         phone: contact.phone,
         email: contact.email || null,
         website: contact.website || null,
+        linkedin_url: contact.linkedinUrl || null,
+        twitter_url: contact.twitterUrl || null,
         status: 'pending',
-        qualifying_answers: contact.qualifyingAnswers || {},
-        custom_fields: contact.customFields || {},
-        pot_id: potId,
-        organization_id: organizationId,
-      })
-      .select()
-      .single();
 
     if (error) {
       console.error('Error adding contact:', error);
