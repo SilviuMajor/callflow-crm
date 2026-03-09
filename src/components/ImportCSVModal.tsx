@@ -276,10 +276,14 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (mappedContacts.length > 0 && potId) {
-      onImport(mappedContacts, potId);
-      toast.success(`Imported ${mappedContacts.length} contacts to "${potName}"`);
+      const result = await onImport(mappedContacts, potId);
+      if (result.skipped > 0) {
+        toast.warning(`Imported ${result.imported} contacts. ${result.skipped} skipped (already exist).`);
+      } else {
+        toast.success(`Imported ${result.imported} contacts to "${potName}"`);
+      }
       resetState();
       onOpenChange(false);
     }
