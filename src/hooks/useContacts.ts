@@ -74,6 +74,8 @@ export function useContacts(selectedPotId?: string | null) {
           phone: row.phone,
           email: row.email || '',
           website: row.website || '',
+          linkedinUrl: row.linkedin_url || '',
+          twitterUrl: row.twitter_url || '',
           status: row.status as CallStatus,
           callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
           appointmentDate: row.appointment_date ? new Date(row.appointment_date) : undefined,
