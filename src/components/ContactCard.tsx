@@ -332,8 +332,46 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
     setTimeout(() => setCopiedField(null), 1500);
   };
 
-  const openGmail = () => {
-    window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}`, '_blank');
+  const resolveMergeFields = (text: string) => {
+    return text
+      .replace(/\{\{firstName\}\}/g, contact.firstName || '')
+      .replace(/\{\{lastName\}\}/g, contact.lastName || '')
+      .replace(/\{\{company\}\}/g, contact.company || '')
+      .replace(/\{\{jobTitle\}\}/g, contact.jobTitle || '')
+      .replace(/\{\{phone\}\}/g, contact.phone || '')
+      .replace(/\{\{email\}\}/g, contact.email || '');
+  };
+
+  const handleOpenEmailTemplate = async (
+    template: import('@/hooks/useEmailTemplates').EmailTemplate,
+    setOpened: (v: boolean) => void,
+    setSelected: (t: import('@/hooks/useEmailTemplates').EmailTemplate | null) => void
+  ) => {
+    const resolvedSubject = resolveMergeFields(template.subject);
+    const resolvedBody = resolveMergeFields(template.body);
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email || '')}&su=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
+    window.open(gmailUrl, '_blank');
+    setOpened(true);
+    setSelected(template);
+  };
+
+  const handleLogEmail = async (
+    template: import('@/hooks/useEmailTemplates').EmailTemplate | null,
+    setOpen: (v: boolean) => void,
+    setOpened: (v: boolean) => void,
+    setSelected: (t: import('@/hooks/useEmailTemplates').EmailTemplate | null) => void
+  ) => {
+    if (!template || !profile?.organization_id) return;
+    await addHistoryEntry({
+      contact_id: contact.id,
+      action_type: 'email_sent',
+      action_timestamp: new Date().toISOString(),
+      note: `Template: ${template.name}`,
+    });
+    setOpen(false);
+    setOpened(false);
+    setSelected(null);
+    sonnerToast.success('Email logged');
   };
 
   const startEditing = (field: string, value: string) => {
