@@ -698,8 +698,153 @@ export default function AISettingsPage() {
               template={previewTemplate} 
             />
 
+            {/* Email Templates */}
+            <Card className="border-2 border-blue-400/30">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-blue-500" />
+                    <CardTitle className="text-lg">Email Templates</CardTitle>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const name = `Template ${templates.length + 1}`;
+                      const newTpl = await createTemplate(name);
+                      if (newTpl) setActiveTemplateId(newTpl.id);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    New Template
+                  </Button>
+                </div>
+                <CardDescription>
+                  Create email templates with merge fields. Use {'{{firstName}}'}, {'{{lastName}}'}, {'{{company}}'}, {'{{jobTitle}}'}, {'{{phone}}'}, {'{{email}}'} to personalise each email.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingTemplates ? (
+                  <Skeleton className="h-48 w-full" />
+                ) : templates.length === 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground text-center">No templates yet. Start from a starter or create a blank one.</p>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {STARTER_TEMPLATES.map((st) => (
+                        <button
+                          key={st.name}
+                          type="button"
+                          className="text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-accent transition-colors"
+                          onClick={async () => {
+                            const newTpl = await createTemplate(st.name, { subject: st.subject, body: st.body });
+                            if (newTpl) setActiveTemplateId(newTpl.id);
+                          }}
+                        >
+                          <p className="text-xs font-medium text-foreground">{st.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{st.subject}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Tabs value={activeTemplateId} onValueChange={setActiveTemplateId}>
+                    <TabsList className="w-full flex-wrap h-auto gap-1">
+                      {templates.map(tpl => (
+                        <TabsTrigger key={tpl.id} value={tpl.id}>
+                          {tpl.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+
+                    {templates.map(tpl => (
+                      <TabsContent key={tpl.id} value={tpl.id} className="space-y-4 mt-4">
+                        {/* Header row */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <Input
+                            value={tpl.name}
+                            onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })}
+                            className="max-w-[200px] h-8 text-sm font-medium"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={tpl.enabled}
+                              onCheckedChange={(checked) => updateTemplate(tpl.id, { enabled: checked })}
+                            />
+                            <span className="text-xs text-muted-foreground">{tpl.enabled ? 'Enabled' : 'Disabled'}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive ml-auto"
+                            onClick={() => {
+                              if (confirm(`Delete "${tpl.name}"? This cannot be undone.`)) {
+                                deleteTemplate(tpl.id);
+                                setActiveTemplateId(templates.find(t => t.id !== tpl.id)?.id || '');
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+
+                        {/* Subject */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`subject-${tpl.id}`}>Subject</Label>
+                          <Input
+                            id={`subject-${tpl.id}`}
+                            value={editedTemplateSubjects[tpl.id] ?? tpl.subject}
+                            onChange={(e) => handleTemplateSubjectChange(tpl.id, e.target.value)}
+                            placeholder="Email subject..."
+                          />
+                        </div>
+
+                        {/* Body */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`body-${tpl.id}`}>Body</Label>
+                          <Textarea
+                            id={`body-${tpl.id}`}
+                            value={editedTemplateBodies[tpl.id] ?? tpl.body}
+                            onChange={(e) => handleTemplateBodyChange(tpl.id, e.target.value)}
+                            placeholder="Email body..."
+                            className="min-h-[160px] font-mono text-sm"
+                          />
+                        </div>
+
+                        {/* Merge field chips */}
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-muted-foreground">Click a field to copy it, then paste into subject or body:</p>
+                          <TooltipProvider>
+                            <div className="flex flex-wrap gap-1.5">
+                              {MERGE_FIELDS.map(field => (
+                                <Tooltip key={field} open={copiedMergeField === field ? true : undefined}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyMergeField(field)}
+                                      className="text-xs px-2 py-1 rounded-md border border-border bg-muted hover:bg-accent hover:border-primary transition-colors font-mono"
+                                    >
+                                      {field}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {copiedMergeField === field ? 'Copied!' : `Copy ${field}`}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </div>
+                          </TooltipProvider>
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                )}
+              </CardContent>
+            </Card>
+
             {/* AI Prompt Templates */}
             <h2 className="text-lg font-semibold">AI Research Prompts</h2>
+
 
             {isLoading ? (
               <div className="space-y-4">
