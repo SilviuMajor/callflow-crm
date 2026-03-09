@@ -68,10 +68,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const [notInterestedReason, setNotInterestedReason] = useState<NotInterestedReason>('no_budget');
   const [notInterestedNotes, setNotInterestedNotes] = useState('');
 
-  // Call timer (Task 5)
-  const [callActive, setCallActive] = useState(false);
-  const [callSeconds, setCallSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { settings: webhookSettings, sendWebhook } = useWebhookSettings();
   const { completedOptions, notInterestedOptions } = useOutcomeOptions();
