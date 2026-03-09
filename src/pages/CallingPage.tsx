@@ -187,7 +187,7 @@ export default function CallingPage() {
 
   const handleExportCSV = () => {
     exportToCSV(contacts, questions, customFields, companyFields, companyData);
-    toast({ title: 'Exported as CSV', duration: 2000 });
+    toast.success('Exported as CSV');
   };
 
   const handleExportJSON = () => {
