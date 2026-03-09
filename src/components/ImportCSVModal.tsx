@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 interface ImportCSVModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (contacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => void;
+  onImport: (contacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => Promise<{ imported: number; skipped: number }>;
   onCreatePot: (name: string) => Promise<string | null>;
 }
 
@@ -53,16 +53,15 @@ function autoMatchColumn(csvHeader: string, customFields: CustomContactField[]):
   const normalized = csvHeader.toLowerCase().trim();
   
   for (const [fieldKey, aliases] of Object.entries(STANDARD_FIELD_ALIASES)) {
-    if (aliases.some(alias => normalized === alias || normalized.includes(alias))) {
-      return { targetField: fieldKey, confidence: normalized === aliases[0] ? 'high' : 'medium' };
+    if (normalized === aliases[0]) {
+      return { targetField: fieldKey, confidence: 'high' };
     }
   }
   
   for (const field of customFields) {
     const fieldLabel = field.label.toLowerCase();
-    const fieldKey = field.key.toLowerCase();
-    if (normalized === fieldLabel || normalized === fieldKey || normalized.includes(fieldLabel)) {
-      return { targetField: `custom:${field.id}`, confidence: normalized === fieldLabel ? 'high' : 'medium' };
+    if (normalized === fieldLabel) {
+      return { targetField: `custom:${field.id}`, confidence: 'high' };
     }
   }
   
@@ -277,10 +276,14 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (mappedContacts.length > 0 && potId) {
-      onImport(mappedContacts, potId);
-      toast.success(`Imported ${mappedContacts.length} contacts to "${potName}"`);
+      const result = await onImport(mappedContacts, potId);
+      if (result.skipped > 0) {
+        toast.warning(`Imported ${result.imported} contacts. ${result.skipped} skipped (already exist).`);
+      } else {
+        toast.success(`Imported ${result.imported} contacts to "${potName}"`);
+      }
       resetState();
       onOpenChange(false);
     }
@@ -425,33 +428,42 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
                               }}
                             />
                           ) : (
-                            <Select 
-                              value={mapping.targetField} 
-                              onValueChange={(v) => updateMapping(index, v)}
-                            >
-                              <SelectTrigger className="h-8 w-48">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="skip">Skip this column</SelectItem>
-                                {STANDARD_FIELDS.map(field => (
-                                  <SelectItem key={field.key} value={field.key}>
-                                    {field.label}
-                                  </SelectItem>
-                                ))}
-                                {customFields.filter(f => !f.isArchived).map(field => (
-                                  <SelectItem key={field.id} value={`custom:${field.id}`}>
-                                    {field.label} (custom)
-                                  </SelectItem>
-                                ))}
-                                <SelectItem value="create_new">
-                                  <span className="flex items-center gap-1">
-                                    <Plus className="w-3 h-3" />
-                                    Create new field
-                                  </span>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            (() => {
+                              const usedFields = new Set(
+                                mappings
+                                  .filter((m, i) => i !== index && m.targetField !== 'skip' && m.targetField !== 'create_new')
+                                  .map(m => m.targetField)
+                              );
+                              return (
+                                <Select 
+                                  value={mapping.targetField} 
+                                  onValueChange={(v) => updateMapping(index, v)}
+                                >
+                                  <SelectTrigger className="h-8 w-48">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="skip">Skip this column</SelectItem>
+                                    {STANDARD_FIELDS.map(field => (
+                                      <SelectItem key={field.key} value={field.key} disabled={usedFields.has(field.key)}>
+                                        {field.label}
+                                      </SelectItem>
+                                    ))}
+                                    {customFields.filter(f => !f.isArchived).map(field => (
+                                      <SelectItem key={field.id} value={`custom:${field.id}`} disabled={usedFields.has(`custom:${field.id}`)}>
+                                        {field.label} (custom)
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem value="create_new">
+                                      <span className="flex items-center gap-1">
+                                        <Plus className="w-3 h-3" />
+                                        Create new field
+                                      </span>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              );
+                            })()
                           )}
                         </td>
                         <td className="p-3">

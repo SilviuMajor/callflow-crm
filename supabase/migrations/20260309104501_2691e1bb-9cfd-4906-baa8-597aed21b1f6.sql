@@ -1,0 +1,1 @@
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS daily_call_target INTEGER NOT NULL DEFAULT 50;

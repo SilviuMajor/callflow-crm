@@ -714,18 +714,21 @@ export type Database = {
       organizations: {
         Row: {
           created_at: string
+          daily_call_target: number
           id: string
           name: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          daily_call_target?: number
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          daily_call_target?: number
           id?: string
           name?: string
           updated_at?: string

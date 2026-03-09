@@ -7,6 +7,7 @@ import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTodayStats } from '@/hooks/useTodayStats';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { TopNav } from '@/components/TopNav';
 import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
@@ -54,6 +55,7 @@ export default function CallingPage() {
   } = useContacts(selectedPotId);
 
   const { stats: todayStats, refresh: refreshTodayStats } = useTodayStats();
+  const { dailyCallTarget } = useOrganizationSettings();
   
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
@@ -177,11 +179,7 @@ export default function CallingPage() {
     }
     
     setQuestions(newQuestions);
-    toast({
-      title: 'Questions saved',
-      description: applyToBlank ? 'Applied to contacts with blank fields' : undefined,
-      duration: 2000,
-    });
+    toast.success('Questions saved');
   };
 
   const handleUpdateContact = (updates: Partial<Contact>) => {
@@ -191,12 +189,12 @@ export default function CallingPage() {
 
   const handleExportCSV = () => {
     exportToCSV(contacts, questions, customFields, companyFields, companyData);
-    toast({ title: 'Exported as CSV', duration: 2000 });
+    toast.success('Exported as CSV');
   };
 
   const handleExportJSON = () => {
     exportToJSON(contacts, questions, companyData);
-    toast({ title: 'Exported as JSON', duration: 2000 });
+    toast.success('Exported as JSON');
   };
 
   const handleSelectContact = (contactId: string) => {
@@ -211,9 +209,10 @@ export default function CallingPage() {
     refreshStats();
   };
 
-  const handleImportContacts = async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => {
-    await importContacts(newContacts, potId);
+  const handleImportContacts = async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string): Promise<{ imported: number; skipped: number }> => {
+    const result = await importContacts(newContacts, potId);
     refreshStats();
+    return result ?? { imported: 0, skipped: 0 };
   };
 
   const activeQuestions = questions.filter(q => !q.isArchived);
@@ -251,6 +250,7 @@ export default function CallingPage() {
               onDeletePot={deletePot}
               onMergePots={mergePots}
               todayStats={todayStats}
+              dailyTarget={dailyCallTarget}
             />
           </div>
           
@@ -360,6 +360,7 @@ export default function CallingPage() {
           onDeletePot={deletePot}
           onMergePots={mergePots}
           todayStats={todayStats}
+          dailyTarget={dailyCallTarget}
         />
         
         <ResizablePanelGroup direction="horizontal" className="flex-1">

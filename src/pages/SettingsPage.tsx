@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +33,7 @@ import { useCalcomSettings } from '@/hooks/useCalcomSettings';
 import { useStaticScripts } from '@/hooks/useStaticScripts';
 import { useStaticScriptSettings } from '@/hooks/useStaticScriptSettings';
 import { useContactCardSectionOrder, DEFAULT_SECTION_ORDER, SECTION_LABELS, SectionKey, EXPANDABLE_SECTIONS } from '@/hooks/useContactCardSectionOrder';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 
 // Types
 import { QualifyingQuestion, QuestionType, QUESTION_TYPES, CustomContactField, CompanyField } from '@/types/contact';
@@ -359,6 +360,16 @@ export default function SettingsPage() {
   const { sectionOrder, sectionExpandedDefaults, isLoading: sectionOrderLoading, updateOrder: updateSectionOrder, updateExpandedDefault, resetToDefault: resetSectionOrder } = useContactCardSectionOrder();
   const [pendingSectionOrder, setPendingSectionOrder] = useState<SectionKey[] | null>(null);
   const [isSavingSectionOrder, setIsSavingSectionOrder] = useState(false);
+  
+  // Daily call target state
+  const { dailyCallTarget, updateDailyCallTarget } = useOrganizationSettings();
+  const [dailyCallTargetLocal, setDailyCallTargetLocal] = useState(50);
+  const dailyTargetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Sync daily call target from hook
+  useEffect(() => {
+    setDailyCallTargetLocal(dailyCallTarget);
+  }, [dailyCallTarget]);
   
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1458,6 +1469,32 @@ export default function SettingsPage() {
 
           {/* Layout Tab */}
           <TabsContent value="layout" className="space-y-6 py-4">
+            {/* Daily Call Target */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Daily Call Target</CardTitle>
+                <CardDescription>Set your daily call goal. Shown as a progress bar in the queue.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={dailyCallTargetLocal}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v) && v >= 1 && v <= 500) {
+                      setDailyCallTargetLocal(v);
+                      if (dailyTargetTimerRef.current) clearTimeout(dailyTargetTimerRef.current);
+                      dailyTargetTimerRef.current = setTimeout(() => updateDailyCallTarget(v), 500);
+                    }
+                  }}
+                  className="w-32"
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">

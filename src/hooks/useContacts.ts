@@ -466,13 +466,35 @@ export function useContacts(selectedPotId?: string | null) {
     }
   }, [organizationId]);
 
-  const importContacts = useCallback(async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => {
+  const importContacts = useCallback(async (newContacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string): Promise<{ imported: number; skipped: number }> => {
     if (!organizationId) {
       toast.error('Not authenticated');
-      return;
+      return { imported: 0, skipped: 0 };
+    }
+
+    // Duplicate detection: check existing contacts for matching email or phone
+    const toInsert: typeof newContacts = [];
+    let skippedCount = 0;
+
+    for (const incoming of newContacts) {
+      const emailMatch = incoming.email && contacts.some(
+        c => c.email && c.email.toLowerCase() === incoming.email!.toLowerCase()
+      );
+      const phoneMatch = incoming.phone && contacts.some(
+        c => c.phone && c.phone === incoming.phone
+      );
+      if (emailMatch || phoneMatch) {
+        skippedCount++;
+      } else {
+        toInsert.push(incoming);
+      }
+    }
+
+    if (toInsert.length === 0) {
+      return { imported: 0, skipped: skippedCount };
     }
     
-    const inserts = newContacts.map(contact => ({
+    const inserts = toInsert.map(contact => ({
       first_name: contact.firstName,
       last_name: contact.lastName,
       company: contact.company,
@@ -495,7 +517,7 @@ export function useContacts(selectedPotId?: string | null) {
     if (error) {
       console.error('Error importing contacts:', error);
       toast.error('Failed to import contacts');
-      return;
+      return { imported: 0, skipped: skippedCount };
     }
 
     if (data) {
@@ -515,9 +537,10 @@ export function useContacts(selectedPotId?: string | null) {
         potId: row.pot_id || undefined,
       }));
       setContacts(prev => [...prev, ...mappedContacts]);
-      toast.success(`Imported ${mappedContacts.length} contacts`);
     }
-  }, [organizationId]);
+
+    return { imported: data?.length || 0, skipped: skippedCount };
+  }, [organizationId, contacts]);
 
   const deleteContact = useCallback(async (contactId: string): Promise<boolean> => {
     pendingLocalUpdates.current.add(contactId);
