@@ -7,6 +7,7 @@ import { useCompanyFields } from '@/hooks/useCompanyFields';
 import { useCompanyData } from '@/hooks/useCompanyData';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTodayStats } from '@/hooks/useTodayStats';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { TopNav } from '@/components/TopNav';
 import { QueueList } from '@/components/QueueList';
 import { ContactCard } from '@/components/ContactCard';
