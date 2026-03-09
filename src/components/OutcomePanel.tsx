@@ -140,7 +140,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
       setCallbackDate('');
       setCallbackTime('');
       setCallbackNotes('');
-      endCall();
     }
   };
 
