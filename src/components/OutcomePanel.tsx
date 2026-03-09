@@ -33,7 +33,6 @@ interface OutcomePanelProps {
   ) => void;
 }
 
-function formatDuration(_: number): string { return ''; }
 
 export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   // Modal state
