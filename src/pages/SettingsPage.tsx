@@ -770,13 +770,13 @@ export default function SettingsPage() {
               <CheckCircle2 className="w-3 h-3" />
               <span className="hidden sm:inline">Outcomes</span>
             </TabsTrigger>
-            <TabsTrigger value="webhooks" className="flex items-center gap-1 text-xs">
-              <Webhook className="w-3 h-3" />
-              <span className="hidden sm:inline">Webhooks</span>
-            </TabsTrigger>
             <TabsTrigger value="integrations" className="flex items-center gap-1 text-xs">
               <Plug className="w-3 h-3" />
               <span className="hidden sm:inline">Integrations</span>
+            </TabsTrigger>
+            <TabsTrigger value="webhooks" className="flex items-center gap-1 text-xs">
+              <Webhook className="w-3 h-3" />
+              <span className="hidden sm:inline">Webhooks</span>
             </TabsTrigger>
             <TabsTrigger value="layout" className="flex items-center gap-1 text-xs">
               <LayoutGrid className="w-3 h-3" />
