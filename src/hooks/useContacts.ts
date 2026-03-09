@@ -74,6 +74,8 @@ export function useContacts(selectedPotId?: string | null) {
           phone: row.phone,
           email: row.email || '',
           website: row.website || '',
+          linkedinUrl: row.linkedin_url || '',
+          twitterUrl: row.twitter_url || '',
           status: row.status as CallStatus,
           callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
           appointmentDate: row.appointment_date ? new Date(row.appointment_date) : undefined,
@@ -140,6 +142,8 @@ export function useContacts(selectedPotId?: string | null) {
       phone: row.phone,
       email: row.email || '',
       website: row.website || '',
+      linkedinUrl: row.linkedin_url || '',
+      twitterUrl: row.twitter_url || '',
       status: row.status as CallStatus,
       callbackDate: row.callback_date ? new Date(row.callback_date) : undefined,
       appointmentDate: row.appointment_date ? new Date(row.appointment_date) : undefined,
@@ -348,6 +352,8 @@ export function useContacts(selectedPotId?: string | null) {
     if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
     if (updates.email !== undefined) dbUpdates.email = updates.email;
     if (updates.website !== undefined) dbUpdates.website = updates.website;
+    if (updates.linkedinUrl !== undefined) dbUpdates.linkedin_url = updates.linkedinUrl || null;
+    if (updates.twitterUrl !== undefined) dbUpdates.twitter_url = updates.twitterUrl || null;
     
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.callbackDate !== undefined) dbUpdates.callback_date = updates.callbackDate?.toISOString() || null;
@@ -431,6 +437,8 @@ export function useContacts(selectedPotId?: string | null) {
         phone: contact.phone,
         email: contact.email || null,
         website: contact.website || null,
+        linkedin_url: contact.linkedinUrl || null,
+        twitter_url: contact.twitterUrl || null,
         status: 'pending',
         qualifying_answers: contact.qualifyingAnswers || {},
         custom_fields: contact.customFields || {},
@@ -456,6 +464,8 @@ export function useContacts(selectedPotId?: string | null) {
         phone: data.phone,
         email: data.email || '',
         website: data.website || '',
+        linkedinUrl: data.linkedin_url || '',
+        twitterUrl: data.twitter_url || '',
         status: data.status as CallStatus,
         qualifyingAnswers: (data.qualifying_answers as Record<string, any>) || {},
         customFields: (data.custom_fields as Record<string, any>) || {},
@@ -502,6 +512,8 @@ export function useContacts(selectedPotId?: string | null) {
       phone: contact.phone,
       email: contact.email || null,
       website: contact.website || null,
+      linkedin_url: contact.linkedinUrl || null,
+      twitter_url: contact.twitterUrl || null,
       status: 'pending',
       qualifying_answers: contact.qualifyingAnswers || {},
       custom_fields: contact.customFields || {},
@@ -530,6 +542,8 @@ export function useContacts(selectedPotId?: string | null) {
         phone: row.phone,
         email: row.email || '',
         website: row.website || '',
+        linkedinUrl: row.linkedin_url || '',
+        twitterUrl: row.twitter_url || '',
         status: row.status as CallStatus,
         qualifyingAnswers: (row.qualifying_answers as Record<string, any>) || {},
         customFields: (row.custom_fields as Record<string, any>) || {},

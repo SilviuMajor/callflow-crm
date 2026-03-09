@@ -529,12 +529,14 @@ export type Database = {
           id: string
           job_title: string | null
           last_name: string
+          linkedin_url: string | null
           not_interested_reason: string | null
           organization_id: string
           phone: string
           pot_id: string | null
           qualifying_answers: Json | null
           status: string
+          twitter_url: string | null
           updated_at: string
           website: string | null
         }
@@ -556,12 +558,14 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name: string
+          linkedin_url?: string | null
           not_interested_reason?: string | null
           organization_id: string
           phone: string
           pot_id?: string | null
           qualifying_answers?: Json | null
           status?: string
+          twitter_url?: string | null
           updated_at?: string
           website?: string | null
         }
@@ -583,12 +587,14 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name?: string
+          linkedin_url?: string | null
           not_interested_reason?: string | null
           organization_id?: string
           phone?: string
           pot_id?: string | null
           qualifying_answers?: Json | null
           status?: string
+          twitter_url?: string | null
           updated_at?: string
           website?: string | null
         }
