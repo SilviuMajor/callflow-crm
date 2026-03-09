@@ -256,6 +256,33 @@ export default function AnalyticsPage() {
           
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
+            {/* Today's Activity */}
+            <div className="p-4 rounded-lg border border-border bg-card">
+              <p className="text-sm font-medium text-foreground mb-3">Today's Activity</p>
+              <div className="grid grid-cols-5 gap-3">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-foreground">{todayStats.total}</p>
+                  <p className="text-xs text-muted-foreground">Calls Made</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-success">{todayStats.completed}</p>
+                  <p className="text-xs text-muted-foreground">Completed</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{todayStats.callbacks}</p>
+                  <p className="text-xs text-muted-foreground">Callbacks Booked</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-muted-foreground">{todayStats.noAnswer}</p>
+                  <p className="text-xs text-muted-foreground">No Answer</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-destructive">{todayStats.notInterested}</p>
+                  <p className="text-xs text-muted-foreground">Not Interested</p>
+                </div>
+              </div>
+            </div>
+
             {/* Stats Grid */}
             <StatsBar stats={stats} />
             
