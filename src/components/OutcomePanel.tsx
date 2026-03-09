@@ -185,7 +185,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     setShowNotInterestedModal(false);
     setNotInterestedReason('no_budget');
     setNotInterestedNotes('');
-    endCall();
   };
 
   const handleCalendlyEventScheduled = (_eventUri: string, _startTime: string) => {
