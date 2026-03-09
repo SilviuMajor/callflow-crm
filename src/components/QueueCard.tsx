@@ -1,5 +1,6 @@
 import { Contact } from '@/types/contact';
 import { cn } from '@/lib/utils';
+import { PhoneOff } from 'lucide-react';
 
 interface QueueCardProps {
   contact: Contact;
@@ -86,11 +87,19 @@ export function QueueCard({ contact, isActive, onClick, potName }: QueueCardProp
           </span>
         )}
       </div>
-      {isFuture && contact.callbackDate && (
-        <p className="text-[10px] text-muted-foreground mt-1">
-          📅 {new Date(contact.callbackDate).toLocaleDateString()}
-        </p>
-      )}
+      <div className="flex items-center justify-between mt-0.5">
+        {isFuture && contact.callbackDate ? (
+          <p className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+            📅 {new Date(contact.callbackDate).toLocaleDateString()}
+          </p>
+        ) : <span />}
+        {(contact.noAnswerCount || 0) > 0 && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+            <PhoneOff className="w-2.5 h-2.5" />
+            {contact.noAnswerCount}
+          </span>
+        )}
+      </div>
     </button>
   );
 }

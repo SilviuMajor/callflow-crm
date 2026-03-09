@@ -51,6 +51,7 @@ export interface Contact {
   linkedinUrl?: string;
   twitterUrl?: string;
   status: CallStatus;
+  noAnswerCount?: number;
   callbackDate?: Date;
   appointmentDate?: Date;
   appointmentAttended?: boolean | null;

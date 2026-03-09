@@ -118,6 +118,25 @@ export function useContacts(selectedPotId?: string | null) {
           });
         }
 
+        // Fetch no-answer counts for all contacts
+        const allContactIds = mappedContacts.map(c => c.id);
+        if (allContactIds.length > 0) {
+          const { data: noAnswerData } = await supabase
+            .from('contact_history')
+            .select('contact_id')
+            .in('contact_id', allContactIds)
+            .eq('action_type', 'no_answer');
+
+          const noAnswerCounts: Record<string, number> = {};
+          noAnswerData?.forEach(h => {
+            noAnswerCounts[h.contact_id] = (noAnswerCounts[h.contact_id] || 0) + 1;
+          });
+
+          mappedContacts.forEach(c => {
+            c.noAnswerCount = noAnswerCounts[c.id] || 0;
+          });
+        }
+
         setContacts(mappedContacts);
       }
       setIsLoading(false);
@@ -278,6 +297,7 @@ export function useContacts(selectedPotId?: string | null) {
       lastCalledAt: new Date(),
       completedReason: status === 'completed' ? completedReason : undefined,
       notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
+      noAnswerCount: status === 'no_answer' ? (contact.noAnswerCount || 0) + 1 : contact.noAnswerCount,
     };
 
     // Mark as pending local update to skip realtime echo
