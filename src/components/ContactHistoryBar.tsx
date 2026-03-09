@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useContactHistory, HistoryEntry } from '@/hooks/useContactHistory';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX, CalendarClock, X } from 'lucide-react';
+import { Phone, PhoneOff, Clock, CheckCircle2, XCircle, StickyNote, Trash2, RotateCcw, CalendarPlus, UserCheck, UserX, CalendarClock, X, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
