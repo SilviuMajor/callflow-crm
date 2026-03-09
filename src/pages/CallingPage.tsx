@@ -439,6 +439,7 @@ export default function CallingPage() {
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+        </div>
       </div>
 
       
