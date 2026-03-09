@@ -74,31 +74,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
   const isCalcomEnabled = calcomSettings?.enabled && calcomSettings?.event_type_slug;
   const webhookEnabled = webhookSettings.enabled && webhookSettings.url;
 
-  // Timer logic
-  useEffect(() => {
-    if (callActive) {
-      timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [callActive]);
-
-  // Reset timer when contact changes
-  useEffect(() => {
-    setCallActive(false);
-    setCallSeconds(0);
-  }, [contact.id]);
-
-  const startCall = useCallback(() => {
-    setCallSeconds(0);
-    setCallActive(true);
-  }, []);
-
-  const endCall = useCallback(() => {
-    setCallActive(false);
-  }, []);
-
   // Reset modals on open
   useEffect(() => { if (showNoAnswerModal) setNoAnswerNote(''); }, [showNoAnswerModal]);
   useEffect(() => { if (showCallbackModal) setCallbackNotes(''); }, [showCallbackModal]);
