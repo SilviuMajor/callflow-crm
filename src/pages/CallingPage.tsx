@@ -250,6 +250,7 @@ export default function CallingPage() {
               onDeletePot={deletePot}
               onMergePots={mergePots}
               todayStats={todayStats}
+              dailyTarget={dailyCallTarget}
             />
           </div>
           
