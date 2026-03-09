@@ -53,16 +53,15 @@ function autoMatchColumn(csvHeader: string, customFields: CustomContactField[]):
   const normalized = csvHeader.toLowerCase().trim();
   
   for (const [fieldKey, aliases] of Object.entries(STANDARD_FIELD_ALIASES)) {
-    if (aliases.some(alias => normalized === alias || normalized.includes(alias))) {
-      return { targetField: fieldKey, confidence: normalized === aliases[0] ? 'high' : 'medium' };
+    if (normalized === aliases[0]) {
+      return { targetField: fieldKey, confidence: 'high' };
     }
   }
   
   for (const field of customFields) {
     const fieldLabel = field.label.toLowerCase();
-    const fieldKey = field.key.toLowerCase();
-    if (normalized === fieldLabel || normalized === fieldKey || normalized.includes(fieldLabel)) {
-      return { targetField: `custom:${field.id}`, confidence: normalized === fieldLabel ? 'high' : 'medium' };
+    if (normalized === fieldLabel) {
+      return { targetField: `custom:${field.id}`, confidence: 'high' };
     }
   }
   
