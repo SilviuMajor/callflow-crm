@@ -55,6 +55,7 @@ export default function CallingPage() {
   } = useContacts(selectedPotId);
 
   const { stats: todayStats, refresh: refreshTodayStats } = useTodayStats();
+  const { dailyCallTarget } = useOrganizationSettings();
   
   const { questions, setQuestions } = useQualifyingQuestions();
   const { fields: customFields } = useCustomFields();
