@@ -177,11 +177,7 @@ export default function CallingPage() {
     }
     
     setQuestions(newQuestions);
-    toast({
-      title: 'Questions saved',
-      description: applyToBlank ? 'Applied to contacts with blank fields' : undefined,
-      duration: 2000,
-    });
+    toast.success('Questions saved');
   };
 
   const handleUpdateContact = (updates: Partial<Contact>) => {
