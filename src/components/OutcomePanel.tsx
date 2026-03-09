@@ -176,7 +176,6 @@ export function OutcomePanel({ contact, onAction }: OutcomePanelProps) {
     setCompletedNotes('');
     setAppointmentDate('');
     setAppointmentTime('');
-    endCall();
   };
 
   const handleNotInterested = () => {
