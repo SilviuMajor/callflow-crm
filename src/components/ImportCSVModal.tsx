@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 interface ImportCSVModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (contacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => void;
+  onImport: (contacts: Omit<Contact, 'id' | 'createdAt' | 'status'>[], potId: string) => Promise<{ imported: number; skipped: number }>;
   onCreatePot: (name: string) => Promise<string | null>;
 }
 
