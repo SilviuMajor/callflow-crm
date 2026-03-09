@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { TopNav } from '@/components/TopNav';
+import { StatsBar } from '@/components/StatsBar';
 import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { usePots } from '@/hooks/usePots';
