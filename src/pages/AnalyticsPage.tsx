@@ -61,6 +61,11 @@ export default function AnalyticsPage() {
     timeGranularity, 
     selectedDate
   );
+  const { getTimeData: hourlyData, isLoading: isLoadingHourly } = useAnalyticsData(
+    selectedPotId,
+    'hourly',
+    new Date()
+  );
   const { stats: todayStats } = useTodayStats();
 
   // Get label for date picker based on granularity
