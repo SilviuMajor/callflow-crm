@@ -25,20 +25,19 @@ export function useTodayStats() {
 
     const { data, error } = await supabase
       .from('contact_history')
-      .select('action_type, contacts!inner(organization_id)')
+      .select('action_type')
+      .eq('organization_id', organizationId)
       .in('action_type', ['no_answer', 'callback', 'completed', 'not_interested'])
       .gte('action_timestamp', start)
       .lte('action_timestamp', end);
 
     if (!error && data) {
-      // Filter by org
-      const orgData = data.filter((d: any) => d.contacts?.organization_id === organizationId);
       setStats({
-        total: orgData.length,
-        completed: orgData.filter((d: any) => d.action_type === 'completed').length,
-        callbacks: orgData.filter((d: any) => d.action_type === 'callback').length,
-        noAnswer: orgData.filter((d: any) => d.action_type === 'no_answer').length,
-        notInterested: orgData.filter((d: any) => d.action_type === 'not_interested').length,
+        total: data.length,
+        completed: data.filter((d: any) => d.action_type === 'completed').length,
+        callbacks: data.filter((d: any) => d.action_type === 'callback').length,
+        noAnswer: data.filter((d: any) => d.action_type === 'no_answer').length,
+        notInterested: data.filter((d: any) => d.action_type === 'not_interested').length,
       });
     }
     setIsLoading(false);
