@@ -1458,6 +1458,32 @@ export default function SettingsPage() {
 
           {/* Layout Tab */}
           <TabsContent value="layout" className="space-y-6 py-4">
+            {/* Daily Call Target */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Daily Call Target</CardTitle>
+                <CardDescription>Set your daily call goal. Shown as a progress bar in the queue.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={dailyCallTargetLocal}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v) && v >= 1 && v <= 500) {
+                      setDailyCallTargetLocal(v);
+                      if (dailyTargetTimerRef.current) clearTimeout(dailyTargetTimerRef.current);
+                      dailyTargetTimerRef.current = setTimeout(() => updateDailyCallTarget(v), 500);
+                    }
+                  }}
+                  className="w-32"
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">

@@ -428,33 +428,42 @@ export function ImportCSVModal({ open, onOpenChange, onImport, onCreatePot }: Im
                               }}
                             />
                           ) : (
-                            <Select 
-                              value={mapping.targetField} 
-                              onValueChange={(v) => updateMapping(index, v)}
-                            >
-                              <SelectTrigger className="h-8 w-48">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="skip">Skip this column</SelectItem>
-                                {STANDARD_FIELDS.map(field => (
-                                  <SelectItem key={field.key} value={field.key}>
-                                    {field.label}
-                                  </SelectItem>
-                                ))}
-                                {customFields.filter(f => !f.isArchived).map(field => (
-                                  <SelectItem key={field.id} value={`custom:${field.id}`}>
-                                    {field.label} (custom)
-                                  </SelectItem>
-                                ))}
-                                <SelectItem value="create_new">
-                                  <span className="flex items-center gap-1">
-                                    <Plus className="w-3 h-3" />
-                                    Create new field
-                                  </span>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            (() => {
+                              const usedFields = new Set(
+                                mappings
+                                  .filter((m, i) => i !== index && m.targetField !== 'skip' && m.targetField !== 'create_new')
+                                  .map(m => m.targetField)
+                              );
+                              return (
+                                <Select 
+                                  value={mapping.targetField} 
+                                  onValueChange={(v) => updateMapping(index, v)}
+                                >
+                                  <SelectTrigger className="h-8 w-48">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="skip">Skip this column</SelectItem>
+                                    {STANDARD_FIELDS.map(field => (
+                                      <SelectItem key={field.key} value={field.key} disabled={usedFields.has(field.key)}>
+                                        {field.label}
+                                      </SelectItem>
+                                    ))}
+                                    {customFields.filter(f => !f.isArchived).map(field => (
+                                      <SelectItem key={field.id} value={`custom:${field.id}`} disabled={usedFields.has(`custom:${field.id}`)}>
+                                        {field.label} (custom)
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem value="create_new">
+                                      <span className="flex items-center gap-1">
+                                        <Plus className="w-3 h-3" />
+                                        Create new field
+                                      </span>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              );
+                            })()
                           )}
                         </td>
                         <td className="p-3">
