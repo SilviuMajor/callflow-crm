@@ -1,5 +1,6 @@
 import { Contact } from '@/types/contact';
 import { cn } from '@/lib/utils';
+import { PhoneOff } from 'lucide-react';
 
 interface QueueCardProps {
   contact: Contact;
