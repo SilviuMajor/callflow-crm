@@ -361,6 +361,16 @@ export default function SettingsPage() {
   const [pendingSectionOrder, setPendingSectionOrder] = useState<SectionKey[] | null>(null);
   const [isSavingSectionOrder, setIsSavingSectionOrder] = useState(false);
   
+  // Daily call target state
+  const { dailyCallTarget, updateDailyCallTarget } = useOrganizationSettings();
+  const [dailyCallTargetLocal, setDailyCallTargetLocal] = useState(50);
+  const dailyTargetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Sync daily call target from hook
+  useEffect(() => {
+    setDailyCallTargetLocal(dailyCallTarget);
+  }, [dailyCallTarget]);
+  
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
