@@ -129,6 +129,7 @@ export default function AISettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const { prompts, isLoading, updatePrompt } = useAIPrompts();
   const { scripts, isLoading: isLoadingScripts, createScript, updateScript, setDefault, deleteScript, restoreDefault: restoreScriptDefault } = useAIScripts();
+  const { templates, isLoading: isLoadingTemplates, createTemplate, updateTemplate, deleteTemplate } = useEmailTemplates();
   const { sellerCompany, isLoading: isLoadingSeller, updateField } = useSellerCompany();
   const { fields: sellerCustomFields } = useSellerCustomFields();
   const { fields: customContactFields } = useCustomFields();
@@ -143,8 +144,33 @@ export default function AISettingsPage() {
   const [savingScripts, setSavingScripts] = useState<Record<string, boolean>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState('');
-  
-  // Initialize active script when scripts load
+
+  // Email template state
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('');
+  const [editedTemplateBodies, setEditedTemplateBodies] = useState<Record<string, string>>({});
+  const [editedTemplateSubjects, setEditedTemplateSubjects] = useState<Record<string, string>>({});
+  const [copiedMergeField, setCopiedMergeField] = useState<string | null>(null);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const MERGE_FIELDS = ['{{firstName}}', '{{lastName}}', '{{company}}', '{{jobTitle}}', '{{phone}}', '{{email}}'];
+
+  const STARTER_TEMPLATES = [
+    {
+      name: 'Follow-up after no answer',
+      subject: 'Following up — {{company}}',
+      body: 'Hi {{firstName}},\n\nI tried calling earlier but couldn\'t get through. I wanted to reach out about...\n\nWould you have 10 minutes this week for a quick call?\n\nBest,',
+    },
+    {
+      name: 'Post-call next steps',
+      subject: 'Great speaking with you — next steps',
+      body: 'Hi {{firstName}},\n\nGreat speaking with you today. As discussed...\n\nLooking forward to connecting again.\n\nBest,',
+    },
+    {
+      name: 'Sending requested info',
+      subject: 'Information you requested — {{company}}',
+      body: 'Hi {{firstName}},\n\nAs promised, here\'s the information we discussed...\n\nLet me know if you have any questions.\n\nBest,',
+    },
+  ];
   useEffect(() => {
     if (scripts.length > 0 && !activeScriptId) {
       const defaultScript = scripts.find(s => s.is_default) || scripts[0];
