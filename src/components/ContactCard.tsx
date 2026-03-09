@@ -873,6 +873,27 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
             )}
           </div>
 
+          {/* Social Links */}
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-muted-foreground w-16 flex-shrink-0">Social:</span>
+            <div className="flex items-center gap-1.5">
+              <SocialLinkButton
+                value={contact.linkedinUrl || ''}
+                label="LinkedIn"
+                icon="linkedin"
+                onSave={(value) => onUpdate?.({ linkedinUrl: value })}
+                placeholder="https://linkedin.com/in/..."
+              />
+              <SocialLinkButton
+                value={contact.twitterUrl || ''}
+                label="X / Twitter"
+                icon="twitter"
+                onSave={(value) => onUpdate?.({ twitterUrl: value })}
+                placeholder="https://x.com/..."
+              />
+            </div>
+          </div>
+
           {/* Company Summary */}
           {contact.company && (
             <AIResearchBox
