@@ -669,6 +669,50 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          body: string
+          created_at: string
+          enabled: boolean
+          field_order: number
+          id: string
+          name: string
+          organization_id: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          enabled?: boolean
+          field_order?: number
+          id?: string
+          name?: string
+          organization_id: string
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          enabled?: boolean
+          field_order?: number
+          id?: string
+          name?: string
+          organization_id?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invite_codes: {
         Row: {
           code: string
