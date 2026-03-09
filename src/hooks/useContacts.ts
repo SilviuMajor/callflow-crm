@@ -502,13 +502,10 @@ export function useContacts(selectedPotId?: string | null) {
       job_title: contact.jobTitle || null,
       phone: contact.phone,
       email: contact.email || null,
-      website: contact.website || null,
-      status: 'pending',
-      qualifying_answers: contact.qualifyingAnswers || {},
-      custom_fields: contact.customFields || {},
-      pot_id: potId,
-      organization_id: organizationId,
-    }));
+        website: contact.website || null,
+        linkedin_url: contact.linkedinUrl || null,
+        twitter_url: contact.twitterUrl || null,
+        status: 'pending',
 
     const { data, error } = await supabase
       .from('contacts')
