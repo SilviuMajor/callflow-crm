@@ -5,6 +5,7 @@ import { useContacts } from '@/hooks/useContacts';
 import { useQualifyingQuestions } from '@/hooks/useQualifyingQuestions';
 import { usePots } from '@/hooks/usePots';
 import { useAnalyticsData, TimeGranularity } from '@/hooks/useAnalyticsData';
+import { useTodayStats } from '@/hooks/useTodayStats';
 import { COMPLETED_REASONS, NOT_INTERESTED_REASONS } from '@/types/contact';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
