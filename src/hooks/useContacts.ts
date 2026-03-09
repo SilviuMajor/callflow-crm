@@ -297,6 +297,7 @@ export function useContacts(selectedPotId?: string | null) {
       lastCalledAt: new Date(),
       completedReason: status === 'completed' ? completedReason : undefined,
       notInterestedReason: status === 'not_interested' ? notInterestedReason : undefined,
+      noAnswerCount: status === 'no_answer' ? (contact.noAnswerCount || 0) + 1 : contact.noAnswerCount,
     };
 
     // Mark as pending local update to skip realtime echo
