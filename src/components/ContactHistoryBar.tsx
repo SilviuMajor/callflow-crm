@@ -93,6 +93,13 @@ const ACTION_CONFIG: Record<string, {
     borderClass: 'border-destructive/50',
     iconColor: 'text-destructive'
   },
+  email_sent: {
+    icon: Mail,
+    label: 'Email Sent',
+    bgClass: 'bg-blue-500/10',
+    borderClass: 'border-blue-500/50',
+    iconColor: 'text-blue-500'
+  },
 };
 
 function getContextDetails(entry: HistoryEntry): { label: string; value: string }[] {
