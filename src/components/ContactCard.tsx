@@ -48,12 +48,21 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   const [editValue, setEditValue] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Send Email popover state
+  const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
+  const [emailPopoverOpenMobile, setEmailPopoverOpenMobile] = useState(false);
+  const [emailOpened, setEmailOpened] = useState(false);
+  const [emailOpenedMobile, setEmailOpenedMobile] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<import('@/hooks/useEmailTemplates').EmailTemplate | null>(null);
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
   const { getCompanyFieldValues, updateCompanyData } = useCompanyData();
   const { isResearching, researchCompany, researchCompanyCustom, researchPersona } = useAIResearch();
   const { settings: autoGenSettings } = useAutoGenerateSettings();
   const { sectionOrder, sectionExpandedDefaults } = useContactCardSectionOrder();
+  const { templates: emailTemplates } = useEmailTemplates();
+  const { addHistoryEntry } = useContactHistory(contact.id);
+  const { profile } = useAuth();
 
   // AI Research state
   const [companyAI, setCompanyAI] = useState<AICache>({});
