@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar, Phone, Square } from 'lucide-react';
+import { PhoneOff, Clock, CheckCircle2, XCircle, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   Contact, 

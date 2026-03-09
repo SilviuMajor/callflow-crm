@@ -123,6 +123,9 @@ export default function AnalyticsPage() {
     callbacks: contacts.filter(c => c.status === 'callback').length,
     completed: contacts.filter(c => c.status === 'completed').length,
     notInterested: contacts.filter(c => c.status === 'not_interested').length,
+    dueCallbacks: contacts.filter(
+      c => c.status === 'callback' && c.callbackDate && new Date(c.callbackDate) <= new Date()
+    ).length,
   }), [contacts]);
 
   const completedContacts = useMemo(() => 
