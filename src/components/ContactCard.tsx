@@ -695,17 +695,16 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-foreground">{contact.company}</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
                 {contact.website && <span>{contact.website}</span>}
-              </p>
+              </div>
             </div>
+            <LinkedContacts company={contact.company} currentContactId={contact.id} onSelectContact={onSelectContact} />
             <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="px-4 py-3 border-b border-border bg-muted/20 space-y-2">
-            <LinkedContacts company={contact.company} currentContactId={contact.id} onSelectContact={onSelectContact} />
-            <InlineDetailRow label="Company" value={contact.company} field="company" />
             <InlineDetailRow label="Website" value={contact.website || ''} field="website" />
             {activeCompanyFields.length > 0 && contact.company && (
               <>
