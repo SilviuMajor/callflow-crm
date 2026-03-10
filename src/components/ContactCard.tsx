@@ -732,18 +732,44 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
               <Building2 className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-base font-bold text-foreground">{contact.company}</h2>
+              <h2 className="text-lg font-bold text-foreground">{contact.company}</h2>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {contact.website && <span>{contact.website}</span>}
               </p>
             </div>
-            <LinkedContacts company={contact.company} currentContactId={contact.id} onSelectContact={onSelectContact} />
             <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="px-4 py-3 border-b border-border bg-muted/20">
-            {renderContactInfo()}
+          <div className="px-4 py-3 border-b border-border bg-muted/20 space-y-2">
+            <LinkedContacts company={contact.company} currentContactId={contact.id} onSelectContact={onSelectContact} />
+            <InlineDetailRow label="Company" value={contact.company} field="company" />
+            <InlineDetailRow label="Website" value={contact.website || ''} field="website" />
+            {activeCompanyFields.length > 0 && contact.company && (
+              <>
+                {activeCompanyFields.map(field => {
+                  const fieldValue = getCompanyFieldValue(field);
+                  const isEditing = editingField === `company_${field.id}`;
+                  return (
+                    <div key={field.id} className="group flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-28 flex-shrink-0 truncate" title={field.label}>{field.label}</span>
+                      {isEditing ? (
+                        <div className="flex-1 flex gap-1">
+                          {renderFieldInput(field, true)}
+                          <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCompanyField(field.id)}>
+                            <Check className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate" onClick={() => startEditing(`company_${field.id}`, fieldValue)}>
+                          {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>

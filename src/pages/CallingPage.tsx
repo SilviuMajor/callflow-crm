@@ -21,7 +21,7 @@ import { NotesSection } from '@/components/NotesSection';
 import { CallStatus, CompletedReason, NotInterestedReason, Contact } from '@/types/contact';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, Phone, Mail } from 'lucide-react';
+import { Plus, Upload, Phone, Mail, Copy, Globe } from 'lucide-react';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
@@ -400,35 +400,55 @@ export default function CallingPage() {
                 <>
                   {/* Contact Identity — TOP */}
                   <div className="p-4 border-b border-border flex-shrink-0">
-                    <h2 className="text-lg font-bold text-foreground">{currentContact.firstName} {currentContact.lastName}</h2>
+                    <h2 className="text-2xl font-bold text-foreground tracking-tight">{currentContact.firstName} {currentContact.lastName}</h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      {currentContact.jobTitle ? `${currentContact.jobTitle} at ` : ''}<span className="text-primary">{currentContact.company}</span>
+                      {currentContact.jobTitle ? `${currentContact.jobTitle} at ` : ''}<span className="text-primary font-medium">{currentContact.company}</span>
                     </p>
 
-                    {/* Phone + Email */}
-                    <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                      {currentContact.phone && (
+                    {/* Phone — stacked row with copy */}
+                    {currentContact.phone && (
+                      <div className="flex items-center gap-2 mt-3">
                         <div className="inline-flex items-center rounded-md bg-success/10 border border-success/50 overflow-hidden">
-                          <a
-                            href={`tel:${currentContact.phone}`}
-                            className="h-7 w-7 flex items-center justify-center text-success hover:bg-success/20 transition-colors border-r border-success/50"
-                            title="Call"
-                          >
+                          <a href={`tel:${currentContact.phone}`} className="h-7 w-7 flex items-center justify-center text-success hover:bg-success/20 transition-colors border-r border-success/50" title="Call">
                             <Phone className="w-3 h-3" />
                           </a>
-                          <button
-                            onClick={() => { navigator.clipboard.writeText(currentContact.phone); }}
-                            className="px-2 py-1 text-success text-xs font-medium hover:bg-success/20 transition-colors"
-                            title="Click to copy"
-                          >
-                            {currentContact.phone}
-                          </button>
+                          <span className="px-2 py-1 text-success text-xs font-medium">{currentContact.phone}</span>
                         </div>
-                      )}
-                      {currentContact.email && (
-                        <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs">
-                          <Mail className="w-3 h-3 mr-1" /> Email
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigator.clipboard.writeText(currentContact.phone)} title="Copy phone">
+                          <Copy className="w-3.5 h-3.5" />
                         </Button>
+                      </div>
+                    )}
+
+                    {/* Email — stacked row with full address + copy */}
+                    {currentContact.email && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-foreground">
+                          <Mail className="w-3 h-3 text-muted-foreground" />
+                          <span className="truncate">{currentContact.email}</span>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigator.clipboard.writeText(currentContact.email!)} title="Copy email">
+                          <Copy className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Social icons row */}
+                    <div className="flex items-center gap-1.5 mt-2">
+                      {currentContact.linkedinUrl && (
+                        <a href={currentContact.linkedinUrl} target="_blank" rel="noopener noreferrer" title="LinkedIn" className="flex items-center justify-center w-7 h-7 rounded-md border border-border hover:bg-accent text-foreground transition-colors">
+                          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                        </a>
+                      )}
+                      {currentContact.twitterUrl && (
+                        <a href={currentContact.twitterUrl} target="_blank" rel="noopener noreferrer" title="Twitter / X" className="flex items-center justify-center w-7 h-7 rounded-md border border-border hover:bg-accent text-foreground transition-colors">
+                          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.261 5.638 5.903-5.638zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        </a>
+                      )}
+                      {currentContact.website && (
+                        <a href={currentContact.website.startsWith('http') ? currentContact.website : `https://${currentContact.website}`} target="_blank" rel="noopener noreferrer" title="Website" className="flex items-center justify-center w-7 h-7 rounded-md border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                          <Globe className="w-3.5 h-3.5" />
+                        </a>
                       )}
                     </div>
                   </div>
