@@ -366,7 +366,7 @@ export default function CallingPage() {
         
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           <ResizablePanel defaultSize={65} minSize={40}>
-            <div className="h-full p-4 overflow-y-auto">
+            <div className="h-full overflow-hidden">
               {currentContact ? (
                 <ContactCard 
                   contact={currentContact} 
