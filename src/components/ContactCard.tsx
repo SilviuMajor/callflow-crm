@@ -1207,15 +1207,24 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
 
         {/* ② ACTION BAR */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Phone — clickable tel link */}
+          {/* Phone — split button: dial icon + copy number */}
           {contact.phone && (
-            <a
-              href={`tel:${contact.phone}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success/10 border border-success/50 text-success text-xs font-medium hover:bg-success/20 transition-colors"
-            >
-              <Phone className="w-3 h-3" />
-              {contact.phone}
-            </a>
+            <div className="inline-flex items-center rounded-md bg-success/10 border border-success/50 overflow-hidden">
+              <a
+                href={`tel:${contact.phone}`}
+                className="h-7 w-7 flex items-center justify-center text-success hover:bg-success/20 transition-colors border-r border-success/50"
+                title="Call"
+              >
+                <Phone className="w-3 h-3" />
+              </a>
+              <button
+                onClick={() => { navigator.clipboard.writeText(contact.phone); toast({ title: 'Phone copied', duration: 1500 }); }}
+                className="px-2.5 py-1 text-success text-xs font-medium hover:bg-success/20 transition-colors"
+                title="Click to copy"
+              >
+                {contact.phone}
+              </button>
+            </div>
           )}
 
           {/* Send Email button */}
@@ -1278,6 +1287,19 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
             <a href={contact.website} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-6 h-6 rounded border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
               <Globe className="w-3.5 h-3.5" />
             </a>
+          )}
+
+          {/* Copy phone to clipboard */}
+          {contact.phone && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => { navigator.clipboard.writeText(contact.phone); toast({ title: 'Phone copied', duration: 1500 }); }}
+              title="Copy phone"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </Button>
           )}
         </div>
       </div>
