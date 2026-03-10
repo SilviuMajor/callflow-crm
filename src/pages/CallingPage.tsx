@@ -21,7 +21,7 @@ import { NotesSection } from '@/components/NotesSection';
 import { CallStatus, CompletedReason, NotInterestedReason, Contact } from '@/types/contact';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, Phone, Mail } from 'lucide-react';
+import { Plus, Upload, Phone, Mail, Copy, Globe } from 'lucide-react';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
