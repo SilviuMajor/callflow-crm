@@ -1144,44 +1144,198 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
     </Collapsible>
   );
 
+  // sectionRenderers kept for compatibility with useContactCardSectionOrder hook (cleanup later)
   const sectionRenderers: Record<SectionKey, () => React.ReactNode> = {
     contact_info: renderContactInfo,
-    history: renderHistory,
+    history: () => <ContactHistoryBar contactId={contact.id} />,
     targeted_research: renderTargetedResearch,
     persona: renderPersona,
     ai_script: renderAIScript,
     static_script: renderStaticScript,
   };
+  void sectionRenderers;
 
   return (
-    <div className="space-y-4">
-      {/* Callback indicator - at top (always first) */}
-      {contact.status === 'callback' && contact.callbackDate && (
-        <div className="p-2 rounded bg-[hsl(var(--callback-light))] border border-[hsl(var(--callback))]">
-          <p className="text-sm font-medium text-foreground">
-            📞 Callback: {formatCallbackDate(contact.callbackDate)}
-          </p>
-        </div>
-      )}
+    <div className="flex flex-col gap-0">
 
-      {/* Render sections in order */}
-      {sectionOrder.map((sectionKey) => (
-        <React.Fragment key={sectionKey}>
-          {sectionRenderers[sectionKey]?.()}
-        </React.Fragment>
-      ))}
+      {/* ① HERO HEADER */}
+      <div className="p-4 pb-3 space-y-3">
+        {/* Callback banner */}
+        {contact.status === 'callback' && contact.callbackDate && (
+          <div className="flex items-center justify-between p-2 rounded bg-[hsl(var(--callback-light))] border border-[hsl(var(--callback))]">
+            <p className="text-sm font-medium text-foreground">
+              📞 Callback: {formatCallbackDate(contact.callbackDate)}
+            </p>
+            {contact.noAnswerCount && contact.noAnswerCount > 0 && (
+              <span className="text-xs text-muted-foreground">{contact.noAnswerCount} no-answers</span>
+            )}
+          </div>
+        )}
+
+        {/* Name + Status Badge */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1 flex-wrap">
+            {editingField === 'firstName' ? (
+              <div className="flex gap-1">
+                <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} className="h-8 text-lg font-bold w-32" autoFocus onKeyDown={(e) => e.key === 'Enter' && saveField('firstName')} />
+                <Button size="sm" className="h-8 w-8 p-0" onClick={() => saveField('firstName')}><Check className="w-3 h-3" /></Button>
+              </div>
+            ) : (
+              <span className="text-xl font-bold text-foreground cursor-pointer hover:text-primary" onClick={() => onUpdate && startEditing('firstName', contact.firstName)}>
+                {contact.firstName}
+              </span>
+            )}
+            {editingField === 'lastName' ? (
+              <div className="flex gap-1">
+                <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} className="h-8 text-lg font-bold w-32" autoFocus onKeyDown={(e) => e.key === 'Enter' && saveField('lastName')} />
+                <Button size="sm" className="h-8 w-8 p-0" onClick={() => saveField('lastName')}><Check className="w-3 h-3" /></Button>
+              </div>
+            ) : (
+              <span className="text-xl font-bold text-foreground cursor-pointer hover:text-primary" onClick={() => onUpdate && startEditing('lastName', contact.lastName)}>
+                {contact.lastName}
+              </span>
+            )}
+          </div>
+          <span className="text-xs px-2 py-0.5 rounded-full border border-border bg-secondary text-secondary-foreground capitalize flex-shrink-0 mt-1">
+            {contact.status.replace('_', ' ')}
+          </span>
+        </div>
+
+        <p className="text-sm text-muted-foreground -mt-1">
+          {contact.jobTitle ? `${contact.jobTitle} at ` : ''}{contact.company}
+        </p>
+
+        {/* ② ACTION BAR */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Phone — clickable tel link */}
+          {contact.phone && (
+            <a
+              href={`tel:${contact.phone}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success/10 border border-success/50 text-success text-xs font-medium hover:bg-success/20 transition-colors"
+            >
+              <Phone className="w-3 h-3" />
+              {contact.phone}
+            </a>
+          )}
+
+          {/* Send Email button */}
+          {contact.email && (
+            <TooltipProvider>
+              <Popover open={emailPopoverOpen} onOpenChange={(open) => { setEmailPopoverOpen(open); if (!open) { setEmailOpened(false); setSelectedTemplate(null); } }}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 px-3 text-xs" disabled={!contact.email}>
+                        <Mail className="w-3 h-3" />
+                        Send Email
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  {!contact.email && <TooltipContent>No email address on file</TooltipContent>}
+                </Tooltip>
+                <PopoverContent className="w-64 p-2" align="start">
+                  {!emailOpened ? (
+                    <>
+                      {emailTemplates.filter(t => t.enabled).length === 0 ? (
+                        <div className="text-center py-2 space-y-1">
+                          <p className="text-xs text-muted-foreground">No email templates yet</p>
+                          <a href="/ai-settings" className="text-xs text-primary underline">Create them in AI Settings</a>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground px-1 pb-1">Choose a template</p>
+                          {emailTemplates.filter(t => t.enabled).map(tpl => (
+                            <button key={tpl.id} type="button" className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors" onClick={() => handleOpenEmailTemplate(tpl, setEmailOpened, setSelectedTemplate)}>
+                              {tpl.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2 py-1">
+                      <p className="text-xs font-medium text-foreground">Email opened in Gmail ✓</p>
+                      <Button size="sm" className="w-full h-7 text-xs" onClick={() => handleLogEmail(selectedTemplate, setEmailPopoverOpen, setEmailOpened, setSelectedTemplate)}>
+                        Log email sent
+                      </Button>
+                      <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground" onClick={() => { setEmailPopoverOpen(false); setEmailOpened(false); setSelectedTemplate(null); }}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </TooltipProvider>
+          )}
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-border" />
+
+          {/* Social icons */}
+          <SocialLinkButton value={contact.linkedinUrl || ''} label="LinkedIn" icon="linkedin" onSave={(value) => onUpdate?.({ linkedinUrl: value })} placeholder="https://linkedin.com/in/..." />
+          <SocialLinkButton value={contact.twitterUrl || ''} label="X / Twitter" icon="twitter" onSave={(value) => onUpdate?.({ twitterUrl: value })} placeholder="https://x.com/..." />
+          {contact.website && (
+            <a href={contact.website} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-6 h-6 rounded border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+              <Globe className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* ③ HISTORY STRIP */}
+      <div className="px-4 pb-2">
+        <ContactHistoryBar contactId={contact.id} />
+      </div>
+
+      {/* ④ TABS */}
+      <Tabs defaultValue="script" className="flex-1">
+        <TabsList className="w-full rounded-none border-b border-border bg-transparent h-9 px-4 justify-start gap-0">
+          <TabsTrigger value="script" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-9 text-sm">Script</TabsTrigger>
+          <TabsTrigger value="research" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-9 text-sm">Research</TabsTrigger>
+          <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 h-9 text-sm">Details</TabsTrigger>
+        </TabsList>
+
+        {/* Script Tab */}
+        <TabsContent value="script" className="mt-0 p-4 space-y-2">
+          {renderAIScript()}
+          {renderStaticScript()}
+        </TabsContent>
+
+        {/* Research Tab */}
+        <TabsContent value="research" className="mt-0 p-4 space-y-2">
+          {contact.company && (
+            <AIResearchBox
+              title="Company Summary"
+              content={companyAI.ai_summary}
+              isLoading={isResearching[`company_${contact.company}`] || false}
+              onRefresh={handleRefreshCompanySearch}
+              lastUpdated={companyAI.ai_summary_updated_at}
+              variant="company"
+              buttonLabel="Refresh"
+              maxCollapsedLines={5}
+            />
+          )}
+          {renderPersona()}
+          {renderTargetedResearch()}
+        </TabsContent>
+
+        {/* Details Tab */}
+        <TabsContent value="details" className="mt-0 p-4">
+          {renderContactInfo()}
+        </TabsContent>
+      </Tabs>
 
       {/* Auto-generate progress indicator */}
       {isAutoGenerating && autoGenProgress && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
+        <div className="mx-4 mb-2 flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="text-sm text-primary">{autoGenProgress}</span>
         </div>
       )}
 
-      {/* Danger Zone - Hidden by default (always at bottom) */}
+      {/* Danger Zone */}
       {onDelete && (
-        <Collapsible className="mt-4 pt-4 border-t border-destructive/20">
+        <Collapsible className="mx-4 mb-4 mt-2 pt-4 border-t border-destructive/20">
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="w-full text-muted-foreground hover:text-destructive text-xs">
               <ChevronDown className="w-3 h-3 mr-1" />
@@ -1192,12 +1346,7 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
             <p className="text-xs text-muted-foreground mb-2">
               Permanently delete this contact and all associated history. This cannot be undone.
             </p>
-            <Button 
-              variant="destructive" 
-              size="sm"
-              className="w-full"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
+            <Button variant="destructive" size="sm" className="w-full" onClick={() => setShowDeleteConfirm(true)}>
               <Trash2 className="w-3 h-3 mr-1" />
               Delete Contact Permanently
             </Button>
