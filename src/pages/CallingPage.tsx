@@ -21,7 +21,7 @@ import { NotesSection } from '@/components/NotesSection';
 import { CallStatus, CompletedReason, NotInterestedReason, Contact } from '@/types/contact';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, Phone, Mail } from 'lucide-react';
 import { exportToCSV, exportToJSON } from '@/utils/exportData';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
@@ -395,29 +395,66 @@ export default function CallingPage() {
           <ResizableHandle withHandle />
           
           <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
-            <div className="h-full border-l border-border bg-card p-3 overflow-y-auto space-y-4">
+            <div className="h-full border-l border-border bg-card flex flex-col">
               {currentContact && (
                 <>
-                  <OutcomePanel contact={currentContact} onAction={handleAction} />
-                  
-                  <div className="border-t border-border pt-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                      Notes
-                    </h3>
-                    <NotesSection
-                      contactId={currentContact.id}
-                    />
+                  {/* Contact Identity — TOP */}
+                  <div className="p-4 border-b border-border flex-shrink-0">
+                    <h2 className="text-lg font-bold text-foreground">{currentContact.firstName} {currentContact.lastName}</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {currentContact.jobTitle ? `${currentContact.jobTitle} at ` : ''}<span className="text-primary">{currentContact.company}</span>
+                    </p>
+
+                    {/* Phone + Email */}
+                    <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                      {currentContact.phone && (
+                        <div className="inline-flex items-center rounded-md bg-success/10 border border-success/50 overflow-hidden">
+                          <a
+                            href={`tel:${currentContact.phone}`}
+                            className="h-7 w-7 flex items-center justify-center text-success hover:bg-success/20 transition-colors border-r border-success/50"
+                            title="Call"
+                          >
+                            <Phone className="w-3 h-3" />
+                          </a>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(currentContact.phone); }}
+                            className="px-2 py-1 text-success text-xs font-medium hover:bg-success/20 transition-colors"
+                            title="Click to copy"
+                          >
+                            {currentContact.phone}
+                          </button>
+                        </div>
+                      )}
+                      {currentContact.email && (
+                        <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs">
+                          <Mail className="w-3 h-3 mr-1" /> Email
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  
-                  <div className="border-t border-border pt-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                      Qualifying
-                    </h3>
-                    <QualifyingFields
-                      questions={activeQuestions}
-                      answers={currentContact.qualifyingAnswers || {}}
-                      onChange={handleAnswerChange}
-                    />
+
+                  {/* Notes + Qualifying — SCROLLABLE MIDDLE */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                    <div className="border-b border-border pb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</h3>
+                      </div>
+                      <NotesSection contactId={currentContact.id} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Qualifying</h3>
+                      <QualifyingFields
+                        questions={activeQuestions}
+                        answers={currentContact.qualifyingAnswers || {}}
+                        onChange={handleAnswerChange}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Outcomes — PINNED BOTTOM */}
+                  <div className="border-t border-border p-3 flex-shrink-0 bg-muted/30">
+                    <OutcomePanel contact={currentContact} onAction={handleAction} />
                   </div>
                 </>
               )}
