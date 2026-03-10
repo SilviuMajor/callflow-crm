@@ -602,11 +602,6 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
       </div>
     </div>
   );
-          {/* LEFT BLOCK: Company Info */}
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="space-y-3 p-3 h-full bg-card overflow-y-auto">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <Building2 className="w-3 h-3" />
                 Company Info
               </h3>
               
