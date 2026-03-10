@@ -51,9 +51,7 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Send Email popover state
   const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
-  const [emailPopoverOpenMobile, setEmailPopoverOpenMobile] = useState(false);
   const [emailOpened, setEmailOpened] = useState(false);
-  const [emailOpenedMobile, setEmailOpenedMobile] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<import('@/hooks/useEmailTemplates').EmailTemplate | null>(null);
   const { fields: customFields } = useCustomFields();
   const { fields: companyFields } = useCompanyFields();
