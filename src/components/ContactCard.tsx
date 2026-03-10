@@ -1288,6 +1288,19 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
               <Globe className="w-3.5 h-3.5" />
             </a>
           )}
+
+          {/* Copy phone to clipboard */}
+          {contact.phone && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => { navigator.clipboard.writeText(contact.phone); toast({ title: 'Phone copied', duration: 1500 }); }}
+              title="Copy phone"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </Button>
+          )}
         </div>
       </div>
 
