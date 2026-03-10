@@ -467,11 +467,141 @@ export function ContactCard({ contact, onUpdate, onSelectContact, onDelete }: Co
   };
 
   // Section render functions
+
+  const InlineDetailRow = ({ label, value, field }: { label: string; value: string; field: string }) => {
+    const isEditing = editingField === field;
+    return (
+      <div className="group flex items-center gap-2">
+        <span className="text-xs text-muted-foreground w-28 flex-shrink-0">{label}</span>
+        {isEditing ? (
+          <div className="flex-1 flex gap-1">
+            <Input
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="h-7 text-sm"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && saveField(field)}
+              onBlur={() => saveField(field)}
+            />
+            <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveField(field)}>
+              <Check className="w-3 h-3" />
+            </Button>
+          </div>
+        ) : (
+          <>
+            <span
+              className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate min-w-0"
+              onClick={() => onUpdate && startEditing(field, value || '')}
+            >
+              {value || <span className="text-muted-foreground/50">Click to add...</span>}
+            </span>
+            {value && (
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 flex-shrink-0" onClick={() => copyToClipboard(value, field)}>
+                {copiedField === field ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderContactInfo = () => (
-    <>
-      {/* Two-column resizable layout (stacks on mobile) */}
-      <div className="hidden md:block">
-        <ResizablePanelGroup direction="horizontal" className="min-h-[300px] rounded-lg border border-border">
+    <div className="space-y-6 p-1">
+      {/* PERSON SECTION */}
+      <div>
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 mb-3">
+          <User className="w-3 h-3" />
+          Person
+        </h3>
+        <div className="space-y-2">
+          <InlineDetailRow label="First Name" value={contact.firstName} field="firstName" />
+          <InlineDetailRow label="Last Name" value={contact.lastName} field="lastName" />
+          <InlineDetailRow label="Job Title" value={contact.jobTitle} field="jobTitle" />
+          <InlineDetailRow label="Phone" value={contact.phone} field="phone" />
+          <InlineDetailRow label="Email" value={contact.email || ''} field="email" />
+          <InlineDetailRow label="LinkedIn" value={contact.linkedinUrl || ''} field="linkedinUrl" />
+          <InlineDetailRow label="Twitter / X" value={contact.twitterUrl || ''} field="twitterUrl" />
+        </div>
+
+        {/* Custom Contact Fields */}
+        {activeCustomFields.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-border space-y-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Custom Fields</span>
+            {activeCustomFields.map(field => {
+              const fieldValue = getCustomFieldValue(field);
+              const isEditing = editingField === `custom_${field.id}`;
+              return (
+                <div key={field.id} className="group flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-28 flex-shrink-0 truncate" title={field.label}>{field.label}</span>
+                  {isEditing ? (
+                    <div className="flex-1 flex gap-1">
+                      {renderFieldInput(field, false)}
+                      <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCustomField(field.id)}>
+                        <Check className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate" onClick={() => onUpdate && startEditing(`custom_${field.id}`, fieldValue)}>
+                      {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* COMPANY SECTION */}
+      <div>
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 mb-3">
+          <Building2 className="w-3 h-3" />
+          Company
+        </h3>
+
+        {/* Linked Contacts */}
+        <div className="mb-3">
+          <LinkedContacts company={contact.company} currentContactId={contact.id} onSelectContact={onSelectContact} />
+        </div>
+
+        <div className="space-y-2">
+          <InlineDetailRow label="Company" value={contact.company} field="company" />
+          <InlineDetailRow label="Website" value={contact.website || ''} field="website" />
+        </div>
+
+        {/* Company Custom Fields */}
+        {activeCompanyFields.length > 0 && contact.company && (
+          <div className="mt-3 pt-3 border-t border-border space-y-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Company Fields</span>
+            {activeCompanyFields.map(field => {
+              const fieldValue = getCompanyFieldValue(field);
+              const isEditing = editingField === `company_${field.id}`;
+              return (
+                <div key={field.id} className="group flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-28 flex-shrink-0 truncate" title={field.label}>{field.label}</span>
+                  {isEditing ? (
+                    <div className="flex-1 flex gap-1">
+                      {renderFieldInput(field, true)}
+                      <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveCompanyField(field.id)}>
+                        <Check className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-foreground flex-1 cursor-pointer hover:text-primary truncate" onClick={() => startEditing(`company_${field.id}`, fieldValue)}>
+                      {fieldValue || <span className="text-muted-foreground/50">Click to add...</span>}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
           {/* LEFT BLOCK: Company Info */}
           <ResizablePanel defaultSize={50} minSize={30}>
             <div className="space-y-3 p-3 h-full bg-card overflow-y-auto">
