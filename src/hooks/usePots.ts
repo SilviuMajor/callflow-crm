@@ -202,6 +202,9 @@ export function usePots() {
   }, []);
 
   const deletePot = useCallback(async (potId: string, moveContactsToPotId?: string): Promise<boolean> => {
+    // Optimistic removal from local state
+    setPots(prev => prev.filter(p => p.id !== potId));
+
     // First, move or delete contacts
     if (moveContactsToPotId) {
       const { error: moveError } = await supabase

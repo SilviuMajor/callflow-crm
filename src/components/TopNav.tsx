@@ -64,19 +64,19 @@ export function TopNav({ searchQuery, onSearchChange, onExportCSV, onExportJSON,
           </Button>
         ))}
         
-        {onImportClick && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 px-3 text-xs"
-            onClick={onImportClick}
-          >
-            <Upload className="w-3.5 h-3.5 mr-1.5" />
+        <Button
+          asChild
+          variant={location.pathname === '/calling' ? 'secondary' : 'ghost'}
+          size="sm"
+          className="h-8 px-3 text-xs"
+        >
+          <Link to="/calling" className="flex items-center gap-1.5">
+            <Upload className="w-3.5 h-3.5" />
             Import
-          </Button>
-        )}
-        
-        {(onExportCSV || onExportJSON) && (
+          </Link>
+        </Button>
+
+        {(onExportCSV || onExportJSON) ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 px-3 text-xs">
@@ -86,17 +86,25 @@ export function TopNav({ searchQuery, onSearchChange, onExportCSV, onExportJSON,
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {onExportCSV && (
-                <DropdownMenuItem onClick={onExportCSV}>
-                  Export as CSV
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onExportCSV}>Export as CSV</DropdownMenuItem>
               )}
               {onExportJSON && (
-                <DropdownMenuItem onClick={onExportJSON}>
-                  Export as JSON
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onExportJSON}>Export as JSON</DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : (
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-8 px-3 text-xs"
+          >
+            <Link to="/calling" className="flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" />
+              Export
+            </Link>
+          </Button>
         )}
       </nav>
     </header>
