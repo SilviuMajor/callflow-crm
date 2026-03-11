@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface LinkedContact {
   id: string;
@@ -54,43 +55,50 @@ export function LinkedContacts({ company, currentContactId, onSelectContact }: L
 
   if (!company || isLoading) return null;
 
+  const count = linkedContacts.length;
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Users className="w-4 h-4 text-muted-foreground" />
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Linked Contacts at {company}
-        </h3>
-        <span className="text-xs text-muted-foreground">({linkedContacts.length})</span>
-      </div>
-      
-      <div className="max-h-32 overflow-y-auto space-y-1 scrollbar-thin border border-border rounded-lg p-2 bg-card">
-        {linkedContacts.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic py-2 text-center">
-            No other contacts at this company
-          </p>
-        ) : (
-          linkedContacts.map(contact => (
-            <div
-              key={contact.id}
-              onClick={() => onSelectContact?.(contact.id)}
-              className="flex items-center justify-between p-2 rounded hover:bg-secondary cursor-pointer group transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-foreground">
-                  {contact.firstName} {contact.lastName}
-                </span>
-                {contact.jobTitle && (
-                  <span className="text-xs text-muted-foreground ml-2">
-                    — {contact.jobTitle}
-                  </span>
-                )}
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <button
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors flex-shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Users className="w-3 h-3" />
+          {count} {count === 1 ? 'contact' : 'contacts'}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="absolute z-10 mt-1 w-56 rounded-md border border-border bg-card shadow-md">
+          {linkedContacts.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic py-2 px-3 text-center">
+              No other contacts at this company
+            </p>
+          ) : (
+            <div className="py-1">
+              {linkedContacts.map(contact => (
+                <div
+                  key={contact.id}
+                  onClick={(e) => { e.stopPropagation(); onSelectContact?.(contact.id); }}
+                  className="flex items-center justify-between px-3 py-1.5 hover:bg-secondary cursor-pointer group transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground block truncate">
+                      {contact.firstName} {contact.lastName}
+                    </span>
+                    {contact.jobTitle && (
+                      <span className="text-xs text-muted-foreground block truncate">
+                        {contact.jobTitle}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                </div>
+              ))}
             </div>
-          ))
-        )}
-      </div>
-    </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
