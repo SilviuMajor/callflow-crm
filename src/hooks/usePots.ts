@@ -202,6 +202,9 @@ export function usePots() {
   }, []);
 
   const deletePot = useCallback(async (potId: string, moveContactsToPotId?: string): Promise<boolean> => {
+    // Optimistic removal from local state
+    setPots(prev => prev.filter(p => p.id !== potId));
+
     // First, move or delete contacts
     if (moveContactsToPotId) {
       const { error: moveError } = await supabase
@@ -237,6 +240,15 @@ export function usePots() {
     if (error) {
       console.error('Error deleting pot:', error);
       toast.error('Failed to delete POT');
+      // Rollback — reload pots from DB
+      const { data: reloadData } = await supabase
+        .from('pots')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: true });
+      if (reloadData) {
+        setPots(reloadData.map(p => ({ id: p.id, name: p.name, createdAt: new Date(p.created_at) })));
+      }
       return false;
     }
     
@@ -247,7 +259,7 @@ export function usePots() {
     
     toast.success('POT deleted');
     return true;
-  }, [selectedPotId]);
+  }, [selectedPotId, organizationId]);
 
   const mergePots = useCallback(async (sourcePotId: string, targetPotId: string): Promise<boolean> => {
     // Move all contacts from source to target
